@@ -8,10 +8,14 @@ import {
   DeactivateProductUseCase,
   DeactivateSupplierUseCase,
   ListCustomersUseCase,
+  ListInventoryBalancesUseCase,
   ListProductsUseCase,
   ListPurchasesUseCase,
+  ListStockMovementsUseCase,
   ListSuppliersUseCase,
   ReceivePurchaseUseCase,
+  RegisterInventoryAdjustmentUseCase,
+  RegisterLossUseCase,
   UpdateCustomerUseCase,
   UpdateProductUseCase,
   UpdateSupplierUseCase,
@@ -24,6 +28,7 @@ import { MemoryStorage } from "@/core/infrastructure/storage/storage";
 import { MockCustomerRepository } from "@/features/customer/data/repositories/MockCustomerRepository";
 import { MockHealthRepository } from "@/features/health/data/repositories/MockHealthRepository";
 import { GetSystemHealthUseCase } from "@/features/health/domain/usecases/GetSystemHealthUseCase";
+import { MockInventoryRepository } from "@/features/inventory/data/repositories/MockInventoryRepository";
 import { MockProductRepository } from "@/features/product/data/repositories/MockProductRepository";
 import { MockPurchaseInventoryGateway } from "@/features/purchase/data/gateways/MockPurchaseInventoryGateway";
 import { MockPurchaseRepository } from "@/features/purchase/data/repositories/MockPurchaseRepository";
@@ -46,6 +51,10 @@ export function bootstrapContainer() {
   container.register(TOKENS.productRepository, () => new MockProductRepository());
   container.register(TOKENS.supplierRepository, () => new MockSupplierRepository());
   container.register(TOKENS.customerRepository, () => new MockCustomerRepository());
+  container.register(
+    TOKENS.inventoryRepository,
+    () => new MockInventoryRepository(eventBus),
+  );
   container.register(TOKENS.purchaseRepository, () => new MockPurchaseRepository());
   container.register(
     TOKENS.purchaseInventoryGateway,
@@ -133,6 +142,34 @@ export function bootstrapContainer() {
   container.register(
     TOKENS.cancelPurchaseUseCase,
     () => new CancelPurchaseUseCase(container.get(TOKENS.purchaseRepository)),
+  );
+  container.register(
+    TOKENS.listInventoryBalancesUseCase,
+    () =>
+      new ListInventoryBalancesUseCase(
+        container.get(TOKENS.inventoryRepository),
+      ),
+  );
+  container.register(
+    TOKENS.listStockMovementsUseCase,
+    () =>
+      new ListStockMovementsUseCase(container.get(TOKENS.inventoryRepository)),
+  );
+  container.register(
+    TOKENS.registerLossUseCase,
+    () =>
+      new RegisterLossUseCase(
+        container.get(TOKENS.inventoryRepository),
+        container.get(TOKENS.productRepository),
+      ),
+  );
+  container.register(
+    TOKENS.registerInventoryAdjustmentUseCase,
+    () =>
+      new RegisterInventoryAdjustmentUseCase(
+        container.get(TOKENS.inventoryRepository),
+        container.get(TOKENS.productRepository),
+      ),
   );
 
   bootstrapped = true;

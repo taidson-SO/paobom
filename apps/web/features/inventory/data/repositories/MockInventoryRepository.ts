@@ -1,0 +1,132 @@
+import {
+  InventoryBalance,
+  InventoryRepository,
+  RegisterStockMovementInput,
+  StockMovement,
+} from "@paobom/domain";
+
+import { AppEvents, EventBus } from "@/core/infrastructure/events/event-bus";
+import {
+  InventoryBalanceDTO,
+  StockMovementDTO,
+} from "@/features/inventory/data/dto/InventoryDTO";
+import { InventoryMapper } from "@/features/inventory/data/mappers/InventoryMapper";
+
+const now = new Date().toISOString();
+
+let balances: InventoryBalanceDTO[] = [
+  {
+    average_cost: 92,
+    minimum_stock: 25,
+    product_id: "prod-1",
+    quantity: 18,
+  },
+  {
+    average_cost: 0.22,
+    minimum_stock: 100,
+    product_id: "prod-2",
+    quantity: 260,
+  },
+];
+
+let movements: StockMovementDTO[] = [
+  {
+    id: "mov-1",
+    occurred_at: now,
+    product_id: "prod-1",
+    quantity: 18,
+    reason: "Saldo inicial",
+    reference_id: null,
+    type: "adjustment",
+    unit_cost: 92,
+  },
+  {
+    id: "mov-2",
+    occurred_at: now,
+    product_id: "prod-2",
+    quantity: 260,
+    reason: "Saldo inicial",
+    reference_id: null,
+    type: "adjustment",
+    unit_cost: 0.22,
+  },
+];
+
+let subscribed = false;
+
+export class MockInventoryRepository implements InventoryRepository {
+  constructor(events: EventBus<AppEvents>) {
+    if (!subscribed) {
+      events.on("inventory:movement-requested", (payload) => {
+        void this.registerMovement(payload);
+      });
+      subscribed = true;
+    }
+  }
+
+  async findBalances() {
+    return balances.map(InventoryMapper.balanceToEntity);
+  }
+
+  async findMovements() {
+    return movements
+      .map(InventoryMapper.movementToEntity)
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+  }
+
+  async registerMovement(input: RegisterStockMovementInput) {
+    const movement = new StockMovement({
+      id: crypto.randomUUID(),
+      occurredAt: input.occurredAt ?? new Date(),
+      productId: input.productId,
+      quantity: input.quantity,
+      reason: input.reason,
+      referenceId: input.referenceId ?? null,
+      type: input.type,
+      unitCost: input.unitCost,
+    });
+
+    movements = [InventoryMapper.movementToDTO(movement), ...movements];
+    balances = upsertBalance(movement, balances);
+
+    return movement;
+  }
+}
+
+function upsertBalance(
+  movement: StockMovement,
+  currentBalances: InventoryBalanceDTO[],
+) {
+  const current = currentBalances.find(
+    (balance) => balance.product_id === movement.productId,
+  );
+  const direction = getDirection(movement);
+  const nextQuantity = (current?.quantity ?? 0) + direction * movement.quantity;
+  const nextBalance = new InventoryBalance({
+    averageCost: movement.unitCost || current?.average_cost || 0,
+    minimumStock: current?.minimum_stock ?? 0,
+    productId: movement.productId,
+    quantity: Math.max(0, nextQuantity),
+  });
+  const dto = InventoryMapper.balanceToDTO(nextBalance);
+
+  if (!current) {
+    return [dto, ...currentBalances];
+  }
+
+  return currentBalances.map((balance) =>
+    balance.product_id === movement.productId ? dto : balance,
+  );
+}
+
+function getDirection(movement: StockMovement) {
+  if (
+    movement.type === "purchase_in" ||
+    movement.type === "production_in" ||
+    movement.type === "adjustment"
+  ) {
+    return 1;
+  }
+
+  return -1;
+}

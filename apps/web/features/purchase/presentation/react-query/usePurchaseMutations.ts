@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/core/infrastructure/di/container";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
+import { inventoryQueryKeys } from "@/features/inventory/presentation/react-query/keys";
 
 import { purchaseQueryKeys } from "./keys";
 
@@ -26,9 +27,19 @@ export function usePurchaseMutations() {
   );
 
   const onSuccess = () =>
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: purchaseQueryKeys.all,
     });
+
+  const onReceiptSuccess = () => {
+    onSuccess();
+    void queryClient.invalidateQueries({
+      queryKey: inventoryQueryKeys.balances,
+    });
+    void queryClient.invalidateQueries({
+      queryKey: inventoryQueryKeys.movements,
+    });
+  };
 
   return {
     cancelPurchase: useMutation({
@@ -41,7 +52,7 @@ export function usePurchaseMutations() {
     }),
     receivePurchase: useMutation({
       mutationFn: (id: string) => receiveUseCase.execute(id),
-      onSuccess,
+      onSuccess: onReceiptSuccess,
     }),
   };
 }

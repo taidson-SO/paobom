@@ -2,6 +2,14 @@ export type AppEvents = {
   "health:checked": {
     status: string;
   };
+  "inventory:movement-requested": {
+    productId: string;
+    quantity: number;
+    reason: string;
+    referenceId: string | null;
+    type: "purchase_in";
+    unitCost: number;
+  };
 };
 
 type EventHandler<TPayload> = (payload: TPayload) => void;

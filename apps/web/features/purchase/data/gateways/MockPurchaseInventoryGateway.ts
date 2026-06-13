@@ -1,23 +1,18 @@
 import { Purchase, PurchaseInventoryGateway } from "@paobom/domain";
 
-type PurchaseReceiptMovement = {
-  productId: string;
-  purchaseId: string;
-  quantity: number;
-  unitCost: number;
-};
-
-export const purchaseReceiptMovements: PurchaseReceiptMovement[] = [];
+import { eventBus } from "@/core/infrastructure/events/event-bus";
 
 export class MockPurchaseInventoryGateway implements PurchaseInventoryGateway {
   async registerReceipt(purchase: Purchase) {
-    purchaseReceiptMovements.push(
-      ...purchase.items.map((item) => ({
+    purchase.items.forEach((item) => {
+      eventBus.emit("inventory:movement-requested", {
         productId: item.productId,
-        purchaseId: purchase.id,
         quantity: item.quantity,
+        reason: "Recebimento de compra",
+        referenceId: purchase.id,
+        type: "purchase_in",
         unitCost: item.unitCost,
-      })),
-    );
+      });
+    });
   }
 }
