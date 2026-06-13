@@ -51,7 +51,7 @@ export class MockCustomerRepository implements CustomerRepository {
   }
 
   async deactivate(id: string) {
-    const customer = await this.findById(id);
+    const customer = await this.getById(id);
 
     customer.deactivate();
     customers = customers.map((item) =>
@@ -65,8 +65,14 @@ export class MockCustomerRepository implements CustomerRepository {
     return customers.map(CustomerMapper.toEntity);
   }
 
+  async findById(id: string) {
+    const customer = customers.find((item) => item.id === id);
+
+    return customer ? CustomerMapper.toEntity(customer) : null;
+  }
+
   async update(id: string, input: UpdateCustomerInput) {
-    const customer = await this.findById(id);
+    const customer = await this.getById(id);
 
     customer.update(input);
     customers = customers.map((item) =>
@@ -76,7 +82,7 @@ export class MockCustomerRepository implements CustomerRepository {
     return customer;
   }
 
-  private async findById(id: string) {
+  private async getById(id: string) {
     const customer = customers.find((item) => item.id === id);
 
     if (!customer) {

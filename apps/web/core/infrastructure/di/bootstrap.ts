@@ -1,11 +1,14 @@
 import {
   CancelPurchaseUseCase,
   CancelCashEntryUseCase,
+  CancelCustomerInteractionUseCase,
+  CompleteCustomerInteractionUseCase,
   CreateCustomerUseCase,
   CreateProductUseCase,
   CreateProductionOrderUseCase,
   CreatePurchaseUseCase,
   GetCashFlowSummaryUseCase,
+  GetCustomerRelationshipSummaryUseCase,
   CreateRecipeUseCase,
   CreateSupplierUseCase,
   DeactivateCustomerUseCase,
@@ -13,6 +16,7 @@ import {
   DeactivateSupplierUseCase,
   ListCustomersUseCase,
   ListCashEntriesUseCase,
+  ListCustomerInteractionsUseCase,
   ListInventoryBalancesUseCase,
   ListProductsUseCase,
   ListProductionOrdersUseCase,
@@ -22,6 +26,7 @@ import {
   ListSuppliersUseCase,
   ReceivePurchaseUseCase,
   RegisterCashEntryUseCase,
+  RegisterCustomerInteractionUseCase,
   RegisterInventoryAdjustmentUseCase,
   RegisterLossUseCase,
   SettleCashEntryUseCase,
@@ -35,6 +40,7 @@ import { ApiClient } from "@/core/infrastructure/api/api-client";
 import { eventBus } from "@/core/infrastructure/events/event-bus";
 import { MemoryStorage } from "@/core/infrastructure/storage/storage";
 import { MockCustomerRepository } from "@/features/customer/data/repositories/MockCustomerRepository";
+import { MockCustomerRelationshipRepository } from "@/features/customer-relationship/data/repositories/MockCustomerRelationshipRepository";
 import { EventPurchaseFinanceGateway } from "@/features/finance/data/gateways/EventPurchaseFinanceGateway";
 import { MockCashFlowRepository } from "@/features/finance/data/repositories/MockCashFlowRepository";
 import { MockHealthRepository } from "@/features/health/data/repositories/MockHealthRepository";
@@ -65,6 +71,10 @@ export function bootstrapContainer() {
   container.register(TOKENS.productRepository, () => new MockProductRepository());
   container.register(TOKENS.supplierRepository, () => new MockSupplierRepository());
   container.register(TOKENS.customerRepository, () => new MockCustomerRepository());
+  container.register(
+    TOKENS.customerRelationshipRepository,
+    () => new MockCustomerRelationshipRepository(),
+  );
   container.register(
     TOKENS.cashFlowRepository,
     () => new MockCashFlowRepository(eventBus),
@@ -148,6 +158,42 @@ export function bootstrapContainer() {
     TOKENS.deactivateCustomerUseCase,
     () =>
       new DeactivateCustomerUseCase(container.get(TOKENS.customerRepository)),
+  );
+  container.register(
+    TOKENS.listCustomerInteractionsUseCase,
+    () =>
+      new ListCustomerInteractionsUseCase(
+        container.get(TOKENS.customerRelationshipRepository),
+      ),
+  );
+  container.register(
+    TOKENS.getCustomerRelationshipSummaryUseCase,
+    () =>
+      new GetCustomerRelationshipSummaryUseCase(
+        container.get(TOKENS.customerRelationshipRepository),
+      ),
+  );
+  container.register(
+    TOKENS.registerCustomerInteractionUseCase,
+    () =>
+      new RegisterCustomerInteractionUseCase(
+        container.get(TOKENS.customerRelationshipRepository),
+        container.get(TOKENS.customerRepository),
+      ),
+  );
+  container.register(
+    TOKENS.completeCustomerInteractionUseCase,
+    () =>
+      new CompleteCustomerInteractionUseCase(
+        container.get(TOKENS.customerRelationshipRepository),
+      ),
+  );
+  container.register(
+    TOKENS.cancelCustomerInteractionUseCase,
+    () =>
+      new CancelCustomerInteractionUseCase(
+        container.get(TOKENS.customerRelationshipRepository),
+      ),
   );
   container.register(
     TOKENS.listPurchasesUseCase,

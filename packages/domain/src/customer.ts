@@ -94,6 +94,7 @@ export interface CustomerRepository {
   create(input: CreateCustomerInput): Promise<Customer>;
   deactivate(id: string): Promise<Customer>;
   findAll(): Promise<Customer[]>;
+  findById(id: string): Promise<Customer | null>;
   update(id: string, input: UpdateCustomerInput): Promise<Customer>;
 }
 

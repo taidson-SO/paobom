@@ -1,6 +1,8 @@
 "use client";
 
 import { CustomerSection } from "@/features/customer/presentation/components/CustomerSection";
+import { CustomerRelationshipSection } from "@/features/customer-relationship/presentation/components/CustomerRelationshipSection";
+import { useCustomers } from "@/features/customer/presentation/hooks/useCustomers";
 import { FinanceSection } from "@/features/finance/presentation/components/FinanceSection";
 import { InventorySection } from "@/features/inventory/presentation/components/InventorySection";
 import { ProductSection } from "@/features/product/presentation/components/ProductSection";
@@ -13,6 +15,7 @@ import { useSuppliers } from "@/features/supplier/presentation/hooks/useSupplier
 export function ErpHome() {
   const { products } = useProducts();
   const { suppliers } = useSuppliers();
+  const { customers } = useCustomers();
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -30,7 +33,7 @@ export function ErpHome() {
               fluxos de estoque, producao, caixa e relacionamento.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-zinc-600 md:grid-cols-7">
+          <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-zinc-600 md:grid-cols-8">
             <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
               Compras
             </span>
@@ -52,6 +55,9 @@ export function ErpHome() {
             <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
               Clientes
             </span>
+            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
+              CRM
+            </span>
           </div>
         </div>
       </header>
@@ -60,6 +66,7 @@ export function ErpHome() {
       <ProductionSection products={products} />
       <InventorySection products={products} />
       <FinanceSection />
+      <CustomerRelationshipSection customers={customers} />
       <ProductSection />
       <SupplierSection />
       <CustomerSection />
