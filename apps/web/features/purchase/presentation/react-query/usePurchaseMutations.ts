@@ -11,6 +11,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { container } from "@/core/infrastructure/di/container";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
 import { inventoryQueryKeys } from "@/features/inventory/presentation/react-query/keys";
+import { financeQueryKeys } from "@/features/finance/presentation/react-query/keys";
 
 import { purchaseQueryKeys } from "./keys";
 
@@ -31,6 +32,13 @@ export function usePurchaseMutations() {
       queryKey: purchaseQueryKeys.all,
     });
 
+  const onCreateSuccess = () => {
+    onSuccess();
+    void queryClient.invalidateQueries({
+      queryKey: financeQueryKeys.all,
+    });
+  };
+
   const onReceiptSuccess = () => {
     onSuccess();
     void queryClient.invalidateQueries({
@@ -48,7 +56,7 @@ export function usePurchaseMutations() {
     }),
     createPurchase: useMutation({
       mutationFn: (input: CreatePurchaseInput) => createUseCase.execute(input),
-      onSuccess,
+      onSuccess: onCreateSuccess,
     }),
     receivePurchase: useMutation({
       mutationFn: (id: string) => receiveUseCase.execute(id),

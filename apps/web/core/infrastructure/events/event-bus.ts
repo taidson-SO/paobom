@@ -10,6 +10,14 @@ export type AppEvents = {
     type: "purchase_in" | "production_out" | "production_in";
     unitCost: number;
   };
+  "finance:entry-requested": {
+    amount: number;
+    category: string;
+    description: string;
+    dueDate: Date;
+    referenceId: string | null;
+    type: "income" | "expense";
+  };
 };
 
 type EventHandler<TPayload> = (payload: TPayload) => void;

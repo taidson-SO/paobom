@@ -156,6 +156,10 @@ export interface PurchaseInventoryGateway {
   registerReceipt(purchase: Purchase): Promise<void>;
 }
 
+export interface PurchaseFinanceGateway {
+  registerPayable(purchase: Purchase): Promise<void>;
+}
+
 export class ListPurchasesUseCase {
   constructor(private readonly repository: PurchaseRepository) {}
 
@@ -169,6 +173,7 @@ export class CreatePurchaseUseCase {
     private readonly repository: PurchaseRepository,
     private readonly products: ProductRepository,
     private readonly suppliers: SupplierRepository,
+    private readonly finance?: PurchaseFinanceGateway,
   ) {}
 
   async execute(input: CreatePurchaseInput) {
@@ -186,7 +191,11 @@ export class CreatePurchaseUseCase {
       }
     }
 
-    return this.repository.create(input);
+    const purchase = await this.repository.create(input);
+
+    await this.finance?.registerPayable(purchase);
+
+    return purchase;
   }
 }
 
