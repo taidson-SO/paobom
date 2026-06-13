@@ -7,7 +7,7 @@ export type AppEvents = {
     quantity: number;
     reason: string;
     referenceId: string | null;
-    type: "purchase_in";
+    type: "purchase_in" | "production_out" | "production_in";
     unitCost: number;
   };
 };

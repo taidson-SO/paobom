@@ -2,7 +2,9 @@ import {
   CancelPurchaseUseCase,
   CreateCustomerUseCase,
   CreateProductUseCase,
+  CreateProductionOrderUseCase,
   CreatePurchaseUseCase,
+  CreateRecipeUseCase,
   CreateSupplierUseCase,
   DeactivateCustomerUseCase,
   DeactivateProductUseCase,
@@ -10,7 +12,9 @@ import {
   ListCustomersUseCase,
   ListInventoryBalancesUseCase,
   ListProductsUseCase,
+  ListProductionOrdersUseCase,
   ListPurchasesUseCase,
+  ListRecipesUseCase,
   ListStockMovementsUseCase,
   ListSuppliersUseCase,
   ReceivePurchaseUseCase,
@@ -30,6 +34,9 @@ import { MockHealthRepository } from "@/features/health/data/repositories/MockHe
 import { GetSystemHealthUseCase } from "@/features/health/domain/usecases/GetSystemHealthUseCase";
 import { MockInventoryRepository } from "@/features/inventory/data/repositories/MockInventoryRepository";
 import { MockProductRepository } from "@/features/product/data/repositories/MockProductRepository";
+import { EventProductionInventoryGateway } from "@/features/production/data/gateways/EventProductionInventoryGateway";
+import { MockProductionOrderRepository } from "@/features/production/data/repositories/MockProductionOrderRepository";
+import { MockRecipeRepository } from "@/features/production/data/repositories/MockRecipeRepository";
 import { MockPurchaseInventoryGateway } from "@/features/purchase/data/gateways/MockPurchaseInventoryGateway";
 import { MockPurchaseRepository } from "@/features/purchase/data/repositories/MockPurchaseRepository";
 import { MockSupplierRepository } from "@/features/supplier/data/repositories/MockSupplierRepository";
@@ -54,6 +61,15 @@ export function bootstrapContainer() {
   container.register(
     TOKENS.inventoryRepository,
     () => new MockInventoryRepository(eventBus),
+  );
+  container.register(TOKENS.recipeRepository, () => new MockRecipeRepository());
+  container.register(
+    TOKENS.productionOrderRepository,
+    () => new MockProductionOrderRepository(),
+  );
+  container.register(
+    TOKENS.productionInventoryGateway,
+    () => new EventProductionInventoryGateway(),
   );
   container.register(TOKENS.purchaseRepository, () => new MockPurchaseRepository());
   container.register(
@@ -169,6 +185,35 @@ export function bootstrapContainer() {
       new RegisterInventoryAdjustmentUseCase(
         container.get(TOKENS.inventoryRepository),
         container.get(TOKENS.productRepository),
+      ),
+  );
+  container.register(
+    TOKENS.listRecipesUseCase,
+    () => new ListRecipesUseCase(container.get(TOKENS.recipeRepository)),
+  );
+  container.register(
+    TOKENS.createRecipeUseCase,
+    () =>
+      new CreateRecipeUseCase(
+        container.get(TOKENS.recipeRepository),
+        container.get(TOKENS.productRepository),
+      ),
+  );
+  container.register(
+    TOKENS.listProductionOrdersUseCase,
+    () =>
+      new ListProductionOrdersUseCase(
+        container.get(TOKENS.productionOrderRepository),
+      ),
+  );
+  container.register(
+    TOKENS.createProductionOrderUseCase,
+    () =>
+      new CreateProductionOrderUseCase(
+        container.get(TOKENS.productionOrderRepository),
+        container.get(TOKENS.recipeRepository),
+        container.get(TOKENS.productRepository),
+        container.get(TOKENS.productionInventoryGateway),
       ),
   );
 
