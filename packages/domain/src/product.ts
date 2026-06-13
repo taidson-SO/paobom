@@ -132,6 +132,7 @@ export interface ProductRepository {
   create(input: CreateProductInput): Promise<Product>;
   deactivate(id: string): Promise<Product>;
   findAll(): Promise<Product[]>;
+  findById(id: string): Promise<Product | null>;
   update(id: string, input: UpdateProductInput): Promise<Product>;
 }
 

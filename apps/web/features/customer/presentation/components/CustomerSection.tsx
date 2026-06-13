@@ -24,20 +24,26 @@ export function CustomerSection() {
     updateCustomer,
   } = useCustomers();
   const [form, setForm] = useState<CreateCustomerInput>(initialForm);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
 
-    const input = CustomerSchema.parse(form);
+    try {
+      const input = CustomerSchema.parse(form);
 
-    if (selectedCustomerId) {
-      await updateCustomer.mutateAsync({ id: selectedCustomerId, input });
-    } else {
-      await createCustomer.mutateAsync(input);
+      if (selectedCustomerId) {
+        await updateCustomer.mutateAsync({ id: selectedCustomerId, input });
+      } else {
+        await createCustomer.mutateAsync(input);
+      }
+
+      setSelectedCustomer(null);
+      setForm(initialForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Cliente invalido");
     }
-
-    setSelectedCustomer(null);
-    setForm(initialForm);
   }
 
   return (
@@ -95,6 +101,7 @@ export function CustomerSection() {
             </button>
           ) : null}
         </div>
+        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
       </form>
 
       <div className="overflow-hidden rounded-md border border-zinc-200">

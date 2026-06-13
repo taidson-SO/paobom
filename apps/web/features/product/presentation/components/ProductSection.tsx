@@ -27,20 +27,26 @@ export function ProductSection() {
     updateProduct,
   } = useProducts();
   const [form, setForm] = useState<CreateProductInput>(initialForm);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
 
-    const input = ProductSchema.parse(form);
+    try {
+      const input = ProductSchema.parse(form);
 
-    if (selectedProductId) {
-      await updateProduct.mutateAsync({ id: selectedProductId, input });
-    } else {
-      await createProduct.mutateAsync(input);
+      if (selectedProductId) {
+        await updateProduct.mutateAsync({ id: selectedProductId, input });
+      } else {
+        await createProduct.mutateAsync(input);
+      }
+
+      setSelectedProduct(null);
+      setForm(initialForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Produto invalido");
     }
-
-    setSelectedProduct(null);
-    setForm(initialForm);
   }
 
   return (
@@ -125,6 +131,7 @@ export function ProductSection() {
             </button>
           ) : null}
         </div>
+        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
       </form>
 
       <div className="overflow-hidden rounded-md border border-zinc-200">

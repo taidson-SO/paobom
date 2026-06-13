@@ -1,13 +1,17 @@
 import {
+  CancelPurchaseUseCase,
   CreateCustomerUseCase,
   CreateProductUseCase,
+  CreatePurchaseUseCase,
   CreateSupplierUseCase,
   DeactivateCustomerUseCase,
   DeactivateProductUseCase,
   DeactivateSupplierUseCase,
   ListCustomersUseCase,
   ListProductsUseCase,
+  ListPurchasesUseCase,
   ListSuppliersUseCase,
+  ReceivePurchaseUseCase,
   UpdateCustomerUseCase,
   UpdateProductUseCase,
   UpdateSupplierUseCase,
@@ -21,6 +25,8 @@ import { MockCustomerRepository } from "@/features/customer/data/repositories/Mo
 import { MockHealthRepository } from "@/features/health/data/repositories/MockHealthRepository";
 import { GetSystemHealthUseCase } from "@/features/health/domain/usecases/GetSystemHealthUseCase";
 import { MockProductRepository } from "@/features/product/data/repositories/MockProductRepository";
+import { MockPurchaseInventoryGateway } from "@/features/purchase/data/gateways/MockPurchaseInventoryGateway";
+import { MockPurchaseRepository } from "@/features/purchase/data/repositories/MockPurchaseRepository";
 import { MockSupplierRepository } from "@/features/supplier/data/repositories/MockSupplierRepository";
 
 import { container } from "./container";
@@ -40,6 +46,11 @@ export function bootstrapContainer() {
   container.register(TOKENS.productRepository, () => new MockProductRepository());
   container.register(TOKENS.supplierRepository, () => new MockSupplierRepository());
   container.register(TOKENS.customerRepository, () => new MockCustomerRepository());
+  container.register(TOKENS.purchaseRepository, () => new MockPurchaseRepository());
+  container.register(
+    TOKENS.purchaseInventoryGateway,
+    () => new MockPurchaseInventoryGateway(),
+  );
   container.register(
     TOKENS.getSystemHealthUseCase,
     () =>
@@ -97,6 +108,31 @@ export function bootstrapContainer() {
     TOKENS.deactivateCustomerUseCase,
     () =>
       new DeactivateCustomerUseCase(container.get(TOKENS.customerRepository)),
+  );
+  container.register(
+    TOKENS.listPurchasesUseCase,
+    () => new ListPurchasesUseCase(container.get(TOKENS.purchaseRepository)),
+  );
+  container.register(
+    TOKENS.createPurchaseUseCase,
+    () =>
+      new CreatePurchaseUseCase(
+        container.get(TOKENS.purchaseRepository),
+        container.get(TOKENS.productRepository),
+        container.get(TOKENS.supplierRepository),
+      ),
+  );
+  container.register(
+    TOKENS.receivePurchaseUseCase,
+    () =>
+      new ReceivePurchaseUseCase(
+        container.get(TOKENS.purchaseRepository),
+        container.get(TOKENS.purchaseInventoryGateway),
+      ),
+  );
+  container.register(
+    TOKENS.cancelPurchaseUseCase,
+    () => new CancelPurchaseUseCase(container.get(TOKENS.purchaseRepository)),
   );
 
   bootstrapped = true;

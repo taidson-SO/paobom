@@ -55,7 +55,7 @@ export class MockProductRepository implements ProductRepository {
   }
 
   async deactivate(id: string) {
-    const product = await this.findById(id);
+    const product = await this.requireById(id);
 
     product.deactivate();
     products = products.map((item) =>
@@ -69,8 +69,14 @@ export class MockProductRepository implements ProductRepository {
     return products.map(ProductMapper.toEntity);
   }
 
+  async findById(id: string) {
+    const product = products.find((item) => item.id === id);
+
+    return product ? ProductMapper.toEntity(product) : null;
+  }
+
   async update(id: string, input: UpdateProductInput) {
-    const product = await this.findById(id);
+    const product = await this.requireById(id);
 
     product.update(input);
     products = products.map((item) =>
@@ -80,13 +86,13 @@ export class MockProductRepository implements ProductRepository {
     return product;
   }
 
-  private async findById(id: string) {
-    const product = products.find((item) => item.id === id);
+  private async requireById(id: string) {
+    const product = await this.findById(id);
 
     if (!product) {
       throw new Error("Produto nao encontrado");
     }
 
-    return ProductMapper.toEntity(product);
+    return product;
   }
 }

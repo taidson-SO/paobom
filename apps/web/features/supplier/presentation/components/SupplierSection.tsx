@@ -24,20 +24,26 @@ export function SupplierSection() {
     updateSupplier,
   } = useSuppliers();
   const [form, setForm] = useState<CreateSupplierInput>(initialForm);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
 
-    const input = SupplierSchema.parse(form);
+    try {
+      const input = SupplierSchema.parse(form);
 
-    if (selectedSupplierId) {
-      await updateSupplier.mutateAsync({ id: selectedSupplierId, input });
-    } else {
-      await createSupplier.mutateAsync(input);
+      if (selectedSupplierId) {
+        await updateSupplier.mutateAsync({ id: selectedSupplierId, input });
+      } else {
+        await createSupplier.mutateAsync(input);
+      }
+
+      setSelectedSupplier(null);
+      setForm(initialForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Fornecedor invalido");
     }
-
-    setSelectedSupplier(null);
-    setForm(initialForm);
   }
 
   return (
@@ -92,6 +98,7 @@ export function SupplierSection() {
             </button>
           ) : null}
         </div>
+        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
       </form>
 
       <div className="overflow-hidden rounded-md border border-zinc-200">

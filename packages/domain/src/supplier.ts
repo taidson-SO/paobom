@@ -98,6 +98,7 @@ export interface SupplierRepository {
   create(input: CreateSupplierInput): Promise<Supplier>;
   deactivate(id: string): Promise<Supplier>;
   findAll(): Promise<Supplier[]>;
+  findById(id: string): Promise<Supplier | null>;
   update(id: string, input: UpdateSupplierInput): Promise<Supplier>;
 }
 

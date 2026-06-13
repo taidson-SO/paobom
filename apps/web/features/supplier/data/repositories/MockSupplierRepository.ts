@@ -51,7 +51,7 @@ export class MockSupplierRepository implements SupplierRepository {
   }
 
   async deactivate(id: string) {
-    const supplier = await this.findById(id);
+    const supplier = await this.requireById(id);
 
     supplier.deactivate();
     suppliers = suppliers.map((item) =>
@@ -65,8 +65,14 @@ export class MockSupplierRepository implements SupplierRepository {
     return suppliers.map(SupplierMapper.toEntity);
   }
 
+  async findById(id: string) {
+    const supplier = suppliers.find((item) => item.id === id);
+
+    return supplier ? SupplierMapper.toEntity(supplier) : null;
+  }
+
   async update(id: string, input: UpdateSupplierInput) {
-    const supplier = await this.findById(id);
+    const supplier = await this.requireById(id);
 
     supplier.update(input);
     suppliers = suppliers.map((item) =>
@@ -76,13 +82,13 @@ export class MockSupplierRepository implements SupplierRepository {
     return supplier;
   }
 
-  private async findById(id: string) {
-    const supplier = suppliers.find((item) => item.id === id);
+  private async requireById(id: string) {
+    const supplier = await this.findById(id);
 
     if (!supplier) {
       throw new Error("Fornecedor nao encontrado");
     }
 
-    return SupplierMapper.toEntity(supplier);
+    return supplier;
   }
 }
