@@ -1,0 +1,23 @@
+{
+  "name": "paobom",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Erp para panificadoras",
+  "scripts": {
+    "dev": "turbo dev",
+    "dev-web": "turbo dev --filter=web",
+    "dev-mobile": "turbo dev --filter=mobile",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint"
+  },
+  "keywords": ["erp", "panificadora", "software", "gestão", "vendas", "estoque", "financeiro", "relatórios"],
+  "author": "Taidson Silva",
+  "license": "ISC",
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "latest"
+  }
+}
