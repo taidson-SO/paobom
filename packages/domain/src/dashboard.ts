@@ -20,6 +20,7 @@ export type BusinessDashboard = {
     openSales: number;
     revenue: number;
     grossMargin: number;
+    grossMarginRate: number;
     averageTicket: number;
   };
   cash: {
@@ -80,6 +81,7 @@ export class GetBusinessDashboardUseCase {
       (sum, sale) => sum + sale.grossMargin,
       0,
     );
+    const grossMarginRate = revenue > 0 ? grossMargin / revenue : 0;
     const cash = activeCashEntries.reduce(
       (summary, entry) => {
         const signedAmount = entry.type === "income" ? entry.amount : -entry.amount;
@@ -135,6 +137,7 @@ export class GetBusinessDashboardUseCase {
       sales: {
         averageTicket: paidSales.length ? revenue / paidSales.length : 0,
         grossMargin,
+        grossMarginRate,
         openSales: openSales.length,
         paidSales: paidSales.length,
         revenue,
@@ -175,6 +178,15 @@ function buildAlerts(dashboard: Omit<BusinessDashboard, "alerts">) {
       id: "open-sales",
       level: "info",
       title: "Recebimentos pendentes",
+    });
+  }
+
+  if (dashboard.sales.revenue > 0 && dashboard.sales.grossMarginRate < 0.2) {
+    alerts.push({
+      description: `Margem bruta em ${(dashboard.sales.grossMarginRate * 100).toFixed(1)}%. Revise custos e precos.`,
+      id: "low-gross-margin",
+      level: "warning",
+      title: "Margem baixa",
     });
   }
 

@@ -256,6 +256,7 @@ export class CreateSaleUseCase {
       }
     }
 
+    const balances = await this.inventoryRepository.findBalances();
     const items: SaleItemProps[] = [];
 
     for (const item of input.items) {
@@ -269,12 +270,14 @@ export class CreateSaleUseCase {
         id: crypto.randomUUID(),
         productId: item.productId,
         quantity: item.quantity,
-        unitCost: product.purchasePrice,
+        unitCost:
+          balances.find((balance) => balance.productId === item.productId)
+            ?.averageCost ?? product.purchasePrice,
         unitPrice: item.unitPrice,
       });
     }
 
-    await this.assertInventoryAvailability(items, input);
+    this.assertInventoryAvailability(items, input, balances);
 
     const sale = new Sale({
       createdAt: new Date(),
@@ -309,11 +312,11 @@ export class CreateSaleUseCase {
     return createdSale;
   }
 
-  private async assertInventoryAvailability(
+  private assertInventoryAvailability(
     items: SaleItemProps[],
     input: CreateSaleInput,
+    balances: Awaited<ReturnType<InventoryRepository["findBalances"]>>,
   ) {
-    const balances = await this.inventoryRepository.findBalances();
     const insufficientItems = items.filter((item) => {
       const balance = balances.find((entry) => entry.productId === item.productId);
 

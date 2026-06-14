@@ -30,6 +30,7 @@ export type BusinessDashboardDTO = {
   sales: {
     average_ticket: number;
     gross_margin: number;
+    gross_margin_rate: number;
     open_sales: number;
     paid_sales: number;
     revenue: number;

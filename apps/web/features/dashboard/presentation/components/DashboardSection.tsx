@@ -39,7 +39,7 @@ export function DashboardSection() {
         <Metric
           label="Margem bruta"
           value={`R$ ${dashboard.sales.grossMargin.toFixed(2)}`}
-          hint={`Ticket R$ ${dashboard.sales.averageTicket.toFixed(2)}`}
+          hint={`${(dashboard.sales.grossMarginRate * 100).toFixed(1)}% · Ticket R$ ${dashboard.sales.averageTicket.toFixed(2)}`}
         />
         <Metric
           label="Caixa projetado"

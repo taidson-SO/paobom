@@ -19,7 +19,10 @@ export type BusinessReports = {
   generatedAt: Date;
   sales: {
     totalRevenue: number;
+    totalCost: number;
     grossMargin: number;
+    grossMarginRate: number;
+    lowMarginProducts: ReportTableRow[];
     byStatus: ReportTableRow[];
     byPaymentMethod: ReportTableRow[];
   };
@@ -41,6 +44,7 @@ export type BusinessReports = {
   production: {
     totalProduced: number;
     totalCost: number;
+    averageUnitCost: number;
     ordersByStatus: ReportTableRow[];
   };
 };
@@ -100,6 +104,7 @@ export class GetBusinessReportsUseCase {
         movementsByType: summarizeMovementsByType(movements),
       },
       production: {
+        averageUnitCost: getAverageProductionUnitCost(productions),
         ordersByStatus: summarizeProductionsByStatus(productions),
         totalCost: productions
           .filter((production) => production.status === "finished")
@@ -125,8 +130,14 @@ export class GetBusinessReportsUseCase {
       sales: {
         byPaymentMethod: summarizeSalesByPayment(sales),
         byStatus: summarizeSalesByStatus(sales),
+        grossMarginRate: getGrossMarginRate(sales),
         grossMargin: sales.reduce(
           (sum, sale) => (sale.status === "paid" ? sum + sale.grossMargin : sum),
+          0,
+        ),
+        lowMarginProducts: summarizeLowMarginProducts(sales),
+        totalCost: sales.reduce(
+          (sum, sale) => (sale.status === "paid" ? sum + sale.totalCost : sum),
           0,
         ),
         totalRevenue: sales.reduce(
@@ -136,6 +147,82 @@ export class GetBusinessReportsUseCase {
       },
     };
   }
+}
+
+function getGrossMarginRate(sales: Awaited<ReturnType<SaleRepository["findAll"]>>) {
+  const paidSales = sales.filter((sale) => sale.status === "paid");
+  const revenue = paidSales.reduce((sum, sale) => sum + sale.total, 0);
+  const margin = paidSales.reduce((sum, sale) => sum + sale.grossMargin, 0);
+
+  return revenue > 0 ? margin / revenue : 0;
+}
+
+function getAverageProductionUnitCost(
+  productions: Awaited<ReturnType<ProductionOrderRepository["findAll"]>>,
+) {
+  const finishedProductions = productions.filter(
+    (production) => production.status === "finished",
+  );
+  const totalProduced = finishedProductions.reduce(
+    (sum, production) => sum + production.quantityProduced,
+    0,
+  );
+  const totalCost = finishedProductions.reduce(
+    (sum, production) => sum + production.totalCost,
+    0,
+  );
+
+  return totalProduced > 0 ? totalCost / totalProduced : 0;
+}
+
+function summarizeLowMarginProducts(
+  sales: Awaited<ReturnType<SaleRepository["findAll"]>>,
+) {
+  const rows = new Map<
+    string,
+    {
+      cost: number;
+      quantity: number;
+      revenue: number;
+    }
+  >();
+
+  sales
+    .filter((sale) => sale.status === "paid")
+    .forEach((sale) => {
+      sale.items.forEach((item) => {
+        const current = rows.get(item.productId) ?? {
+          cost: 0,
+          quantity: 0,
+          revenue: 0,
+        };
+
+        rows.set(item.productId, {
+          cost: current.cost + item.quantity * item.unitCost,
+          quantity: current.quantity + item.quantity,
+          revenue: current.revenue + item.quantity * item.unitPrice,
+        });
+      });
+    });
+
+  return Array.from(rows.entries())
+    .map(([productId, row]) => {
+      const margin = row.revenue - row.cost;
+      const marginRate = row.revenue > 0 ? margin / row.revenue : 0;
+
+      return {
+        amount: margin,
+        label: `${productId} (${(marginRate * 100).toFixed(1)}%)`,
+        marginRate,
+        quantity: row.quantity,
+      };
+    })
+    .filter((row) => row.marginRate < 0.2)
+    .map(({ amount, label, quantity }) => ({
+      amount,
+      label,
+      quantity,
+    }));
 }
 
 function signedCashAmount(type: CashEntryType, amount: number) {

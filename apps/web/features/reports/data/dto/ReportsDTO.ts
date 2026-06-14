@@ -18,6 +18,7 @@ export type BusinessReportsDTO = {
     movements_by_type: ReportTableRowDTO[];
   };
   production: {
+    average_unit_cost: number;
     orders_by_status: ReportTableRowDTO[];
     total_cost: number;
     total_produced: number;
@@ -30,6 +31,9 @@ export type BusinessReportsDTO = {
     by_payment_method: ReportTableRowDTO[];
     by_status: ReportTableRowDTO[];
     gross_margin: number;
+    gross_margin_rate: number;
+    low_margin_products: ReportTableRowDTO[];
+    total_cost: number;
     total_revenue: number;
   };
 };

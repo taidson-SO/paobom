@@ -36,12 +36,16 @@ export function ReportsSection() {
           value={`R$ ${reports.sales.totalRevenue.toFixed(2)}`}
         />
         <SummaryCard
-          label="Margem"
-          value={`R$ ${reports.sales.grossMargin.toFixed(2)}`}
+          label="Custo vendas"
+          value={`R$ ${reports.sales.totalCost.toFixed(2)}`}
         />
         <SummaryCard
-          label="Caixa projetado"
-          value={`R$ ${reports.cashFlow.projectedBalance.toFixed(2)}`}
+          label="Margem"
+          value={`${(reports.sales.grossMarginRate * 100).toFixed(1)}%`}
+        />
+        <SummaryCard
+          label="Custo unit. prod."
+          value={`R$ ${reports.production.averageUnitCost.toFixed(2)}`}
         />
         <SummaryCard
           label="Estoque"
@@ -57,6 +61,10 @@ export function ReportsSection() {
         <ReportTable
           rows={reports.sales.byPaymentMethod}
           title="Vendas por pagamento"
+        />
+        <ReportTable
+          rows={reports.sales.lowMarginProducts}
+          title="Produtos com margem baixa"
         />
         <ReportTable
           rows={reports.cashFlow.byType}

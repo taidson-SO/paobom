@@ -226,6 +226,12 @@ export class ProductionOrder {
     );
   }
 
+  get unitCost() {
+    return this.props.quantityProduced > 0
+      ? this.totalCost / this.props.quantityProduced
+      : 0;
+  }
+
   start(startedAt = new Date()) {
     if (this.props.status !== "planned") {
       throw new Error("Apenas producao planejada pode ser iniciada");

@@ -27,6 +27,7 @@ export const DashboardMapper = {
       sales: {
         average_ticket: dashboard.sales.averageTicket,
         gross_margin: dashboard.sales.grossMargin,
+        gross_margin_rate: dashboard.sales.grossMarginRate,
         open_sales: dashboard.sales.openSales,
         paid_sales: dashboard.sales.paidSales,
         revenue: dashboard.sales.revenue,

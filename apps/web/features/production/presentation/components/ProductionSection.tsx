@@ -299,6 +299,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
                   </td>
                   <td className="px-3 py-3 font-semibold text-zinc-800">
                     R$ {order.totalCost.toFixed(2)}
+                    <p className="text-xs font-medium text-zinc-500">
+                      Unit. R$ {order.unitCost.toFixed(2)}
+                    </p>
                   </td>
                   <td className="px-3 py-3">
                     <Status status={order.status} />
