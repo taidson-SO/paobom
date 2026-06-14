@@ -7,3 +7,4 @@ export * from "./inventory";
 export * from "./production";
 export * from "./finance";
 export * from "./sales";
+export * from "./dashboard";

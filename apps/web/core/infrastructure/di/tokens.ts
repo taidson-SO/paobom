@@ -22,6 +22,7 @@ export const TOKENS = {
   eventBus: Symbol("eventBus"),
   cashFlowRepository: Symbol("cashFlowRepository"),
   getCashFlowSummaryUseCase: Symbol("getCashFlowSummaryUseCase"),
+  getBusinessDashboardUseCase: Symbol("getBusinessDashboardUseCase"),
   getCustomerRelationshipSummaryUseCase: Symbol(
     "getCustomerRelationshipSummaryUseCase",
   ),
