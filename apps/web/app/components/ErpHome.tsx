@@ -1,5 +1,7 @@
 "use client";
 
+import { ReactNode } from "react";
+
 import { CustomerSection } from "@/features/customer/presentation/components/CustomerSection";
 import { CustomerRelationshipSection } from "@/features/customer-relationship/presentation/components/CustomerRelationshipSection";
 import { useCustomers } from "@/features/customer/presentation/hooks/useCustomers";
@@ -16,6 +18,40 @@ import { SalesSection } from "@/features/sales/presentation/components/SalesSect
 import { SupplierSection } from "@/features/supplier/presentation/components/SupplierSection";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
 
+const navigationGroups = [
+  {
+    items: [
+      { href: "#visao-geral", label: "Dashboard" },
+      { href: "#relatorios", label: "Relatorios" },
+    ],
+    label: "Gestao",
+  },
+  {
+    items: [
+      { href: "#compras", label: "Compras" },
+      { href: "#producao", label: "Producao" },
+      { href: "#estoque", label: "Estoque" },
+    ],
+    label: "Operacao",
+  },
+  {
+    items: [
+      { href: "#vendas", label: "Vendas" },
+      { href: "#caixa", label: "Caixa" },
+      { href: "#crm", label: "CRM" },
+    ],
+    label: "Atendimento",
+  },
+  {
+    items: [
+      { href: "#produtos", label: "Produtos" },
+      { href: "#fornecedores", label: "Fornecedores" },
+      { href: "#clientes", label: "Clientes" },
+    ],
+    label: "Cadastros",
+  },
+];
+
 export function ErpHome() {
   const { products } = useProducts();
   const { suppliers } = useSuppliers();
@@ -23,74 +59,167 @@ export function ErpHome() {
   const { balances } = useInventory();
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
-      <header className="flex flex-col gap-2">
-        <p className="text-sm font-bold uppercase text-green-800">
-          Paobom ERP
-        </p>
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-          <div>
-            <h1 className="text-3xl font-bold tracking-normal">
-              Operacao da padaria
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              Compras, produtos, fornecedores e clientes formam a base dos
-              fluxos de estoque, producao, caixa e relacionamento.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-zinc-600 md:grid-cols-11">
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Dashboard
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Relatorios
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Compras
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Producao
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Estoque
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Vendas
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Caixa
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Produtos
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Fornecedores
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              Clientes
-            </span>
-            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-              CRM
-            </span>
+    <div className="min-h-screen bg-zinc-50">
+      <header className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-5 lg:px-6">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+            <div>
+              <p className="text-sm font-bold uppercase text-green-800">
+                Paobom ERP
+              </p>
+              <h1 className="mt-1 text-3xl font-bold tracking-normal text-zinc-950">
+                Operacao da padaria
+              </h1>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-zinc-600 md:grid-cols-6">
+              <OperationalStep label="Compra" step="01" />
+              <OperationalStep label="Estoque" step="02" />
+              <OperationalStep label="Receita" step="03" />
+              <OperationalStep label="Producao" step="04" />
+              <OperationalStep label="Venda" step="05" />
+              <OperationalStep label="Caixa" step="06" />
+            </div>
           </div>
         </div>
       </header>
 
-      <DashboardSection />
-      <ReportsSection />
-      <PurchaseSection products={products} suppliers={suppliers} />
-      <ProductionSection products={products} />
-      <InventorySection products={products} />
-      <SalesSection
-        customers={customers}
-        inventoryBalances={balances}
-        products={products}
-      />
-      <FinanceSection />
-      <CustomerRelationshipSection customers={customers} />
-      <ProductSection />
-      <SupplierSection />
-      <CustomerSection />
+      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[240px_1fr] lg:px-6">
+        <aside className="lg:sticky lg:top-4 lg:self-start">
+          <nav className="overflow-x-auto border-b border-zinc-200 pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
+            <div className="flex min-w-max gap-5 lg:min-w-0 lg:flex-col lg:gap-6">
+              {navigationGroups.map((group) => (
+                <div className="grid gap-2" key={group.label}>
+                  <p className="text-xs font-bold uppercase text-zinc-500">
+                    {group.label}
+                  </p>
+                  <div className="flex gap-2 lg:grid">
+                    {group.items.map((item) => (
+                      <a
+                        className="whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-white hover:text-green-800"
+                        href={item.href}
+                        key={item.href}
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </nav>
+        </aside>
+
+        <main className="grid gap-8">
+          <WorkspaceGroup
+            description="Indicadores e consolidacoes para acompanhar a saude do negocio."
+            id="visao-geral"
+            title="Gestao"
+          >
+            <DashboardSection />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Analises consolidadas da operacao."
+            id="relatorios"
+            title="Relatorios"
+          >
+            <ReportsSection />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Entrada de insumos, custo de compra e relacionamento com fornecedores."
+            id="compras"
+            title="Abastecimento"
+          >
+            <PurchaseSection products={products} suppliers={suppliers} />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Fichas tecnicas, ordens e custo unitario do produto fabricado."
+            id="producao"
+            title="Producao"
+          >
+            <ProductionSection products={products} />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Saldos, rastreabilidade, perdas e ajustes."
+            id="estoque"
+            title="Estoque"
+          >
+            <InventorySection products={products} />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Venda, desconto, estoque e margem por atendimento."
+            id="vendas"
+            title="Vendas"
+          >
+            <SalesSection
+              customers={customers}
+              inventoryBalances={balances}
+              products={products}
+            />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Lancamentos, saldo, abertura e fechamento de caixa."
+            id="caixa"
+            title="Caixa"
+          >
+            <FinanceSection />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Relacionamento e acompanhamento comercial."
+            id="crm"
+            title="Clientes e CRM"
+          >
+            <CustomerRelationshipSection customers={customers} />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Base operacional usada por compras, receitas, vendas e relatorios."
+            id="produtos"
+            title="Cadastros"
+          >
+            <ProductSection />
+            <SupplierSection />
+            <CustomerSection />
+          </WorkspaceGroup>
+        </main>
+      </div>
     </div>
+  );
+}
+
+function OperationalStep({ label, step }: { label: string; step: string }) {
+  return (
+    <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+      <span className="text-[11px] font-bold text-green-800">{step}</span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function WorkspaceGroup({
+  children,
+  description,
+  id,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  id: string;
+  title: string;
+}) {
+  return (
+    <section className="scroll-mt-5" id={id}>
+      <div className="mb-3 border-b border-zinc-200 pb-2">
+        <h2 className="text-lg font-bold text-zinc-950">{title}</h2>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
+      </div>
+      <div className="grid gap-4">{children}</div>
+    </section>
   );
 }
