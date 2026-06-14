@@ -2,6 +2,7 @@
 
 import {
   CancelCashEntryUseCase,
+  CloseCashRegisterUseCase,
   CancelCustomerInteractionUseCase,
   CancelProductionOrderUseCase,
   CancelPurchaseUseCase,
@@ -21,8 +22,10 @@ import {
   GetCashFlowSummaryUseCase,
   GetBusinessDashboardUseCase,
   GetBusinessReportsUseCase,
+  GetCurrentCashRegisterUseCase,
   GetCustomerRelationshipSummaryUseCase,
   ListCashEntriesUseCase,
+  ListCashRegistersUseCase,
   ListCustomerInteractionsUseCase,
   ListCustomersUseCase,
   ListInventoryBalancesUseCase,
@@ -33,6 +36,7 @@ import {
   ListSalesUseCase,
   ListStockMovementsUseCase,
   ListSuppliersUseCase,
+  OpenCashRegisterUseCase,
   PaySaleUseCase,
   ReceivePurchaseUseCase,
   RegisterCashEntryUseCase,
@@ -87,6 +91,10 @@ export function bootstrapAppContainer() {
   );
   container.register(
     TOKENS.cashFlowRepository,
+    () => new MockCashFlowRepository(eventBus),
+  );
+  container.register(
+    TOKENS.cashRegisterRepository,
     () => new MockCashFlowRepository(eventBus),
   );
   container.register(
@@ -407,5 +415,28 @@ function registerUseCases() {
   container.register(
     TOKENS.cancelCashEntryUseCase,
     () => new CancelCashEntryUseCase(container.get(TOKENS.cashFlowRepository)),
+  );
+  container.register(
+    TOKENS.listCashRegistersUseCase,
+    () => new ListCashRegistersUseCase(container.get(TOKENS.cashRegisterRepository)),
+  );
+  container.register(
+    TOKENS.getCurrentCashRegisterUseCase,
+    () =>
+      new GetCurrentCashRegisterUseCase(
+        container.get(TOKENS.cashRegisterRepository),
+      ),
+  );
+  container.register(
+    TOKENS.openCashRegisterUseCase,
+    () => new OpenCashRegisterUseCase(container.get(TOKENS.cashRegisterRepository)),
+  );
+  container.register(
+    TOKENS.closeCashRegisterUseCase,
+    () =>
+      new CloseCashRegisterUseCase(
+        container.get(TOKENS.cashRegisterRepository),
+        container.get(TOKENS.cashFlowRepository),
+      ),
   );
 }

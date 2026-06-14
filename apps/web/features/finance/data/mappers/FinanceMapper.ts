@@ -1,8 +1,9 @@
-import { CashEntry, CashFlowSummary } from "@paobom/domain";
+import { CashEntry, CashFlowSummary, CashRegister } from "@paobom/domain";
 
 import {
   CashEntryDTO,
   CashFlowSummaryDTO,
+  CashRegisterDTO,
 } from "@/features/finance/data/dto/FinanceDTO";
 
 export const FinanceMapper = {
@@ -47,5 +48,41 @@ export const FinanceMapper = {
       pending_income: summary.pendingIncome,
       projected_balance: summary.projectedBalance,
     };
+  },
+
+  registerToDTO(register: CashRegister): CashRegisterDTO {
+    return {
+      closed_at: register.closedAt?.toISOString() ?? null,
+      closed_by: register.closedBy,
+      closing_note: register.closingNote,
+      counted_amount: register.countedAmount,
+      created_at: register.createdAt.toISOString(),
+      difference_amount: register.differenceAmount,
+      expected_amount: register.expectedAmount,
+      id: register.id,
+      opened_at: register.openedAt.toISOString(),
+      opened_by: register.openedBy,
+      opening_amount: register.openingAmount,
+      status: register.status,
+      updated_at: register.updatedAt.toISOString(),
+    };
+  },
+
+  registerToEntity(dto: CashRegisterDTO): CashRegister {
+    return new CashRegister({
+      closedAt: dto.closed_at ? new Date(dto.closed_at) : null,
+      closedBy: dto.closed_by,
+      closingNote: dto.closing_note,
+      countedAmount: dto.counted_amount,
+      createdAt: new Date(dto.created_at),
+      differenceAmount: dto.difference_amount,
+      expectedAmount: dto.expected_amount,
+      id: dto.id,
+      openedAt: new Date(dto.opened_at),
+      openedBy: dto.opened_by,
+      openingAmount: dto.opening_amount,
+      status: dto.status,
+      updatedAt: new Date(dto.updated_at),
+    });
   },
 };

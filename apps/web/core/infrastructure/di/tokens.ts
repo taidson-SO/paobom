@@ -1,6 +1,7 @@
 export const TOKENS = {
   apiClient: Symbol("apiClient"),
   cancelCashEntryUseCase: Symbol("cancelCashEntryUseCase"),
+  closeCashRegisterUseCase: Symbol("closeCashRegisterUseCase"),
   cancelCustomerInteractionUseCase: Symbol("cancelCustomerInteractionUseCase"),
   cancelProductionOrderUseCase: Symbol("cancelProductionOrderUseCase"),
   cancelPurchaseUseCase: Symbol("cancelPurchaseUseCase"),
@@ -22,7 +23,9 @@ export const TOKENS = {
   deactivateSupplierUseCase: Symbol("deactivateSupplierUseCase"),
   eventBus: Symbol("eventBus"),
   cashFlowRepository: Symbol("cashFlowRepository"),
+  cashRegisterRepository: Symbol("cashRegisterRepository"),
   getCashFlowSummaryUseCase: Symbol("getCashFlowSummaryUseCase"),
+  getCurrentCashRegisterUseCase: Symbol("getCurrentCashRegisterUseCase"),
   getBusinessDashboardUseCase: Symbol("getBusinessDashboardUseCase"),
   getBusinessReportsUseCase: Symbol("getBusinessReportsUseCase"),
   getCustomerRelationshipSummaryUseCase: Symbol(
@@ -33,6 +36,7 @@ export const TOKENS = {
   inventoryRepository: Symbol("inventoryRepository"),
   listCustomersUseCase: Symbol("listCustomersUseCase"),
   listCashEntriesUseCase: Symbol("listCashEntriesUseCase"),
+  listCashRegistersUseCase: Symbol("listCashRegistersUseCase"),
   listCustomerInteractionsUseCase: Symbol("listCustomerInteractionsUseCase"),
   listInventoryBalancesUseCase: Symbol("listInventoryBalancesUseCase"),
   listProductsUseCase: Symbol("listProductsUseCase"),
@@ -58,6 +62,7 @@ export const TOKENS = {
   registerLossUseCase: Symbol("registerLossUseCase"),
   settleCashEntryUseCase: Symbol("settleCashEntryUseCase"),
   finishProductionOrderUseCase: Symbol("finishProductionOrderUseCase"),
+  openCashRegisterUseCase: Symbol("openCashRegisterUseCase"),
   paySaleUseCase: Symbol("paySaleUseCase"),
   saleFinanceGateway: Symbol("saleFinanceGateway"),
   saleInventoryGateway: Symbol("saleInventoryGateway"),

@@ -1,4 +1,8 @@
-import { CashEntryStatus, CashEntryType } from "@paobom/domain";
+import {
+  CashEntryStatus,
+  CashEntryType,
+  CashRegisterStatus,
+} from "@paobom/domain";
 
 export type CashEntryDTO = {
   id: string;
@@ -21,4 +25,20 @@ export type CashFlowSummaryDTO = {
   pending_expense: number;
   pending_income: number;
   projected_balance: number;
+};
+
+export type CashRegisterDTO = {
+  closed_at: string | null;
+  closed_by: string | null;
+  closing_note: string | null;
+  counted_amount: number | null;
+  created_at: string;
+  difference_amount: number | null;
+  expected_amount: number | null;
+  id: string;
+  opened_at: string;
+  opened_by: string;
+  opening_amount: number;
+  status: CashRegisterStatus;
+  updated_at: string;
 };

@@ -4,7 +4,11 @@ import { CashEntryStatus, CashEntryType } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
 import { useFinance } from "@/features/finance/presentation/hooks/useFinance";
-import { CashEntrySchema } from "@/features/finance/schemas/FinanceSchema";
+import {
+  CashEntrySchema,
+  CloseCashRegisterSchema,
+  OpenCashRegisterSchema,
+} from "@/features/finance/schemas/FinanceSchema";
 
 type FinanceForm = {
   amount: number;
@@ -12,6 +16,17 @@ type FinanceForm = {
   description: string;
   dueDate: string;
   type: CashEntryType;
+};
+
+type OpenRegisterForm = {
+  openedBy: string;
+  openingAmount: number;
+};
+
+type CloseRegisterForm = {
+  closedBy: string;
+  closingNote: string;
+  countedAmount: number;
 };
 
 const initialForm: FinanceForm = {
@@ -22,10 +37,25 @@ const initialForm: FinanceForm = {
   type: "income",
 };
 
+const initialOpenRegisterForm: OpenRegisterForm = {
+  openedBy: "",
+  openingAmount: 0,
+};
+
+const initialCloseRegisterForm: CloseRegisterForm = {
+  closedBy: "",
+  closingNote: "",
+  countedAmount: 0,
+};
+
 export function FinanceSection() {
   const {
     cancelCashEntry,
+    cashRegisters,
+    closeCashRegister,
+    currentCashRegister,
     filteredEntries,
+    openCashRegister,
     registerCashEntry,
     selectedStatus,
     setSelectedStatus,
@@ -33,6 +63,11 @@ export function FinanceSection() {
     summary,
   } = useFinance();
   const [form, setForm] = useState<FinanceForm>(initialForm);
+  const [openRegisterForm, setOpenRegisterForm] = useState<OpenRegisterForm>(
+    initialOpenRegisterForm,
+  );
+  const [closeRegisterForm, setCloseRegisterForm] =
+    useState<CloseRegisterForm>(initialCloseRegisterForm);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -51,9 +86,46 @@ export function FinanceSection() {
     }
   }
 
+  async function handleOpenRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    try {
+      const input = OpenCashRegisterSchema.parse(openRegisterForm);
+
+      await openCashRegister.mutateAsync(input);
+      setOpenRegisterForm(initialOpenRegisterForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Abertura invalida");
+    }
+  }
+
+  async function handleCloseRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    if (!currentCashRegister) {
+      setError("Nenhum caixa aberto");
+      return;
+    }
+
+    try {
+      const input = CloseCashRegisterSchema.parse({
+        ...closeRegisterForm,
+        cashRegisterId: currentCashRegister.id,
+        closingNote: closeRegisterForm.closingNote || null,
+      });
+
+      await closeCashRegister.mutateAsync(input);
+      setCloseRegisterForm(initialCloseRegisterForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Fechamento invalido");
+    }
+  }
+
   return (
     <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
-      <form className="space-y-3" onSubmit={handleSubmit}>
+      <div className="space-y-4">
         <div>
           <p className="text-sm font-bold text-green-800">Financeiro</p>
           <h2 className="text-xl font-bold text-zinc-950">Fluxo de caixa</h2>
@@ -65,6 +137,74 @@ export function FinanceSection() {
           <Metric label="Entradas pagas" value={summary.income} />
           <Metric label="Saidas pagas" value={summary.expense} />
         </div>
+
+        <div className="rounded-md border border-zinc-200 p-3">
+          <h3 className="text-sm font-bold text-zinc-800">
+            {currentCashRegister ? "Caixa aberto" : "Abrir caixa"}
+          </h3>
+          {currentCashRegister ? (
+            <form className="mt-3 space-y-3" onSubmit={handleCloseRegister}>
+              <div className="rounded-md bg-green-50 p-3 text-sm text-green-900">
+                <p className="font-bold">
+                  Aberto por {currentCashRegister.openedBy}
+                </p>
+                <p>
+                  Inicial: R$ {currentCashRegister.openingAmount.toFixed(2)} ·{" "}
+                  {currentCashRegister.openedAt.toLocaleDateString()}
+                </p>
+              </div>
+              <NumberField
+                label="Valor contado"
+                value={closeRegisterForm.countedAmount}
+                onChange={(countedAmount) =>
+                  setCloseRegisterForm((state) => ({
+                    ...state,
+                    countedAmount,
+                  }))
+                }
+              />
+              <TextField
+                label="Responsavel"
+                value={closeRegisterForm.closedBy}
+                onChange={(closedBy) =>
+                  setCloseRegisterForm((state) => ({ ...state, closedBy }))
+                }
+              />
+              <TextField
+                label="Justificativa se houver divergencia"
+                value={closeRegisterForm.closingNote}
+                onChange={(closingNote) =>
+                  setCloseRegisterForm((state) => ({ ...state, closingNote }))
+                }
+              />
+              <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+                Fechar caixa
+              </button>
+            </form>
+          ) : (
+            <form className="mt-3 space-y-3" onSubmit={handleOpenRegister}>
+              <NumberField
+                label="Valor inicial"
+                value={openRegisterForm.openingAmount}
+                onChange={(openingAmount) =>
+                  setOpenRegisterForm((state) => ({ ...state, openingAmount }))
+                }
+              />
+              <TextField
+                label="Responsavel"
+                value={openRegisterForm.openedBy}
+                onChange={(openedBy) =>
+                  setOpenRegisterForm((state) => ({ ...state, openedBy }))
+                }
+              />
+              <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+                Abrir caixa
+              </button>
+            </form>
+          )}
+        </div>
+
+        <form className="space-y-3" onSubmit={handleSubmit}>
 
         <div className="grid grid-cols-2 gap-2">
           <label className="grid gap-1 text-sm font-medium text-zinc-700">
@@ -138,8 +278,9 @@ export function FinanceSection() {
           </button>
         </div>
 
-        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
-      </form>
+          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+        </form>
+      </div>
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -210,6 +351,47 @@ export function FinanceSection() {
             </tbody>
           </table>
         </div>
+
+        <div className="overflow-hidden rounded-md border border-zinc-200">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+              <tr>
+                <th className="px-3 py-2">Caixa</th>
+                <th className="px-3 py-2">Esperado</th>
+                <th className="px-3 py-2">Contado</th>
+                <th className="px-3 py-2">Diferenca</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cashRegisters.map((register) => (
+                <tr className="border-t border-zinc-100" key={register.id}>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold text-zinc-950">
+                      {register.status === "open" ? "Aberto" : "Fechado"}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {register.openedBy} · {register.openedAt.toLocaleDateString()}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {formatOptionalCurrency(register.expectedAmount)}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {formatOptionalCurrency(register.countedAmount)}
+                  </td>
+                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                    {formatOptionalCurrency(register.differenceAmount)}
+                    {register.closingNote ? (
+                      <p className="text-xs font-medium text-zinc-500">
+                        {register.closingNote}
+                      </p>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
@@ -246,6 +428,31 @@ function NumberField({
       />
     </label>
   );
+}
+
+function TextField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+      {label}
+      <input
+        className="rounded-md border border-zinc-300 px-3 py-2"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function formatOptionalCurrency(value: number | null) {
+  return value === null ? "-" : `R$ ${value.toFixed(2)}`;
 }
 
 function Status({

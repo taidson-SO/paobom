@@ -2,6 +2,10 @@
 
 import {
   CancelCashEntryUseCase,
+  CloseCashRegisterInput,
+  CloseCashRegisterUseCase,
+  OpenCashRegisterInput,
+  OpenCashRegisterUseCase,
   RegisterCashEntryInput,
   RegisterCashEntryUseCase,
   SettleCashEntryUseCase,
@@ -21,6 +25,12 @@ export function useFinanceMutations() {
   const registerUseCase = container.get<RegisterCashEntryUseCase>(
     TOKENS.registerCashEntryUseCase,
   );
+  const openCashRegisterUseCase = container.get<OpenCashRegisterUseCase>(
+    TOKENS.openCashRegisterUseCase,
+  );
+  const closeCashRegisterUseCase = container.get<CloseCashRegisterUseCase>(
+    TOKENS.closeCashRegisterUseCase,
+  );
   const settleUseCase = container.get<SettleCashEntryUseCase>(
     TOKENS.settleCashEntryUseCase,
   );
@@ -38,6 +48,16 @@ export function useFinanceMutations() {
     registerCashEntry: useMutation({
       mutationFn: (input: RegisterCashEntryInput) =>
         registerUseCase.execute(input),
+      onSuccess,
+    }),
+    openCashRegister: useMutation({
+      mutationFn: (input: OpenCashRegisterInput) =>
+        openCashRegisterUseCase.execute(input),
+      onSuccess,
+    }),
+    closeCashRegister: useMutation({
+      mutationFn: (input: CloseCashRegisterInput) =>
+        closeCashRegisterUseCase.execute(input),
       onSuccess,
     }),
     settleCashEntry: useMutation({

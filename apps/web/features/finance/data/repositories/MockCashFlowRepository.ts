@@ -1,11 +1,18 @@
 import {
   CashEntry,
   CashFlowRepository,
+  CashRegister,
+  CashRegisterRepository,
+  CloseCashRegisterRepositoryInput,
+  OpenCashRegisterInput,
   RegisterCashEntryInput,
 } from "@paobom/domain";
 
 import { AppEvents, EventBus } from "@/core/infrastructure/events/event-bus";
-import { CashEntryDTO } from "@/features/finance/data/dto/FinanceDTO";
+import {
+  CashEntryDTO,
+  CashRegisterDTO,
+} from "@/features/finance/data/dto/FinanceDTO";
 import { FinanceMapper } from "@/features/finance/data/mappers/FinanceMapper";
 
 const now = new Date();
@@ -44,9 +51,13 @@ let entries: CashEntryDTO[] = [
   },
 ];
 
+let registers: CashRegisterDTO[] = [];
+
 let subscribed = false;
 
-export class MockCashFlowRepository implements CashFlowRepository {
+export class MockCashFlowRepository
+  implements CashFlowRepository, CashRegisterRepository
+{
   constructor(events: EventBus<AppEvents>) {
     if (!subscribed) {
       events.on("finance:entry-requested", (payload) => {
@@ -71,6 +82,53 @@ export class MockCashFlowRepository implements CashFlowRepository {
     return entries
       .map(FinanceMapper.entryToEntity)
       .sort((a, b) => b.dueDate.getTime() - a.dueDate.getTime());
+  }
+
+  async close(input: CloseCashRegisterRepositoryInput) {
+    const register = await this.requireRegisterById(input.cashRegisterId);
+
+    register.close(input);
+    registers = registers.map((item) =>
+      item.id === input.cashRegisterId
+        ? FinanceMapper.registerToDTO(register)
+        : item,
+    );
+
+    return register;
+  }
+
+  async findCurrentOpen() {
+    const current = registers.find((item) => item.status === "open");
+
+    return current ? FinanceMapper.registerToEntity(current) : null;
+  }
+
+  async findRegisters() {
+    return registers
+      .map(FinanceMapper.registerToEntity)
+      .sort((a, b) => b.openedAt.getTime() - a.openedAt.getTime());
+  }
+
+  async open(input: OpenCashRegisterInput) {
+    const register = new CashRegister({
+      closedAt: null,
+      closedBy: null,
+      closingNote: null,
+      countedAmount: null,
+      createdAt: new Date(),
+      differenceAmount: null,
+      expectedAmount: null,
+      id: crypto.randomUUID(),
+      openedAt: new Date(),
+      openedBy: input.openedBy,
+      openingAmount: input.openingAmount,
+      status: "open",
+      updatedAt: new Date(),
+    });
+
+    registers = [FinanceMapper.registerToDTO(register), ...registers];
+
+    return register;
   }
 
   async register(input: RegisterCashEntryInput) {
@@ -118,5 +176,15 @@ export class MockCashFlowRepository implements CashFlowRepository {
     }
 
     return FinanceMapper.entryToEntity(entry);
+  }
+
+  private async requireRegisterById(id: string) {
+    const register = registers.find((item) => item.id === id);
+
+    if (!register) {
+      throw new Error("Caixa nao encontrado");
+    }
+
+    return FinanceMapper.registerToEntity(register);
   }
 }

@@ -2,7 +2,9 @@
 
 import {
   GetCashFlowSummaryUseCase,
+  GetCurrentCashRegisterUseCase,
   ListCashEntriesUseCase,
+  ListCashRegistersUseCase,
 } from "@paobom/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,5 +32,27 @@ export function useCashFlowSummaryQuery() {
   return useQuery({
     queryFn: () => useCase.execute(),
     queryKey: financeQueryKeys.summary,
+  });
+}
+
+export function useCurrentCashRegisterQuery() {
+  const useCase = container.get<GetCurrentCashRegisterUseCase>(
+    TOKENS.getCurrentCashRegisterUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: financeQueryKeys.currentCashRegister,
+  });
+}
+
+export function useCashRegistersQuery() {
+  const useCase = container.get<ListCashRegistersUseCase>(
+    TOKENS.listCashRegistersUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: financeQueryKeys.cashRegisters,
   });
 }
