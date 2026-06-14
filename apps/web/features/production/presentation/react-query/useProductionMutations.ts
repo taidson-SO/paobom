@@ -5,6 +5,9 @@ import {
   CreateProductionOrderUseCase,
   CreateRecipeInput,
   CreateRecipeUseCase,
+  CancelProductionOrderUseCase,
+  FinishProductionOrderUseCase,
+  StartProductionOrderUseCase,
 } from "@paobom/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -21,17 +24,35 @@ export function useProductionMutations() {
   const createOrderUseCase = container.get<CreateProductionOrderUseCase>(
     TOKENS.createProductionOrderUseCase,
   );
+  const startOrderUseCase = container.get<StartProductionOrderUseCase>(
+    TOKENS.startProductionOrderUseCase,
+  );
+  const finishOrderUseCase = container.get<FinishProductionOrderUseCase>(
+    TOKENS.finishProductionOrderUseCase,
+  );
+  const cancelOrderUseCase = container.get<CancelProductionOrderUseCase>(
+    TOKENS.cancelProductionOrderUseCase,
+  );
+  const invalidateOrdersAndInventory = () => {
+    void queryClient.invalidateQueries({
+      queryKey: productionQueryKeys.orders,
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["inventory"],
+    });
+  };
 
   return {
+    cancelProductionOrder: useMutation({
+      mutationFn: (id: string) => cancelOrderUseCase.execute(id),
+      onSuccess: invalidateOrdersAndInventory,
+    }),
     createProductionOrder: useMutation({
       mutationFn: (input: CreateProductionOrderInput) =>
         createOrderUseCase.execute(input),
       onSuccess: () => {
         void queryClient.invalidateQueries({
           queryKey: productionQueryKeys.orders,
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ["inventory"],
         });
       },
     }),
@@ -42,6 +63,14 @@ export function useProductionMutations() {
           queryKey: productionQueryKeys.recipes,
         });
       },
+    }),
+    finishProductionOrder: useMutation({
+      mutationFn: (id: string) => finishOrderUseCase.execute(id),
+      onSuccess: invalidateOrdersAndInventory,
+    }),
+    startProductionOrder: useMutation({
+      mutationFn: (id: string) => startOrderUseCase.execute(id),
+      onSuccess: invalidateOrdersAndInventory,
     }),
   };
 }

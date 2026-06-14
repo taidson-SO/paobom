@@ -158,6 +158,7 @@ function getOrigin(type: RegisterStockMovementInput["type"]) {
     loss: "loss",
     production_in: "production",
     production_out: "production",
+    production_reversal: "production",
     purchase_in: "purchase",
     purchase_reversal: "purchase",
     sale_out: "sale",

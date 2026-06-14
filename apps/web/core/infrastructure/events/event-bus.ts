@@ -12,6 +12,7 @@ export type AppEvents = {
       | "purchase_reversal"
       | "production_out"
       | "production_in"
+      | "production_reversal"
       | "sale_out";
     unitCost: number;
   };

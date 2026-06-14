@@ -42,12 +42,15 @@ const initialOrderForm: OrderForm = {
 
 export function ProductionSection({ products }: { products: Product[] }) {
   const {
+    cancelProductionOrder,
     createProductionOrder,
     createRecipe,
+    finishProductionOrder,
     orders,
     recipes,
     selectedRecipeId,
     setSelectedRecipe,
+    startProductionOrder,
   } = useProduction();
   const [recipeForm, setRecipeForm] = useState<RecipeForm>(initialRecipeForm);
   const [orderForm, setOrderForm] = useState<OrderForm>(initialOrderForm);
@@ -223,7 +226,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
             </p>
           ) : null}
           <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
-            Registrar producao
+            Planejar producao
           </button>
         </form>
 
@@ -273,6 +276,8 @@ export function ProductionSection({ products }: { products: Product[] }) {
                 <th className="px-3 py-2">Ordem</th>
                 <th className="px-3 py-2">Produzido</th>
                 <th className="px-3 py-2">Custo</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -285,7 +290,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
                     </p>
                     <p className="text-xs text-zinc-500">
                       v{order.recipeSnapshot.recipeVersion} ·{" "}
-                      {order.completedAt?.toLocaleDateString() ?? "-"}
+                      {order.startedAt?.toLocaleDateString() ?? "nao iniciada"}
                     </p>
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
@@ -295,6 +300,45 @@ export function ProductionSection({ products }: { products: Product[] }) {
                   <td className="px-3 py-3 font-semibold text-zinc-800">
                     R$ {order.totalCost.toFixed(2)}
                   </td>
+                  <td className="px-3 py-3">
+                    <Status status={order.status} />
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      {order.status === "planned" ? (
+                        <>
+                          <button
+                            className="text-sm font-semibold text-green-800"
+                            onClick={() => startProductionOrder.mutate(order.id)}
+                          >
+                            Iniciar
+                          </button>
+                          <button
+                            className="text-sm font-semibold text-zinc-500"
+                            onClick={() => cancelProductionOrder.mutate(order.id)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : null}
+                      {order.status === "started" ? (
+                        <>
+                          <button
+                            className="text-sm font-semibold text-green-800"
+                            onClick={() => finishProductionOrder.mutate(order.id)}
+                          >
+                            Finalizar
+                          </button>
+                          <button
+                            className="text-sm font-semibold text-zinc-500"
+                            onClick={() => cancelProductionOrder.mutate(order.id)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -302,6 +346,31 @@ export function ProductionSection({ products }: { products: Product[] }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function Status({
+  status,
+}: {
+  status: "planned" | "started" | "finished" | "cancelled";
+}) {
+  const labels = {
+    cancelled: "Cancelada",
+    finished: "Finalizada",
+    planned: "A produzir",
+    started: "Iniciada",
+  };
+  const colors = {
+    cancelled: "bg-zinc-100 text-zinc-500",
+    finished: "bg-green-100 text-green-800",
+    planned: "bg-amber-100 text-amber-800",
+    started: "bg-blue-100 text-blue-800",
+  };
+
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-bold ${colors[status]}`}>
+      {labels[status]}
+    </span>
   );
 }
 

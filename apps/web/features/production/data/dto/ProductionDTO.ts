@@ -42,5 +42,6 @@ export type ProductionOrderDTO = {
   quantity_produced: number;
   recipe_id: string;
   recipe_snapshot: RecipeSnapshotDTO;
+  started_at: string | null;
   status: ProductionOrderStatus;
 };

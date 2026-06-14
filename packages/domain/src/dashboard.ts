@@ -73,7 +73,7 @@ export class GetBusinessDashboardUseCase {
       (purchase) => purchase.status === "ordered",
     );
     const completedProductions = productions.filter(
-      (production) => production.status === "completed",
+      (production) => production.status === "finished",
     );
     const revenue = paidSales.reduce((sum, sale) => sum + sale.total, 0);
     const grossMargin = paidSales.reduce(

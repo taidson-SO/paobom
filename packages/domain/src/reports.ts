@@ -101,11 +101,15 @@ export class GetBusinessReportsUseCase {
       },
       production: {
         ordersByStatus: summarizeProductionsByStatus(productions),
-        totalCost: productions.reduce(
+        totalCost: productions
+          .filter((production) => production.status === "finished")
+          .reduce(
           (sum, production) => sum + production.totalCost,
           0,
         ),
-        totalProduced: productions.reduce(
+        totalProduced: productions
+          .filter((production) => production.status === "finished")
+          .reduce(
           (sum, production) => sum + production.quantityProduced,
           0,
         ),
@@ -169,6 +173,7 @@ function summarizeMovementsByType(
     loss: "Perdas",
     production_in: "Entrada producao",
     production_out: "Consumo producao",
+    production_reversal: "Estorno producao",
     purchase_in: "Entrada compra",
     purchase_reversal: "Estorno compra",
     sale_out: "Saida venda",
@@ -185,8 +190,9 @@ function summarizeProductionsByStatus(
     (production) => production.status,
     {
       cancelled: "Cancelada",
-      completed: "Concluida",
+      finished: "Finalizada",
       planned: "Planejada",
+      started: "Iniciada",
     },
     (production) => production.totalCost,
   );

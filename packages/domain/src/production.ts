@@ -1,3 +1,4 @@
+import { InventoryRepository } from "./inventory";
 import { ProductRepository } from "./product";
 
 export type RecipeIngredientProps = {
@@ -24,7 +25,11 @@ export type CreateRecipeInput = {
   ingredients: RecipeIngredientProps[];
 };
 
-export type ProductionOrderStatus = "planned" | "completed" | "cancelled";
+export type ProductionOrderStatus =
+  | "planned"
+  | "started"
+  | "finished"
+  | "cancelled";
 
 export type ProductionConsumptionProps = {
   productId: string;
@@ -51,6 +56,7 @@ export type ProductionOrderProps = {
   ingredientConsumptions: ProductionConsumptionProps[];
   notes: string;
   createdAt: Date;
+  startedAt: Date | null;
   completedAt: Date | null;
 };
 
@@ -162,7 +168,7 @@ export class Recipe {
 }
 
 export class ProductionOrder {
-  constructor(private readonly props: ProductionOrderProps) {
+  constructor(private props: ProductionOrderProps) {
     this.assertValid();
   }
 
@@ -205,6 +211,10 @@ export class ProductionOrder {
     return this.props.createdAt;
   }
 
+  get startedAt() {
+    return this.props.startedAt;
+  }
+
   get completedAt() {
     return this.props.completedAt;
   }
@@ -214,6 +224,45 @@ export class ProductionOrder {
       (sum, item) => sum + item.quantity * item.unitCost,
       0,
     );
+  }
+
+  start(startedAt = new Date()) {
+    if (this.props.status !== "planned") {
+      throw new Error("Apenas producao planejada pode ser iniciada");
+    }
+
+    this.props = {
+      ...this.props,
+      startedAt,
+      status: "started",
+    };
+  }
+
+  finish(completedAt = new Date()) {
+    if (this.props.status !== "started") {
+      throw new Error("Apenas producao iniciada pode ser finalizada");
+    }
+
+    this.props = {
+      ...this.props,
+      completedAt,
+      status: "finished",
+    };
+  }
+
+  cancel() {
+    if (this.props.status === "finished") {
+      throw new Error("Producao finalizada nao pode ser cancelada");
+    }
+
+    this.props = {
+      ...this.props,
+      status: "cancelled",
+    };
+  }
+
+  get wasStarted() {
+    return this.props.startedAt !== null;
   }
 
   toJSON(): ProductionOrderProps {
@@ -258,12 +307,18 @@ export interface RecipeRepository {
 }
 
 export interface ProductionOrderRepository {
+  cancel(id: string): Promise<ProductionOrder>;
   create(order: ProductionOrder): Promise<ProductionOrder>;
   findAll(): Promise<ProductionOrder[]>;
+  findById(id: string): Promise<ProductionOrder | null>;
+  finish(id: string): Promise<ProductionOrder>;
+  start(id: string): Promise<ProductionOrder>;
 }
 
 export interface ProductionInventoryGateway {
-  registerProduction(order: ProductionOrder): Promise<void>;
+  registerProductionFinish(order: ProductionOrder): Promise<void>;
+  registerProductionStart(order: ProductionOrder): Promise<void>;
+  reverseProductionStart(order: ProductionOrder): Promise<void>;
 }
 
 export class ListRecipesUseCase {
@@ -312,7 +367,6 @@ export class CreateProductionOrderUseCase {
     private readonly orders: ProductionOrderRepository,
     private readonly recipes: RecipeRepository,
     private readonly products: ProductRepository,
-    private readonly inventory: ProductionInventoryGateway,
   ) {}
 
   async execute(input: CreateProductionOrderInput) {
@@ -345,7 +399,7 @@ export class CreateProductionOrderUseCase {
     }
 
     const order = new ProductionOrder({
-      completedAt: new Date(),
+      completedAt: null,
       createdAt: new Date(),
       id: crypto.randomUUID(),
       ingredientConsumptions: consumptions,
@@ -354,13 +408,92 @@ export class CreateProductionOrderUseCase {
       quantityProduced: input.quantityProduced,
       recipeId: recipe.id,
       recipeSnapshot: recipe.toSnapshot(),
-      status: "completed",
+      startedAt: null,
+      status: "planned",
     });
 
-    const createdOrder = await this.orders.create(order);
+    return this.orders.create(order);
+  }
+}
 
-    await this.inventory.registerProduction(createdOrder);
+export class StartProductionOrderUseCase {
+  constructor(
+    private readonly orders: ProductionOrderRepository,
+    private readonly inventoryRepository: InventoryRepository,
+    private readonly inventoryGateway: ProductionInventoryGateway,
+  ) {}
 
-    return createdOrder;
+  async execute(id: string) {
+    if (!id) {
+      throw new Error("Producao nao informada");
+    }
+
+    const order = await this.orders.findById(id);
+
+    if (!order) {
+      throw new Error("Producao nao encontrada");
+    }
+
+    await this.assertInventoryAvailable(order);
+
+    const startedOrder = await this.orders.start(id);
+
+    await this.inventoryGateway.registerProductionStart(startedOrder);
+
+    return startedOrder;
+  }
+
+  private async assertInventoryAvailable(order: ProductionOrder) {
+    const balances = await this.inventoryRepository.findBalances();
+
+    order.ingredientConsumptions.forEach((ingredient) => {
+      const balance = balances.find(
+        (item) => item.productId === ingredient.productId,
+      );
+
+      if (!balance || balance.quantity < ingredient.quantity) {
+        throw new Error("Estoque insuficiente para iniciar producao");
+      }
+    });
+  }
+}
+
+export class FinishProductionOrderUseCase {
+  constructor(
+    private readonly orders: ProductionOrderRepository,
+    private readonly inventory: ProductionInventoryGateway,
+  ) {}
+
+  async execute(id: string) {
+    if (!id) {
+      throw new Error("Producao nao informada");
+    }
+
+    const finishedOrder = await this.orders.finish(id);
+
+    await this.inventory.registerProductionFinish(finishedOrder);
+
+    return finishedOrder;
+  }
+}
+
+export class CancelProductionOrderUseCase {
+  constructor(
+    private readonly orders: ProductionOrderRepository,
+    private readonly inventory?: ProductionInventoryGateway,
+  ) {}
+
+  async execute(id: string) {
+    if (!id) {
+      throw new Error("Producao nao informada");
+    }
+
+    const cancelledOrder = await this.orders.cancel(id);
+
+    if (cancelledOrder.wasStarted) {
+      await this.inventory?.reverseProductionStart(cancelledOrder);
+    }
+
+    return cancelledOrder;
   }
 }

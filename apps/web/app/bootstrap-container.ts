@@ -3,6 +3,7 @@
 import {
   CancelCashEntryUseCase,
   CancelCustomerInteractionUseCase,
+  CancelProductionOrderUseCase,
   CancelPurchaseUseCase,
   CancelSaleUseCase,
   CompleteCustomerInteractionUseCase,
@@ -16,6 +17,7 @@ import {
   DeactivateCustomerUseCase,
   DeactivateProductUseCase,
   DeactivateSupplierUseCase,
+  FinishProductionOrderUseCase,
   GetCashFlowSummaryUseCase,
   GetBusinessDashboardUseCase,
   GetBusinessReportsUseCase,
@@ -38,6 +40,7 @@ import {
   RegisterInventoryAdjustmentUseCase,
   RegisterLossUseCase,
   SettleCashEntryUseCase,
+  StartProductionOrderUseCase,
   UpdateCustomerUseCase,
   UpdateProductUseCase,
   UpdateSupplierUseCase,
@@ -324,6 +327,30 @@ function registerUseCases() {
         container.get(TOKENS.productionOrderRepository),
         container.get(TOKENS.recipeRepository),
         container.get(TOKENS.productRepository),
+      ),
+  );
+  container.register(
+    TOKENS.startProductionOrderUseCase,
+    () =>
+      new StartProductionOrderUseCase(
+        container.get(TOKENS.productionOrderRepository),
+        container.get(TOKENS.inventoryRepository),
+        container.get(TOKENS.productionInventoryGateway),
+      ),
+  );
+  container.register(
+    TOKENS.finishProductionOrderUseCase,
+    () =>
+      new FinishProductionOrderUseCase(
+        container.get(TOKENS.productionOrderRepository),
+        container.get(TOKENS.productionInventoryGateway),
+      ),
+  );
+  container.register(
+    TOKENS.cancelProductionOrderUseCase,
+    () =>
+      new CancelProductionOrderUseCase(
+        container.get(TOKENS.productionOrderRepository),
         container.get(TOKENS.productionInventoryGateway),
       ),
   );

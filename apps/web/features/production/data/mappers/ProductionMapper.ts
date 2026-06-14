@@ -76,6 +76,7 @@ export class ProductionMapper {
         recipe_version: order.recipeSnapshot.recipeVersion,
         yield_quantity: order.recipeSnapshot.yieldQuantity,
       },
+      started_at: order.startedAt?.toISOString() ?? null,
       status: order.status,
     };
   }
@@ -105,6 +106,7 @@ export class ProductionMapper {
         recipeVersion: dto.recipe_snapshot.recipe_version,
         yieldQuantity: dto.recipe_snapshot.yield_quantity,
       },
+      startedAt: dto.started_at ? new Date(dto.started_at) : null,
       status: dto.status,
     };
 
