@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No domain tests configured yet\""
+    "test": "tsc -p tsconfig.test.json && node .test-output/test/domain.test.js"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "typescript": "^5.9.3"
   }
 }

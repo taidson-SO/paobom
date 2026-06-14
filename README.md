@@ -115,7 +115,26 @@ Na estabilizacao da fase 12, estes comandos passam:
 - `pnpm test`
 - `pnpm build`
 
-Observacao: `pnpm test` ainda executa placeholders. A fase seguinte de qualidade deve substituir esses scripts por testes reais de dominio e fluxos de integracao.
+Observacao: `pnpm test` agora executa testes reais no pacote de dominio. Web e mobile ainda mantem placeholders e devem receber testes de UI/integracao nas proximas fases.
+
+## Testes de Dominio
+
+A Fase 14 substitui o placeholder do pacote `@paobom/domain` por testes reais com `node:test`, cobrindo:
+
+- Produtos/Insumos
+- Estoque rastreavel
+- Compras com custo
+- Receitas versionadas e producao
+- Vendas com estoque, desconto e cancelamento
+- Caixa, fluxo financeiro e lucratividade
+- Permissoes
+- Auditoria
+
+Executar somente os testes de dominio:
+
+```bash
+pnpm --filter @paobom/domain test
+```
 
 ## Perfis de Permissao Mock
 
