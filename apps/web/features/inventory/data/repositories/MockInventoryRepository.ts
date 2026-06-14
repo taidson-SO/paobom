@@ -33,6 +33,7 @@ let movements: StockMovementDTO[] = [
   {
     id: "mov-1",
     occurred_at: now,
+    origin: "opening_balance",
     product_id: "prod-1",
     quantity: 18,
     reason: "Saldo inicial",
@@ -43,6 +44,7 @@ let movements: StockMovementDTO[] = [
   {
     id: "mov-2",
     occurred_at: now,
+    origin: "opening_balance",
     product_id: "prod-2",
     quantity: 260,
     reason: "Saldo inicial",
@@ -78,6 +80,7 @@ export class MockInventoryRepository implements InventoryRepository {
     const movement = new StockMovement({
       id: crypto.randomUUID(),
       occurredAt: input.occurredAt ?? new Date(),
+      origin: input.origin ?? getOrigin(input.type),
       productId: input.productId,
       quantity: input.quantity,
       reason: input.reason,
@@ -102,6 +105,11 @@ function upsertBalance(
   );
   const direction = getDirection(movement);
   const nextQuantity = (current?.quantity ?? 0) + direction * movement.quantity;
+
+  if (nextQuantity < 0) {
+    throw new Error("Movimentacao deixaria o estoque negativo");
+  }
+
   const nextBalance = new InventoryBalance({
     averageCost: movement.unitCost || current?.average_cost || 0,
     minimumStock: current?.minimum_stock ?? 0,
@@ -120,13 +128,18 @@ function upsertBalance(
 }
 
 function getDirection(movement: StockMovement) {
-  if (
-    movement.type === "purchase_in" ||
-    movement.type === "production_in" ||
-    movement.type === "adjustment"
-  ) {
-    return 1;
-  }
+  return movement.isInbound ? 1 : -1;
+}
 
-  return -1;
+function getOrigin(type: RegisterStockMovementInput["type"]) {
+  const origins = {
+    adjustment: "manual_adjustment",
+    loss: "loss",
+    production_in: "production",
+    production_out: "production",
+    purchase_in: "purchase",
+    sale_out: "sale",
+  } as const;
+
+  return origins[type];
 }

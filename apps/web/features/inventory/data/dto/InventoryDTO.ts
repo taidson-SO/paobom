@@ -1,4 +1,4 @@
-import { StockMovementType } from "@paobom/domain";
+import { StockMovementOrigin, StockMovementType } from "@paobom/domain";
 
 export type InventoryBalanceDTO = {
   average_cost: number;
@@ -10,6 +10,7 @@ export type InventoryBalanceDTO = {
 export type StockMovementDTO = {
   id: string;
   occurred_at: string;
+  origin: StockMovementOrigin;
   product_id: string;
   quantity: number;
   reason: string;

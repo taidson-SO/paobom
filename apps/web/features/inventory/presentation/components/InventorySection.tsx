@@ -1,6 +1,6 @@
 "use client";
 
-import { Product } from "@paobom/domain";
+import { Product, ProductKind, StockMovementOrigin } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
 import { useInventory } from "@/features/inventory/presentation/hooks/useInventory";
@@ -34,6 +34,23 @@ const movementLabels = {
   sale_out: "Venda",
 };
 
+const originLabels: Record<StockMovementOrigin, string> = {
+  loss: "Perda",
+  manual_adjustment: "Ajuste manual",
+  opening_balance: "Saldo inicial",
+  production: "Producao",
+  purchase: "Compra",
+  return: "Devolucao",
+  sale: "Venda",
+};
+
+const kindLabels: Record<ProductKind, string> = {
+  finished_product: "Produto final",
+  packaging: "Embalagem",
+  raw_material: "Insumo",
+  resale: "Revenda",
+};
+
 export function InventorySection({ products }: { products: Product[] }) {
   const {
     balances,
@@ -47,6 +64,10 @@ export function InventorySection({ products }: { products: Product[] }) {
   const [error, setError] = useState<string | null>(null);
   const productNames = useMemo(
     () => new Map(products.map((product) => [product.id, product.name])),
+    [products],
+  );
+  const productKinds = useMemo(
+    () => new Map(products.map((product) => [product.id, product.kind])),
     [products],
   );
   const activeProducts = products.filter((product) => product.active);
@@ -180,6 +201,7 @@ export function InventorySection({ products }: { products: Product[] }) {
             <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-3 py-2">Produto</th>
+                <th className="px-3 py-2">Tipo</th>
                 <th className="px-3 py-2">Saldo</th>
                 <th className="px-3 py-2">Minimo</th>
                 <th className="px-3 py-2">Valor</th>
@@ -211,6 +233,9 @@ export function InventorySection({ products }: { products: Product[] }) {
                     ) : null}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
+                    {getProductKindLabel(productKinds.get(balance.productId))}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
                     {balance.quantity}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
@@ -232,6 +257,7 @@ export function InventorySection({ products }: { products: Product[] }) {
                 <th className="px-3 py-2">Movimento</th>
                 <th className="px-3 py-2">Produto</th>
                 <th className="px-3 py-2">Qtd.</th>
+                <th className="px-3 py-2">Origem</th>
                 <th className="px-3 py-2">Data</th>
               </tr>
             </thead>
@@ -242,13 +268,21 @@ export function InventorySection({ products }: { products: Product[] }) {
                     <p className="font-semibold text-zinc-950">
                       {movementLabels[movement.type]}
                     </p>
-                    <p className="text-xs text-zinc-500">{movement.reason}</p>
+                    <p className="text-xs text-zinc-500">
+                      {movement.reason}
+                    </p>
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {productNames.get(movement.productId) ?? "Produto"}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {movement.quantity}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    <p>{originLabels[movement.origin]}</p>
+                    <p className="text-xs text-zinc-500">
+                      {movement.referenceId ?? "sem referencia"}
+                    </p>
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {movement.occurredAt.toLocaleDateString()}
@@ -261,6 +295,10 @@ export function InventorySection({ products }: { products: Product[] }) {
       </div>
     </section>
   );
+}
+
+function getProductKindLabel(kind?: ProductKind) {
+  return kind ? kindLabels[kind] : "Nao classificado";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

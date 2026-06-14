@@ -8,10 +8,20 @@ export type StockMovementType =
   | "loss"
   | "adjustment";
 
+export type StockMovementOrigin =
+  | "opening_balance"
+  | "purchase"
+  | "production"
+  | "sale"
+  | "loss"
+  | "manual_adjustment"
+  | "return";
+
 export type StockMovementProps = {
   id: string;
   productId: string;
   type: StockMovementType;
+  origin: StockMovementOrigin;
   quantity: number;
   unitCost: number;
   reason: string;
@@ -29,6 +39,7 @@ export type InventoryBalanceProps = {
 export type RegisterStockMovementInput = {
   productId: string;
   type: StockMovementType;
+  origin?: StockMovementOrigin;
   quantity: number;
   unitCost: number;
   reason: string;
@@ -65,6 +76,10 @@ export class StockMovement {
     return this.props.type;
   }
 
+  get origin() {
+    return this.props.origin;
+  }
+
   get quantity() {
     return this.props.quantity;
   }
@@ -85,6 +100,18 @@ export class StockMovement {
     return this.props.occurredAt;
   }
 
+  get isInbound() {
+    return (
+      this.props.type === "purchase_in" ||
+      this.props.type === "production_in" ||
+      this.props.type === "adjustment"
+    );
+  }
+
+  get isOutbound() {
+    return !this.isInbound;
+  }
+
   toJSON(): StockMovementProps {
     return { ...this.props };
   }
@@ -101,7 +128,24 @@ export class StockMovement {
     if (this.props.unitCost < 0) {
       throw new Error("Custo unitario nao pode ser negativo");
     }
+
+    if (this.props.reason.trim().length < 2) {
+      throw new Error("Movimentacao de estoque deve possuir justificativa");
+    }
+
+    if (requiresReference(this.props.type) && !this.props.referenceId) {
+      throw new Error("Movimentacao de estoque deve possuir referencia de origem");
+    }
   }
+}
+
+function requiresReference(type: StockMovementType) {
+  return (
+    type === "purchase_in" ||
+    type === "production_in" ||
+    type === "production_out" ||
+    type === "sale_out"
+  );
 }
 
 export class InventoryBalance {

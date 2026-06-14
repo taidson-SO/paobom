@@ -39,6 +39,7 @@ export class InventoryMapper {
     return {
       id: movement.id,
       occurred_at: movement.occurredAt.toISOString(),
+      origin: movement.origin,
       product_id: movement.productId,
       quantity: movement.quantity,
       reason: movement.reason,
@@ -52,6 +53,7 @@ export class InventoryMapper {
     const props: StockMovementProps = {
       id: dto.id,
       occurredAt: new Date(dto.occurred_at),
+      origin: dto.origin,
       productId: dto.product_id,
       quantity: dto.quantity,
       reason: dto.reason,
