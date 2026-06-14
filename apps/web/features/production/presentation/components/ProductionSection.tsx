@@ -3,6 +3,7 @@
 import { Product } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useProduction } from "@/features/production/presentation/hooks/useProduction";
@@ -55,6 +56,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
     startProductionOrder,
   } = useProduction();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canManageRecipe = can("production:manage-recipe");
   const canManageOrder = can("production:manage-order");
   const canCancelProduction = can("production:cancel");
@@ -83,7 +85,18 @@ export function ProductionSection({ products }: { products: Product[] }) {
     try {
       const input = RecipeSchema.parse(recipeForm);
 
-      await createRecipe.mutateAsync(input);
+      const recipe = await createRecipe.mutateAsync(input);
+      recordAudit({
+        action: "recipe.create-version",
+        description: `Ficha tecnica ${recipe.name} v${recipe.version} criada`,
+        entity: "recipe",
+        entityId: recipe.id,
+        metadata: {
+          ingredients: recipe.ingredients.length,
+          outputProductId: recipe.outputProductId,
+          version: recipe.version,
+        },
+      });
       setRecipeForm(initialRecipeForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Ficha tecnica invalida");
@@ -102,7 +115,17 @@ export function ProductionSection({ products }: { products: Product[] }) {
     try {
       const input = ProductionOrderSchema.parse(orderForm);
 
-      await createProductionOrder.mutateAsync(input);
+      const order = await createProductionOrder.mutateAsync(input);
+      recordAudit({
+        action: "production_order.create",
+        description: `Ordem de producao ${order.id} planejada`,
+        entity: "production_order",
+        entityId: order.id,
+        metadata: {
+          quantityProduced: order.quantityProduced,
+          recipeId: order.recipeId,
+        },
+      });
       setOrderForm(initialOrderForm);
       setSelectedRecipe(null);
     } catch (cause) {
@@ -341,9 +364,16 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           {canManageOrder ? (
                             <button
                               className="text-sm font-semibold text-green-800"
-                              onClick={() =>
-                                startProductionOrder.mutate(order.id)
-                              }
+                              onClick={async () => {
+                                await startProductionOrder.mutateAsync(order.id);
+                                recordAudit({
+                                  action: "production_order.start",
+                                  description: `Ordem ${order.id} iniciada`,
+                                  entity: "production_order",
+                                  entityId: order.id,
+                                  metadata: { recipeId: order.recipeId },
+                                });
+                              }}
                             >
                               Iniciar
                             </button>
@@ -351,9 +381,16 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           {canCancelProduction ? (
                             <button
                               className="text-sm font-semibold text-zinc-500"
-                              onClick={() =>
-                                cancelProductionOrder.mutate(order.id)
-                              }
+                              onClick={async () => {
+                                await cancelProductionOrder.mutateAsync(order.id);
+                                recordAudit({
+                                  action: "production_order.cancel",
+                                  description: `Ordem ${order.id} cancelada`,
+                                  entity: "production_order",
+                                  entityId: order.id,
+                                  metadata: { status: order.status },
+                                });
+                              }}
                             >
                               Cancelar
                             </button>
@@ -365,9 +402,19 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           {canManageOrder ? (
                             <button
                               className="text-sm font-semibold text-green-800"
-                              onClick={() =>
-                                finishProductionOrder.mutate(order.id)
-                              }
+                              onClick={async () => {
+                                await finishProductionOrder.mutateAsync(order.id);
+                                recordAudit({
+                                  action: "production_order.finish",
+                                  description: `Ordem ${order.id} finalizada`,
+                                  entity: "production_order",
+                                  entityId: order.id,
+                                  metadata: {
+                                    totalCost: order.totalCost,
+                                    unitCost: order.unitCost,
+                                  },
+                                });
+                              }}
                             >
                               Finalizar
                             </button>
@@ -375,9 +422,16 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           {canCancelProduction ? (
                             <button
                               className="text-sm font-semibold text-zinc-500"
-                              onClick={() =>
-                                cancelProductionOrder.mutate(order.id)
-                              }
+                              onClick={async () => {
+                                await cancelProductionOrder.mutateAsync(order.id);
+                                recordAudit({
+                                  action: "production_order.cancel",
+                                  description: `Ordem ${order.id} cancelada`,
+                                  entity: "production_order",
+                                  entityId: order.id,
+                                  metadata: { status: order.status },
+                                });
+                              }}
                             >
                               Cancelar
                             </button>

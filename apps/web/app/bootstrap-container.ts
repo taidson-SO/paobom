@@ -24,6 +24,7 @@ import {
   GetBusinessReportsUseCase,
   GetCurrentCashRegisterUseCase,
   GetCustomerRelationshipSummaryUseCase,
+  ListAuditLogsUseCase,
   ListCashEntriesUseCase,
   ListCashRegistersUseCase,
   ListCustomerInteractionsUseCase,
@@ -39,6 +40,7 @@ import {
   OpenCashRegisterUseCase,
   PaySaleUseCase,
   ReceivePurchaseUseCase,
+  RegisterAuditLogUseCase,
   RegisterCashEntryUseCase,
   RegisterCustomerInteractionUseCase,
   RegisterInventoryAdjustmentUseCase,
@@ -54,6 +56,7 @@ import { container } from "@/core/infrastructure/di/container";
 import { bootstrapCoreContainer } from "@/core/infrastructure/di/bootstrap";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
 import { eventBus } from "@/core/infrastructure/events/event-bus";
+import { MockAuditLogRepository } from "@/features/audit/data/repositories/MockAuditLogRepository";
 import { MockCustomerRelationshipRepository } from "@/features/customer-relationship/data/repositories/MockCustomerRelationshipRepository";
 import { MockCustomerRepository } from "@/features/customer/data/repositories/MockCustomerRepository";
 import { EventPurchaseFinanceGateway } from "@/features/finance/data/gateways/EventPurchaseFinanceGateway";
@@ -73,6 +76,7 @@ import { MockSaleRepository } from "@/features/sales/data/repositories/MockSaleR
 import { MockSupplierRepository } from "@/features/supplier/data/repositories/MockSupplierRepository";
 
 let bootstrapped = false;
+const auditLogRepository = new MockAuditLogRepository(eventBus);
 
 export function bootstrapAppContainer() {
   if (bootstrapped) {
@@ -81,6 +85,7 @@ export function bootstrapAppContainer() {
 
   bootstrapCoreContainer();
 
+  container.register(TOKENS.auditLogRepository, () => auditLogRepository);
   container.register(TOKENS.healthRepository, () => new MockHealthRepository());
   container.register(TOKENS.productRepository, () => new MockProductRepository());
   container.register(TOKENS.supplierRepository, () => new MockSupplierRepository());
@@ -134,6 +139,14 @@ export function bootstrapAppContainer() {
 }
 
 function registerUseCases() {
+  container.register(
+    TOKENS.listAuditLogsUseCase,
+    () => new ListAuditLogsUseCase(container.get(TOKENS.auditLogRepository)),
+  );
+  container.register(
+    TOKENS.registerAuditLogUseCase,
+    () => new RegisterAuditLogUseCase(container.get(TOKENS.auditLogRepository)),
+  );
   container.register(
     TOKENS.getSystemHealthUseCase,
     () =>

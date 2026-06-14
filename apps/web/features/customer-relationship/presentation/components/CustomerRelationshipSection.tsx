@@ -7,6 +7,7 @@ import {
 } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useCustomerRelationship } from "@/features/customer-relationship/presentation/hooks/useCustomerRelationship";
@@ -45,6 +46,7 @@ export function CustomerRelationshipSection({
     summary,
   } = useCustomerRelationship();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canManageCrm = can("crm:manage");
   const [form, setForm] = useState<RelationshipForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,17 @@ export function CustomerRelationshipSection({
         nextContactAt: form.nextContactAt || null,
       });
 
-      await registerInteraction.mutateAsync(input);
+      const interaction = await registerInteraction.mutateAsync(input);
+      recordAudit({
+        action: "customer_interaction.create",
+        description: `Interacao ${interaction.subject} registrada`,
+        entity: "customer_interaction",
+        entityId: interaction.id,
+        metadata: {
+          customerId: interaction.customerId,
+          type: interaction.type,
+        },
+      });
       setForm(initialForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Interacao invalida");
@@ -271,17 +283,33 @@ export function CustomerRelationshipSection({
                       <div className="flex justify-end gap-2">
                         <button
                           className="text-sm font-semibold text-green-800"
-                          onClick={() =>
-                            completeInteraction.mutate(interaction.id)
-                          }
+                          onClick={async () => {
+                            await completeInteraction.mutateAsync(
+                              interaction.id,
+                            );
+                            recordAudit({
+                              action: "customer_interaction.complete",
+                              description: `Interacao ${interaction.subject} concluida`,
+                              entity: "customer_interaction",
+                              entityId: interaction.id,
+                              metadata: { customerId: interaction.customerId },
+                            });
+                          }}
                         >
                           Concluir
                         </button>
                         <button
                           className="text-sm font-semibold text-zinc-500"
-                          onClick={() =>
-                            cancelInteraction.mutate(interaction.id)
-                          }
+                          onClick={async () => {
+                            await cancelInteraction.mutateAsync(interaction.id);
+                            recordAudit({
+                              action: "customer_interaction.cancel",
+                              description: `Interacao ${interaction.subject} cancelada`,
+                              entity: "customer_interaction",
+                              entityId: interaction.id,
+                              metadata: { customerId: interaction.customerId },
+                            });
+                          }}
                         >
                           Cancelar
                         </button>

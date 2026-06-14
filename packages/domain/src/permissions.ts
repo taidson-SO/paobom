@@ -10,6 +10,7 @@ export type UserRole =
 export type Permission =
   | "dashboard:view"
   | "reports:view"
+  | "audit:view"
   | "product:view"
   | "product:manage"
   | "supplier:view"
@@ -52,6 +53,7 @@ export type AppUser = {
 const allPermissions = [
   "dashboard:view",
   "reports:view",
+  "audit:view",
   "product:view",
   "product:manage",
   "supplier:view",
@@ -99,6 +101,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
   cashier: [
     "dashboard:view",
     "reports:view",
+    "audit:view",
     "customer:view",
     "customer:manage",
     "sales:view",

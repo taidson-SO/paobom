@@ -3,6 +3,7 @@
 import { CreateCustomerInput } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useCustomers } from "@/features/customer/presentation/hooks/useCustomers";
@@ -26,6 +27,7 @@ export function CustomerSection() {
     updateCustomer,
   } = useCustomers();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canManageCustomers = can("customer:manage");
   const [form, setForm] = useState<CreateCustomerInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +45,28 @@ export function CustomerSection() {
       const input = CustomerSchema.parse(form);
 
       if (selectedCustomerId) {
-        await updateCustomer.mutateAsync({ id: selectedCustomerId, input });
+        const customer = await updateCustomer.mutateAsync({
+          id: selectedCustomerId,
+          input,
+        });
+
+        recordAudit({
+          action: "customer.update",
+          description: `Cliente ${customer.name} atualizado`,
+          entity: "customer",
+          entityId: customer.id,
+          metadata: { document: customer.document },
+        });
       } else {
-        await createCustomer.mutateAsync(input);
+        const customer = await createCustomer.mutateAsync(input);
+
+        recordAudit({
+          action: "customer.create",
+          description: `Cliente ${customer.name} criado`,
+          entity: "customer",
+          entityId: customer.id,
+          metadata: { document: customer.document },
+        });
       }
 
       setSelectedCustomer(null);
@@ -149,7 +170,16 @@ export function CustomerSection() {
                   <td className="px-3 py-3 text-right">
                     <RowActions
                       active={customer.active}
-                      onDeactivate={() => deactivateCustomer.mutate(customer.id)}
+                      onDeactivate={async () => {
+                        await deactivateCustomer.mutateAsync(customer.id);
+                        recordAudit({
+                          action: "customer.deactivate",
+                          description: `Cliente ${customer.name} inativado`,
+                          entity: "customer",
+                          entityId: customer.id,
+                          metadata: { document: customer.document },
+                        });
+                      }}
                       onEdit={() => {
                         setSelectedCustomer(customer.id);
                         setForm({

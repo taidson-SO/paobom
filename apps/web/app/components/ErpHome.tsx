@@ -8,6 +8,7 @@ import {
   getRoleLabel,
   usePermissionSession,
 } from "@/core/permissions/permission-session";
+import { AuditSection } from "@/features/audit/presentation/components/AuditSection";
 import { CustomerSection } from "@/features/customer/presentation/components/CustomerSection";
 import { CustomerRelationshipSection } from "@/features/customer-relationship/presentation/components/CustomerRelationshipSection";
 import { useCustomers } from "@/features/customer/presentation/hooks/useCustomers";
@@ -29,6 +30,7 @@ const navigationGroups = [
     items: [
       { href: "#visao-geral", label: "Dashboard", permission: "dashboard:view" },
       { href: "#relatorios", label: "Relatorios", permission: "reports:view" },
+      { href: "#auditoria", label: "Auditoria", permission: "audit:view" },
     ],
     label: "Gestao",
   },
@@ -158,6 +160,15 @@ export function ErpHome() {
             title="Relatorios"
           >
             <ReportsSection />
+          </WorkspaceGroup>
+
+          <WorkspaceGroup
+            description="Trilha de eventos para controle, rastreabilidade e governanca."
+            id="auditoria"
+            permission="audit:view"
+            title="Auditoria"
+          >
+            <AuditSection />
           </WorkspaceGroup>
 
           <WorkspaceGroup

@@ -1,5 +1,6 @@
 export const TOKENS = {
   apiClient: Symbol("apiClient"),
+  auditLogRepository: Symbol("auditLogRepository"),
   cancelCashEntryUseCase: Symbol("cancelCashEntryUseCase"),
   closeCashRegisterUseCase: Symbol("closeCashRegisterUseCase"),
   cancelCustomerInteractionUseCase: Symbol("cancelCustomerInteractionUseCase"),
@@ -35,6 +36,7 @@ export const TOKENS = {
   healthRepository: Symbol("healthRepository"),
   inventoryRepository: Symbol("inventoryRepository"),
   listCustomersUseCase: Symbol("listCustomersUseCase"),
+  listAuditLogsUseCase: Symbol("listAuditLogsUseCase"),
   listCashEntriesUseCase: Symbol("listCashEntriesUseCase"),
   listCashRegistersUseCase: Symbol("listCashRegistersUseCase"),
   listCustomerInteractionsUseCase: Symbol("listCustomerInteractionsUseCase"),
@@ -55,6 +57,7 @@ export const TOKENS = {
   receivePurchaseUseCase: Symbol("receivePurchaseUseCase"),
   recipeRepository: Symbol("recipeRepository"),
   registerCashEntryUseCase: Symbol("registerCashEntryUseCase"),
+  registerAuditLogUseCase: Symbol("registerAuditLogUseCase"),
   registerCustomerInteractionUseCase: Symbol(
     "registerCustomerInteractionUseCase",
   ),

@@ -3,6 +3,7 @@
 import { Product, ProductKind, StockMovementOrigin } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useInventory } from "@/features/inventory/presentation/hooks/useInventory";
@@ -66,6 +67,7 @@ export function InventorySection({ products }: { products: Product[] }) {
     setSelectedProduct,
   } = useInventory();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canRegisterLoss = can("inventory:register-loss");
   const canAdjustInventory = can("inventory:adjust");
   const canRegisterMovement = canRegisterLoss || canAdjustInventory;
@@ -106,10 +108,30 @@ export function InventorySection({ products }: { products: Product[] }) {
     try {
       if (form.mode === "loss") {
         const input = RegisterLossSchema.parse(form);
-        await registerLoss.mutateAsync(input);
+        const movement = await registerLoss.mutateAsync(input);
+        recordAudit({
+          action: "inventory.loss",
+          description: "Perda de estoque registrada",
+          entity: "inventory",
+          entityId: movement.productId,
+          metadata: {
+            productId: movement.productId,
+            quantity: movement.quantity,
+          },
+        });
       } else {
         const input = RegisterAdjustmentSchema.parse(form);
-        await registerAdjustment.mutateAsync(input);
+        const movement = await registerAdjustment.mutateAsync(input);
+        recordAudit({
+          action: "inventory.adjust",
+          description: "Ajuste de estoque registrado",
+          entity: "inventory",
+          entityId: movement.productId,
+          metadata: {
+            productId: movement.productId,
+            quantity: movement.quantity,
+          },
+        });
       }
 
       setForm(initialForm);

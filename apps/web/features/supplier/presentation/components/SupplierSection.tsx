@@ -3,6 +3,7 @@
 import { CreateSupplierInput } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
@@ -26,6 +27,7 @@ export function SupplierSection() {
     updateSupplier,
   } = useSuppliers();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canManageSuppliers = can("supplier:manage");
   const [form, setForm] = useState<CreateSupplierInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +45,28 @@ export function SupplierSection() {
       const input = SupplierSchema.parse(form);
 
       if (selectedSupplierId) {
-        await updateSupplier.mutateAsync({ id: selectedSupplierId, input });
+        const supplier = await updateSupplier.mutateAsync({
+          id: selectedSupplierId,
+          input,
+        });
+
+        recordAudit({
+          action: "supplier.update",
+          description: `Fornecedor ${supplier.name} atualizado`,
+          entity: "supplier",
+          entityId: supplier.id,
+          metadata: { document: supplier.document },
+        });
       } else {
-        await createSupplier.mutateAsync(input);
+        const supplier = await createSupplier.mutateAsync(input);
+
+        recordAudit({
+          action: "supplier.create",
+          description: `Fornecedor ${supplier.name} criado`,
+          entity: "supplier",
+          entityId: supplier.id,
+          metadata: { document: supplier.document },
+        });
       }
 
       setSelectedSupplier(null);
@@ -146,7 +167,16 @@ export function SupplierSection() {
                   <td className="px-3 py-3 text-right">
                     <RowActions
                       active={supplier.active}
-                      onDeactivate={() => deactivateSupplier.mutate(supplier.id)}
+                      onDeactivate={async () => {
+                        await deactivateSupplier.mutateAsync(supplier.id);
+                        recordAudit({
+                          action: "supplier.deactivate",
+                          description: `Fornecedor ${supplier.name} inativado`,
+                          entity: "supplier",
+                          entityId: supplier.id,
+                          metadata: { document: supplier.document },
+                        });
+                      }}
                       onEdit={() => {
                         setSelectedSupplier(supplier.id);
                         setForm({

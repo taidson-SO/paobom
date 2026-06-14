@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { CreateProductInput, ProductKind, ProductUnit } from "@paobom/domain";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useProducts } from "@/features/product/presentation/hooks/useProducts";
@@ -30,6 +31,7 @@ export function ProductSection() {
     updateProduct,
   } = useProducts();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canManageProducts = can("product:manage");
   const [form, setForm] = useState<CreateProductInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +49,28 @@ export function ProductSection() {
       const input = ProductSchema.parse(form);
 
       if (selectedProductId) {
-        await updateProduct.mutateAsync({ id: selectedProductId, input });
+        const product = await updateProduct.mutateAsync({
+          id: selectedProductId,
+          input,
+        });
+
+        recordAudit({
+          action: "product.update",
+          description: `Produto ${product.name} atualizado`,
+          entity: "product",
+          entityId: product.id,
+          metadata: { sku: product.sku },
+        });
       } else {
-        await createProduct.mutateAsync(input);
+        const product = await createProduct.mutateAsync(input);
+
+        recordAudit({
+          action: "product.create",
+          description: `Produto ${product.name} criado`,
+          entity: "product",
+          entityId: product.id,
+          metadata: { kind: product.kind, sku: product.sku },
+        });
       }
 
       setSelectedProduct(null);
@@ -202,7 +223,16 @@ export function ProductSection() {
                   <td className="px-3 py-3 text-right">
                     <RowActions
                       active={product.active}
-                      onDeactivate={() => deactivateProduct.mutate(product.id)}
+                      onDeactivate={async () => {
+                        await deactivateProduct.mutateAsync(product.id);
+                        recordAudit({
+                          action: "product.deactivate",
+                          description: `Produto ${product.name} inativado`,
+                          entity: "product",
+                          entityId: product.id,
+                          metadata: { sku: product.sku },
+                        });
+                      }}
                       onEdit={() => {
                         setSelectedProduct(product.id);
                         setForm({

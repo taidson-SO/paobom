@@ -1,4 +1,15 @@
 export type AppEvents = {
+  "audit:record-requested": {
+    action: string;
+    description: string;
+    entity: string;
+    entityId: string | null;
+    metadata?: Record<string, string | number | boolean | null>;
+    result: "success" | "failure";
+    userId: string;
+    userName: string;
+    userRole: string;
+  };
   "health:checked": {
     status: string;
   };

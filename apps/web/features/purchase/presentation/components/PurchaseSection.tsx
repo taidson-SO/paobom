@@ -3,6 +3,7 @@
 import { Product, PurchaseStatus, Supplier } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { usePurchases } from "@/features/purchase/presentation/hooks/usePurchases";
@@ -38,6 +39,7 @@ export function PurchaseSection({
   const { cancelPurchase, createPurchase, purchases, receivePurchase } =
     usePurchases();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canCreatePurchase = can("purchase:create");
   const canReceivePurchase = can("purchase:receive");
   const canCancelPurchase = can("purchase:cancel");
@@ -70,7 +72,18 @@ export function PurchaseSection({
     try {
       const input = PurchaseSchema.parse(form);
 
-      await createPurchase.mutateAsync(input);
+      const purchase = await createPurchase.mutateAsync(input);
+      recordAudit({
+        action: "purchase.create",
+        description: `Compra ${purchase.id} criada`,
+        entity: "purchase",
+        entityId: purchase.id,
+        metadata: {
+          items: purchase.items.length,
+          supplierId: purchase.supplierId,
+          total: purchase.total,
+        },
+      });
       setForm(initialForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Compra invalida");
@@ -269,7 +282,16 @@ export function PurchaseSection({
                         {canReceivePurchase ? (
                           <button
                             className="text-sm font-semibold text-green-800"
-                            onClick={() => receivePurchase.mutate(purchase.id)}
+                            onClick={async () => {
+                              await receivePurchase.mutateAsync(purchase.id);
+                              recordAudit({
+                                action: "purchase.receive",
+                                description: `Compra ${purchase.id} recebida`,
+                                entity: "purchase",
+                                entityId: purchase.id,
+                                metadata: { total: purchase.total },
+                              });
+                            }}
                           >
                             Receber
                           </button>
@@ -277,7 +299,16 @@ export function PurchaseSection({
                         {canCancelPurchase ? (
                           <button
                             className="text-sm font-semibold text-zinc-500"
-                            onClick={() => cancelPurchase.mutate(purchase.id)}
+                            onClick={async () => {
+                              await cancelPurchase.mutateAsync(purchase.id);
+                              recordAudit({
+                                action: "purchase.cancel",
+                                description: `Compra ${purchase.id} cancelada`,
+                                entity: "purchase",
+                                entityId: purchase.id,
+                                metadata: { status: purchase.status },
+                              });
+                            }}
                           >
                             Cancelar
                           </button>
@@ -287,7 +318,16 @@ export function PurchaseSection({
                     {purchase.status === "received" && canCancelPurchase ? (
                       <button
                         className="text-sm font-semibold text-zinc-500"
-                        onClick={() => cancelPurchase.mutate(purchase.id)}
+                        onClick={async () => {
+                          await cancelPurchase.mutateAsync(purchase.id);
+                          recordAudit({
+                            action: "purchase.reverse",
+                            description: `Compra ${purchase.id} estornada`,
+                            entity: "purchase",
+                            entityId: purchase.id,
+                            metadata: { total: purchase.total },
+                          });
+                        }}
                       >
                         Estornar
                       </button>

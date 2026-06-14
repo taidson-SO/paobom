@@ -9,6 +9,7 @@ import {
 } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useSales } from "@/features/sales/presentation/hooks/useSales";
@@ -62,6 +63,7 @@ export function SalesSection({
     setSelectedStatus,
   } = useSales();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canCreateSale = can("sales:create");
   const canPaySale = can("sales:pay");
   const canCancelSale = can("sales:cancel");
@@ -131,7 +133,19 @@ export function SalesSection({
         oversellJustification: form.oversellJustification || null,
       });
 
-      await createSale.mutateAsync(input);
+      const sale = await createSale.mutateAsync(input);
+      recordAudit({
+        action: "sale.create",
+        description: `Venda ${sale.id} registrada`,
+        entity: "sale",
+        entityId: sale.id,
+        metadata: {
+          discountAmount: sale.discountAmount,
+          items: sale.items.length,
+          paymentMethod: sale.paymentMethod,
+          total: sale.total,
+        },
+      });
       setForm(initialForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Venda invalida");
@@ -438,7 +452,16 @@ export function SalesSection({
                         {sale.status === "open" && canPaySale ? (
                           <button
                             className="text-sm font-semibold text-green-800"
-                            onClick={() => paySale.mutate(sale.id)}
+                            onClick={async () => {
+                              await paySale.mutateAsync(sale.id);
+                              recordAudit({
+                                action: "sale.pay",
+                                description: `Venda ${sale.id} recebida`,
+                                entity: "sale",
+                                entityId: sale.id,
+                                metadata: { total: sale.total },
+                              });
+                            }}
                           >
                             Receber
                           </button>
@@ -446,7 +469,16 @@ export function SalesSection({
                         {canCancelSale ? (
                           <button
                             className="text-sm font-semibold text-zinc-500"
-                            onClick={() => cancelSale.mutate(sale.id)}
+                            onClick={async () => {
+                              await cancelSale.mutateAsync(sale.id);
+                              recordAudit({
+                                action: "sale.cancel",
+                                description: `Venda ${sale.id} cancelada`,
+                                entity: "sale",
+                                entityId: sale.id,
+                                metadata: { status: sale.status, total: sale.total },
+                              });
+                            }}
                           >
                             Cancelar
                           </button>

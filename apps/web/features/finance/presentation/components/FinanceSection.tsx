@@ -3,6 +3,7 @@
 import { CashEntryStatus, CashEntryType } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
 import { PermissionNotice } from "@/core/permissions/PermissionGate";
 import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useFinance } from "@/features/finance/presentation/hooks/useFinance";
@@ -65,6 +66,7 @@ export function FinanceSection() {
     summary,
   } = useFinance();
   const { can } = usePermissionSession();
+  const { recordAudit } = useAuditRecorder();
   const canRegisterEntry = can("finance:register-entry");
   const canSettleEntry = can("finance:settle");
   const canCancelEntry = can("finance:cancel");
@@ -90,7 +92,18 @@ export function FinanceSection() {
     try {
       const input = CashEntrySchema.parse(form);
 
-      await registerCashEntry.mutateAsync(input);
+      const entry = await registerCashEntry.mutateAsync(input);
+      recordAudit({
+        action: "cash_entry.create",
+        description: `Lancamento ${entry.description} registrado`,
+        entity: "cash_entry",
+        entityId: entry.id,
+        metadata: {
+          amount: entry.amount,
+          category: entry.category,
+          type: entry.type,
+        },
+      });
       setForm(initialForm);
     } catch (cause) {
       setError(
@@ -111,7 +124,17 @@ export function FinanceSection() {
     try {
       const input = OpenCashRegisterSchema.parse(openRegisterForm);
 
-      await openCashRegister.mutateAsync(input);
+      const register = await openCashRegister.mutateAsync(input);
+      recordAudit({
+        action: "cash_register.open",
+        description: `Caixa ${register.id} aberto`,
+        entity: "cash_register",
+        entityId: register.id,
+        metadata: {
+          openedBy: register.openedBy,
+          openingAmount: register.openingAmount,
+        },
+      });
       setOpenRegisterForm(initialOpenRegisterForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Abertura invalida");
@@ -139,7 +162,17 @@ export function FinanceSection() {
         closingNote: closeRegisterForm.closingNote || null,
       });
 
-      await closeCashRegister.mutateAsync(input);
+      const register = await closeCashRegister.mutateAsync(input);
+      recordAudit({
+        action: "cash_register.close",
+        description: `Caixa ${register.id} fechado`,
+        entity: "cash_register",
+        entityId: register.id,
+        metadata: {
+          countedAmount: register.countedAmount,
+          differenceAmount: register.differenceAmount,
+        },
+      });
       setCloseRegisterForm(initialCloseRegisterForm);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Fechamento invalido");
@@ -375,7 +408,16 @@ export function FinanceSection() {
                         {canSettleEntry ? (
                           <button
                             className="text-sm font-semibold text-green-800"
-                            onClick={() => settleCashEntry.mutate(entry.id)}
+                            onClick={async () => {
+                              await settleCashEntry.mutateAsync(entry.id);
+                              recordAudit({
+                                action: "cash_entry.settle",
+                                description: `Lancamento ${entry.description} baixado`,
+                                entity: "cash_entry",
+                                entityId: entry.id,
+                                metadata: { amount: entry.amount, type: entry.type },
+                              });
+                            }}
                           >
                             Baixar
                           </button>
@@ -383,7 +425,16 @@ export function FinanceSection() {
                         {canCancelEntry ? (
                           <button
                             className="text-sm font-semibold text-zinc-500"
-                            onClick={() => cancelCashEntry.mutate(entry.id)}
+                            onClick={async () => {
+                              await cancelCashEntry.mutateAsync(entry.id);
+                              recordAudit({
+                                action: "cash_entry.cancel",
+                                description: `Lancamento ${entry.description} cancelado`,
+                                entity: "cash_entry",
+                                entityId: entry.id,
+                                metadata: { amount: entry.amount, type: entry.type },
+                              });
+                            }}
                           >
                             Cancelar
                           </button>
