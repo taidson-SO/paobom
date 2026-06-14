@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 
-import { bootstrapAppContainer } from "@/app/bootstrap-container";
+import { bootstrapAppContainer } from "@/core/bootstrap/bootstrap-app-container";
 import { AppProviders } from "@/core/providers/AppProviders";
 
 export default function RootLayout() {

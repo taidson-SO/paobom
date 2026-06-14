@@ -1,25 +1,20 @@
-import { SafeAreaView, StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { theme } from "@/core/theme/theme";
-import { HealthStatusCard } from "@/features/health/presentation/components/HealthStatusCard";
+import { MobileOperationsHome } from "@/features/operations/presentation/components/MobileOperationsHome";
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.content}>
-        <HealthStatusCard />
-      </View>
+      <MobileOperationsHome />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: theme.spacing.lg,
-  },
   screen: {
     backgroundColor: theme.colors.background,
     flex: 1,
-    justifyContent: "center",
   },
 });
