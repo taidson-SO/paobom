@@ -31,6 +31,7 @@ const movementLabels = {
   production_in: "Entrada producao",
   production_out: "Saida producao",
   purchase_in: "Compra",
+  purchase_reversal: "Estorno compra",
   sale_out: "Venda",
 };
 

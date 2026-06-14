@@ -111,7 +111,7 @@ function upsertBalance(
   }
 
   const nextBalance = new InventoryBalance({
-    averageCost: movement.unitCost || current?.average_cost || 0,
+    averageCost: calculateAverageCost(movement, current),
     minimumStock: current?.minimum_stock ?? 0,
     productId: movement.productId,
     quantity: Math.max(0, nextQuantity),
@@ -131,6 +131,27 @@ function getDirection(movement: StockMovement) {
   return movement.isInbound ? 1 : -1;
 }
 
+function calculateAverageCost(
+  movement: StockMovement,
+  current?: InventoryBalanceDTO,
+) {
+  if (!movement.isInbound) {
+    return current?.average_cost ?? movement.unitCost;
+  }
+
+  const currentQuantity = current?.quantity ?? 0;
+  const currentAverageCost = current?.average_cost ?? 0;
+  const currentValue = currentQuantity * currentAverageCost;
+  const incomingValue = movement.quantity * movement.unitCost;
+  const nextQuantity = currentQuantity + movement.quantity;
+
+  if (nextQuantity <= 0) {
+    return movement.unitCost;
+  }
+
+  return (currentValue + incomingValue) / nextQuantity;
+}
+
 function getOrigin(type: RegisterStockMovementInput["type"]) {
   const origins = {
     adjustment: "manual_adjustment",
@@ -138,6 +159,7 @@ function getOrigin(type: RegisterStockMovementInput["type"]) {
     production_in: "production",
     production_out: "production",
     purchase_in: "purchase",
+    purchase_reversal: "purchase",
     sale_out: "sale",
   } as const;
 

@@ -83,6 +83,10 @@ export class Purchase {
     );
   }
 
+  get wasReceived() {
+    return this.props.receivedAt !== null;
+  }
+
   receive() {
     if (this.props.status === "cancelled") {
       throw new Error("Compra cancelada nao pode ser recebida");
@@ -101,10 +105,6 @@ export class Purchase {
   }
 
   cancel() {
-    if (this.props.status === "received") {
-      throw new Error("Compra recebida nao pode ser cancelada");
-    }
-
     this.props = {
       ...this.props,
       status: "cancelled",
@@ -137,8 +137,8 @@ export class Purchase {
         throw new Error("Quantidade do item deve ser maior que zero");
       }
 
-      if (item.unitCost < 0) {
-        throw new Error("Custo unitario nao pode ser negativo");
+      if (item.unitCost <= 0) {
+        throw new Error("Custo unitario deve ser maior que zero");
       }
     });
   }
@@ -153,6 +153,7 @@ export interface PurchaseRepository {
 }
 
 export interface PurchaseInventoryGateway {
+  reverseReceipt(purchase: Purchase): Promise<void>;
   registerReceipt(purchase: Purchase): Promise<void>;
 }
 
@@ -223,6 +224,7 @@ export class CancelPurchaseUseCase {
   constructor(
     private readonly repository: PurchaseRepository,
     private readonly finance?: PurchaseFinanceGateway,
+    private readonly inventory?: PurchaseInventoryGateway,
   ) {}
 
   async execute(id: string) {
@@ -233,6 +235,10 @@ export class CancelPurchaseUseCase {
     const purchase = await this.repository.cancel(id);
 
     await this.finance?.cancelPayable(purchase);
+
+    if (purchase.wasReceived) {
+      await this.inventory?.reverseReceipt(purchase);
+    }
 
     return purchase;
   }

@@ -75,6 +75,15 @@ export function PurchaseSection({
     }));
   }
 
+  function selectProduct(index: number, productId: string) {
+    const product = products.find((item) => item.id === productId);
+
+    updateItem(index, {
+      productId,
+      unitCost: product?.purchasePrice ?? 0,
+    });
+  }
+
   return (
     <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
       <form className="space-y-3" onSubmit={handleSubmit}>
@@ -132,9 +141,7 @@ export function PurchaseSection({
                 <select
                   className="rounded-md border border-zinc-300 px-3 py-2"
                   value={item.productId}
-                  onChange={(event) =>
-                    updateItem(index, { productId: event.target.value })
-                  }
+                  onChange={(event) => selectProduct(index, event.target.value)}
                 >
                   <option value="">Selecione</option>
                   {activeProducts.map((product) => (
@@ -255,6 +262,14 @@ export function PurchaseSection({
                           Cancelar
                         </button>
                       </>
+                    ) : null}
+                    {purchase.status === "received" ? (
+                      <button
+                        className="text-sm font-semibold text-zinc-500"
+                        onClick={() => cancelPurchase.mutate(purchase.id)}
+                      >
+                        Estornar
+                      </button>
                     ) : null}
                   </div>
                 </td>

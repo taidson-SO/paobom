@@ -170,6 +170,7 @@ function summarizeMovementsByType(
     production_in: "Entrada producao",
     production_out: "Consumo producao",
     purchase_in: "Entrada compra",
+    purchase_reversal: "Estorno compra",
     sale_out: "Saida venda",
   };
 

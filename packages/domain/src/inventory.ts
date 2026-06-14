@@ -2,6 +2,7 @@ import { ProductRepository } from "./product";
 
 export type StockMovementType =
   | "purchase_in"
+  | "purchase_reversal"
   | "production_out"
   | "production_in"
   | "sale_out"
@@ -142,6 +143,7 @@ export class StockMovement {
 function requiresReference(type: StockMovementType) {
   return (
     type === "purchase_in" ||
+    type === "purchase_reversal" ||
     type === "production_in" ||
     type === "production_out" ||
     type === "sale_out"

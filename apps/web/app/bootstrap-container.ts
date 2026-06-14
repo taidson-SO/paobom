@@ -267,6 +267,7 @@ function registerUseCases() {
       new CancelPurchaseUseCase(
         container.get(TOKENS.purchaseRepository),
         container.get(TOKENS.purchaseFinanceGateway),
+        container.get(TOKENS.purchaseInventoryGateway),
       ),
   );
   container.register(

@@ -7,7 +7,7 @@ export const PurchaseSchema = z.object({
       z.object({
         productId: z.string().min(1),
         quantity: z.coerce.number().positive(),
-        unitCost: z.coerce.number().min(0),
+        unitCost: z.coerce.number().positive("Custo unitario deve ser maior que zero"),
       }),
     )
     .min(1),

@@ -7,7 +7,12 @@ export type AppEvents = {
     quantity: number;
     reason: string;
     referenceId: string | null;
-    type: "purchase_in" | "production_out" | "production_in" | "sale_out";
+    type:
+      | "purchase_in"
+      | "purchase_reversal"
+      | "production_out"
+      | "production_in"
+      | "sale_out";
     unitCost: number;
   };
   "finance:entry-requested": {
