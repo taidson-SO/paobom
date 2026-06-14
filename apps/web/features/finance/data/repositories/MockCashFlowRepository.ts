@@ -50,7 +50,13 @@ export class MockCashFlowRepository implements CashFlowRepository {
   constructor(events: EventBus<AppEvents>) {
     if (!subscribed) {
       events.on("finance:entry-requested", (payload) => {
-        void this.register(payload);
+        void this.register(payload).then((entry) => {
+          if (payload.status === "settled") {
+            return this.settle(entry.id);
+          }
+
+          return entry;
+        });
       });
       subscribed = true;
     }

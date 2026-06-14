@@ -4,12 +4,14 @@ import {
   CancelCashEntryUseCase,
   CancelCustomerInteractionUseCase,
   CancelPurchaseUseCase,
+  CancelSaleUseCase,
   CompleteCustomerInteractionUseCase,
   CreateCustomerUseCase,
   CreateProductUseCase,
   CreateProductionOrderUseCase,
   CreatePurchaseUseCase,
   CreateRecipeUseCase,
+  CreateSaleUseCase,
   CreateSupplierUseCase,
   DeactivateCustomerUseCase,
   DeactivateProductUseCase,
@@ -24,8 +26,10 @@ import {
   ListProductionOrdersUseCase,
   ListPurchasesUseCase,
   ListRecipesUseCase,
+  ListSalesUseCase,
   ListStockMovementsUseCase,
   ListSuppliersUseCase,
+  PaySaleUseCase,
   ReceivePurchaseUseCase,
   RegisterCashEntryUseCase,
   RegisterCustomerInteractionUseCase,
@@ -54,6 +58,9 @@ import { MockProductionOrderRepository } from "@/features/production/data/reposi
 import { MockRecipeRepository } from "@/features/production/data/repositories/MockRecipeRepository";
 import { MockPurchaseInventoryGateway } from "@/features/purchase/data/gateways/MockPurchaseInventoryGateway";
 import { MockPurchaseRepository } from "@/features/purchase/data/repositories/MockPurchaseRepository";
+import { EventSaleFinanceGateway } from "@/features/sales/data/gateways/EventSaleFinanceGateway";
+import { EventSaleInventoryGateway } from "@/features/sales/data/gateways/EventSaleInventoryGateway";
+import { MockSaleRepository } from "@/features/sales/data/repositories/MockSaleRepository";
 import { MockSupplierRepository } from "@/features/supplier/data/repositories/MockSupplierRepository";
 
 let bootstrapped = false;
@@ -82,6 +89,7 @@ export function bootstrapAppContainer() {
     () => new MockInventoryRepository(eventBus),
   );
   container.register(TOKENS.recipeRepository, () => new MockRecipeRepository());
+  container.register(TOKENS.saleRepository, () => new MockSaleRepository());
   container.register(
     TOKENS.productionOrderRepository,
     () => new MockProductionOrderRepository(),
@@ -98,6 +106,14 @@ export function bootstrapAppContainer() {
   container.register(
     TOKENS.purchaseFinanceGateway,
     () => new EventPurchaseFinanceGateway(),
+  );
+  container.register(
+    TOKENS.saleInventoryGateway,
+    () => new EventSaleInventoryGateway(),
+  );
+  container.register(
+    TOKENS.saleFinanceGateway,
+    () => new EventSaleFinanceGateway(),
   );
   registerUseCases();
 
@@ -281,6 +297,29 @@ function registerUseCases() {
         container.get(TOKENS.productRepository),
         container.get(TOKENS.productionInventoryGateway),
       ),
+  );
+  container.register(
+    TOKENS.listSalesUseCase,
+    () => new ListSalesUseCase(container.get(TOKENS.saleRepository)),
+  );
+  container.register(
+    TOKENS.createSaleUseCase,
+    () =>
+      new CreateSaleUseCase(
+        container.get(TOKENS.saleRepository),
+        container.get(TOKENS.productRepository),
+        container.get(TOKENS.customerRepository),
+        container.get(TOKENS.saleInventoryGateway),
+        container.get(TOKENS.saleFinanceGateway),
+      ),
+  );
+  container.register(
+    TOKENS.paySaleUseCase,
+    () => new PaySaleUseCase(container.get(TOKENS.saleRepository)),
+  );
+  container.register(
+    TOKENS.cancelSaleUseCase,
+    () => new CancelSaleUseCase(container.get(TOKENS.saleRepository)),
   );
   container.register(
     TOKENS.listCashEntriesUseCase,

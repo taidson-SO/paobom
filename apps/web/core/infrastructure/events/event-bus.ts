@@ -7,7 +7,7 @@ export type AppEvents = {
     quantity: number;
     reason: string;
     referenceId: string | null;
-    type: "purchase_in" | "production_out" | "production_in";
+    type: "purchase_in" | "production_out" | "production_in" | "sale_out";
     unitCost: number;
   };
   "finance:entry-requested": {
@@ -16,6 +16,8 @@ export type AppEvents = {
     description: string;
     dueDate: Date;
     referenceId: string | null;
+    settledAt?: Date | null;
+    status?: "pending" | "settled";
     type: "income" | "expense";
   };
 };

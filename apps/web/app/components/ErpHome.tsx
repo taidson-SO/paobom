@@ -9,6 +9,7 @@ import { ProductSection } from "@/features/product/presentation/components/Produ
 import { useProducts } from "@/features/product/presentation/hooks/useProducts";
 import { ProductionSection } from "@/features/production/presentation/components/ProductionSection";
 import { PurchaseSection } from "@/features/purchase/presentation/components/PurchaseSection";
+import { SalesSection } from "@/features/sales/presentation/components/SalesSection";
 import { SupplierSection } from "@/features/supplier/presentation/components/SupplierSection";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
 
@@ -33,7 +34,7 @@ export function ErpHome() {
               fluxos de estoque, producao, caixa e relacionamento.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-zinc-600 md:grid-cols-8">
+          <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold text-zinc-600 md:grid-cols-9">
             <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
               Compras
             </span>
@@ -42,6 +43,9 @@ export function ErpHome() {
             </span>
             <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
               Estoque
+            </span>
+            <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
+              Vendas
             </span>
             <span className="rounded-md border border-zinc-200 bg-white px-3 py-2">
               Caixa
@@ -65,6 +69,7 @@ export function ErpHome() {
       <PurchaseSection products={products} suppliers={suppliers} />
       <ProductionSection products={products} />
       <InventorySection products={products} />
+      <SalesSection customers={customers} products={products} />
       <FinanceSection />
       <CustomerRelationshipSection customers={customers} />
       <ProductSection />

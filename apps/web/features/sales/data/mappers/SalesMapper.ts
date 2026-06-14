@@ -1,0 +1,47 @@
+import { Sale, SaleProps } from "@paobom/domain";
+
+import { SaleDTO } from "@/features/sales/data/dto/SalesDTO";
+
+export const SalesMapper = {
+  toDTO(sale: Sale): SaleDTO {
+    return {
+      created_at: sale.createdAt.toISOString(),
+      customer_id: sale.customerId,
+      id: sale.id,
+      items: sale.items.map((item) => ({
+        id: item.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        unit_cost: item.unitCost,
+        unit_price: item.unitPrice,
+      })),
+      notes: sale.notes,
+      paid_at: sale.paidAt?.toISOString() ?? null,
+      payment_method: sale.paymentMethod,
+      status: sale.status,
+      updated_at: sale.updatedAt.toISOString(),
+    };
+  },
+
+  toEntity(dto: SaleDTO): Sale {
+    const props: SaleProps = {
+      createdAt: new Date(dto.created_at),
+      customerId: dto.customer_id,
+      id: dto.id,
+      items: dto.items.map((item) => ({
+        id: item.id,
+        productId: item.product_id,
+        quantity: item.quantity,
+        unitCost: item.unit_cost,
+        unitPrice: item.unit_price,
+      })),
+      notes: dto.notes,
+      paidAt: dto.paid_at ? new Date(dto.paid_at) : null,
+      paymentMethod: dto.payment_method,
+      status: dto.status,
+      updatedAt: new Date(dto.updated_at),
+    };
+
+    return new Sale(props);
+  },
+};
