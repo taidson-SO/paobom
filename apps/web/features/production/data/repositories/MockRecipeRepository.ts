@@ -19,21 +19,39 @@ let recipes: RecipeDTO[] = [
     name: "Pao frances padrao",
     output_product_id: "prod-2",
     updated_at: now,
+    version: 1,
     yield_quantity: 1,
   },
 ];
 
 export class MockRecipeRepository implements RecipeRepository {
   async create(input: CreateRecipeInput) {
+    const previousVersions = recipes.filter(
+      (recipe) => recipe.output_product_id === input.outputProductId,
+    );
+    const nextVersion =
+      Math.max(0, ...previousVersions.map((recipe) => recipe.version)) + 1;
     const recipe = new Recipe({
       ...input,
       active: true,
       createdAt: new Date(),
       id: crypto.randomUUID(),
       updatedAt: new Date(),
+      version: nextVersion,
     });
 
-    recipes = [ProductionMapper.recipeToDTO(recipe), ...recipes];
+    recipes = [
+      ProductionMapper.recipeToDTO(recipe),
+      ...recipes.map((item) =>
+        item.output_product_id === input.outputProductId
+          ? {
+              ...item,
+              active: false,
+              updated_at: new Date().toISOString(),
+            }
+          : item,
+      ),
+    ];
 
     return recipe;
   }

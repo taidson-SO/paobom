@@ -25,6 +25,7 @@ export class ProductionMapper {
       name: recipe.name,
       output_product_id: recipe.outputProductId,
       updated_at: recipe.updatedAt.toISOString(),
+      version: recipe.version,
       yield_quantity: recipe.yieldQuantity,
     };
   }
@@ -41,6 +42,7 @@ export class ProductionMapper {
       name: dto.name,
       outputProductId: dto.output_product_id,
       updatedAt: new Date(dto.updated_at),
+      version: dto.version,
       yieldQuantity: dto.yield_quantity,
     };
 
@@ -63,6 +65,17 @@ export class ProductionMapper {
       output_product_id: order.outputProductId,
       quantity_produced: order.quantityProduced,
       recipe_id: order.recipeId,
+      recipe_snapshot: {
+        ingredients: order.recipeSnapshot.ingredients.map((ingredient) => ({
+          product_id: ingredient.productId,
+          quantity: ingredient.quantity,
+        })),
+        output_product_id: order.recipeSnapshot.outputProductId,
+        recipe_id: order.recipeSnapshot.recipeId,
+        recipe_name: order.recipeSnapshot.recipeName,
+        recipe_version: order.recipeSnapshot.recipeVersion,
+        yield_quantity: order.recipeSnapshot.yieldQuantity,
+      },
       status: order.status,
     };
   }
@@ -81,6 +94,17 @@ export class ProductionMapper {
       outputProductId: dto.output_product_id,
       quantityProduced: dto.quantity_produced,
       recipeId: dto.recipe_id,
+      recipeSnapshot: {
+        ingredients: dto.recipe_snapshot.ingredients.map((ingredient) => ({
+          productId: ingredient.product_id,
+          quantity: ingredient.quantity,
+        })),
+        outputProductId: dto.recipe_snapshot.output_product_id,
+        recipeId: dto.recipe_snapshot.recipe_id,
+        recipeName: dto.recipe_snapshot.recipe_name,
+        recipeVersion: dto.recipe_snapshot.recipe_version,
+        yieldQuantity: dto.recipe_snapshot.yield_quantity,
+      },
       status: dto.status,
     };
 

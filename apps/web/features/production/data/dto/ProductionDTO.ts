@@ -13,6 +13,7 @@ export type RecipeDTO = {
   name: string;
   output_product_id: string;
   updated_at: string;
+  version: number;
   yield_quantity: number;
 };
 
@@ -20,6 +21,15 @@ export type ProductionConsumptionDTO = {
   product_id: string;
   quantity: number;
   unit_cost: number;
+};
+
+export type RecipeSnapshotDTO = {
+  ingredients: RecipeIngredientDTO[];
+  output_product_id: string;
+  recipe_id: string;
+  recipe_name: string;
+  recipe_version: number;
+  yield_quantity: number;
 };
 
 export type ProductionOrderDTO = {
@@ -31,5 +41,6 @@ export type ProductionOrderDTO = {
   output_product_id: string;
   quantity_produced: number;
   recipe_id: string;
+  recipe_snapshot: RecipeSnapshotDTO;
   status: ProductionOrderStatus;
 };

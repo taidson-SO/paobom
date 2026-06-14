@@ -8,6 +8,7 @@ export type RecipeIngredientProps = {
 export type RecipeProps = {
   id: string;
   name: string;
+  version: number;
   outputProductId: string;
   yieldQuantity: number;
   ingredients: RecipeIngredientProps[];
@@ -31,9 +32,19 @@ export type ProductionConsumptionProps = {
   unitCost: number;
 };
 
+export type RecipeSnapshotProps = {
+  recipeId: string;
+  recipeName: string;
+  recipeVersion: number;
+  outputProductId: string;
+  yieldQuantity: number;
+  ingredients: RecipeIngredientProps[];
+};
+
 export type ProductionOrderProps = {
   id: string;
   recipeId: string;
+  recipeSnapshot: RecipeSnapshotProps;
   outputProductId: string;
   quantityProduced: number;
   status: ProductionOrderStatus;
@@ -60,6 +71,10 @@ export class Recipe {
 
   get name() {
     return this.props.name;
+  }
+
+  get version() {
+    return this.props.version;
   }
 
   get outputProductId() {
@@ -95,6 +110,17 @@ export class Recipe {
     }));
   }
 
+  toSnapshot(): RecipeSnapshotProps {
+    return {
+      ingredients: this.ingredients,
+      outputProductId: this.props.outputProductId,
+      recipeId: this.props.id,
+      recipeName: this.props.name,
+      recipeVersion: this.props.version,
+      yieldQuantity: this.props.yieldQuantity,
+    };
+  }
+
   toJSON(): RecipeProps {
     return {
       ...this.props,
@@ -105,6 +131,10 @@ export class Recipe {
   private assertValid() {
     if (this.props.name.trim().length < 2) {
       throw new Error("Nome da ficha tecnica deve ter pelo menos 2 caracteres");
+    }
+
+    if (this.props.version <= 0) {
+      throw new Error("Versao da ficha tecnica deve ser maior que zero");
     }
 
     if (!this.props.outputProductId) {
@@ -142,6 +172,13 @@ export class ProductionOrder {
 
   get recipeId() {
     return this.props.recipeId;
+  }
+
+  get recipeSnapshot() {
+    return {
+      ...this.props.recipeSnapshot,
+      ingredients: [...this.props.recipeSnapshot.ingredients],
+    };
   }
 
   get outputProductId() {
@@ -183,12 +220,25 @@ export class ProductionOrder {
     return {
       ...this.props,
       ingredientConsumptions: this.ingredientConsumptions,
+      recipeSnapshot: this.recipeSnapshot,
     };
   }
 
   private assertValid() {
     if (!this.props.recipeId) {
       throw new Error("Ficha tecnica deve ser informada");
+    }
+
+    if (this.props.recipeSnapshot.recipeId !== this.props.recipeId) {
+      throw new Error("Snapshot da ficha tecnica deve corresponder a ordem");
+    }
+
+    if (this.props.recipeSnapshot.outputProductId !== this.props.outputProductId) {
+      throw new Error("Snapshot da ficha tecnica deve corresponder ao produto produzido");
+    }
+
+    if (this.props.recipeSnapshot.recipeVersion <= 0) {
+      throw new Error("Versao da ficha tecnica usada deve ser maior que zero");
     }
 
     if (!this.props.outputProductId) {
@@ -303,6 +353,7 @@ export class CreateProductionOrderUseCase {
       outputProductId: recipe.outputProductId,
       quantityProduced: input.quantityProduced,
       recipeId: recipe.id,
+      recipeSnapshot: recipe.toSnapshot(),
       status: "completed",
     });
 

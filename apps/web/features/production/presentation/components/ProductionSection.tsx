@@ -111,7 +111,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
         </div>
 
         <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateRecipe}>
-          <h3 className="text-sm font-bold text-zinc-800">Nova ficha tecnica</h3>
+          <h3 className="text-sm font-bold text-zinc-800">
+            Nova versao de ficha tecnica
+          </h3>
           <Field
             label="Nome"
             value={recipeForm.name}
@@ -242,7 +244,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
               {recipes.map((recipe) => (
                 <tr className="border-t border-zinc-100" key={recipe.id}>
                   <td className="px-3 py-3 font-semibold text-zinc-950">
-                    {recipe.name}
+                    <p>{recipe.name}</p>
+                    <p className="text-xs font-normal text-zinc-500">
+                      v{recipe.version} · {recipe.active ? "ativa" : "historica"}
+                    </p>
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {productNames.get(recipe.outputProductId)}
@@ -276,9 +281,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
                   <td className="px-3 py-3">
                     <p className="font-semibold text-zinc-950">
                       {recipes.find((recipe) => recipe.id === order.recipeId)
-                        ?.name ?? "Ficha"}
+                        ?.name ?? order.recipeSnapshot.recipeName}
                     </p>
                     <p className="text-xs text-zinc-500">
+                      v{order.recipeSnapshot.recipeVersion} ·{" "}
                       {order.completedAt?.toLocaleDateString() ?? "-"}
                     </p>
                   </td>
