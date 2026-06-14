@@ -18,6 +18,7 @@ import {
   DeactivateSupplierUseCase,
   GetCashFlowSummaryUseCase,
   GetBusinessDashboardUseCase,
+  GetBusinessReportsUseCase,
   GetCustomerRelationshipSummaryUseCase,
   ListCashEntriesUseCase,
   ListCustomerInteractionsUseCase,
@@ -134,6 +135,17 @@ function registerUseCases() {
     TOKENS.getBusinessDashboardUseCase,
     () =>
       new GetBusinessDashboardUseCase(
+        container.get(TOKENS.saleRepository),
+        container.get(TOKENS.cashFlowRepository),
+        container.get(TOKENS.inventoryRepository),
+        container.get(TOKENS.purchaseRepository),
+        container.get(TOKENS.productionOrderRepository),
+      ),
+  );
+  container.register(
+    TOKENS.getBusinessReportsUseCase,
+    () =>
+      new GetBusinessReportsUseCase(
         container.get(TOKENS.saleRepository),
         container.get(TOKENS.cashFlowRepository),
         container.get(TOKENS.inventoryRepository),

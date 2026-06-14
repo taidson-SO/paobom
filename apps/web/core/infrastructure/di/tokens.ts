@@ -23,6 +23,7 @@ export const TOKENS = {
   cashFlowRepository: Symbol("cashFlowRepository"),
   getCashFlowSummaryUseCase: Symbol("getCashFlowSummaryUseCase"),
   getBusinessDashboardUseCase: Symbol("getBusinessDashboardUseCase"),
+  getBusinessReportsUseCase: Symbol("getBusinessReportsUseCase"),
   getCustomerRelationshipSummaryUseCase: Symbol(
     "getCustomerRelationshipSummaryUseCase",
   ),
