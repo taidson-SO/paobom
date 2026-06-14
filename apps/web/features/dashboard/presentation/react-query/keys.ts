@@ -1,4 +1,5 @@
 export const dashboardQueryKeys = {
   all: ["dashboard"] as const,
-  business: ["dashboard", "business"] as const,
+  business: (period: { endDate: string | null; startDate: string | null }) =>
+    ["dashboard", "business", period] as const,
 };
