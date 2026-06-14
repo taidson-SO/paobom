@@ -15,8 +15,19 @@ export type ReportTableRow = {
   amount: number;
 };
 
+export type ReportsPeriodInput = {
+  startDate?: Date | null;
+  endDate?: Date | null;
+};
+
+export type ReportsPeriod = {
+  startDate: Date | null;
+  endDate: Date | null;
+};
+
 export type BusinessReports = {
   generatedAt: Date;
+  period: ReportsPeriod;
   sales: {
     totalRevenue: number;
     totalCost: number;
@@ -58,7 +69,8 @@ export class GetBusinessReportsUseCase {
     private readonly productions: ProductionOrderRepository,
   ) {}
 
-  async execute(): Promise<BusinessReports> {
+  async execute(input: ReportsPeriodInput = {}): Promise<BusinessReports> {
+    const period = normalizeReportsPeriod(input);
     const [sales, cashEntries, balances, movements, purchases, productions] =
       await Promise.all([
         this.sales.findAll(),
@@ -68,8 +80,26 @@ export class GetBusinessReportsUseCase {
         this.purchases.findAll(),
         this.productions.findAll(),
       ]);
-    const activeCashEntries = cashEntries.filter(
+    const periodSales = sales.filter((sale) =>
+      isWithinPeriod(sale.paidAt ?? sale.createdAt, period),
+    );
+    const periodCashEntries = cashEntries.filter((entry) =>
+      isWithinPeriod(entry.settledAt ?? entry.dueDate, period),
+    );
+    const activeCashEntries = periodCashEntries.filter(
       (entry) => entry.status !== "cancelled",
+    );
+    const periodMovements = movements.filter((movement) =>
+      isWithinPeriod(movement.occurredAt, period),
+    );
+    const periodPurchases = purchases.filter((purchase) =>
+      isWithinPeriod(purchase.receivedAt ?? purchase.expectedDate, period),
+    );
+    const periodProductions = productions.filter((production) =>
+      isWithinPeriod(
+        production.completedAt ?? production.startedAt ?? production.createdAt,
+        period,
+      ),
     );
 
     return {
@@ -81,7 +111,7 @@ export class GetBusinessReportsUseCase {
 
           return sum + signedCashAmount(entry.type, entry.amount);
         }, 0),
-        byStatus: summarizeCashStatus(cashEntries),
+        byStatus: summarizeCashStatus(periodCashEntries),
         byType: summarizeCashType(activeCashEntries),
         projectedBalance: activeCashEntries.reduce(
           (sum, entry) => sum + signedCashAmount(entry.type, entry.amount),
@@ -101,52 +131,89 @@ export class GetBusinessReportsUseCase {
           (sum, balance) => sum + balance.estimatedValue,
           0,
         ),
-        movementsByType: summarizeMovementsByType(movements),
+        movementsByType: summarizeMovementsByType(periodMovements),
       },
+      period,
       production: {
-        averageUnitCost: getAverageProductionUnitCost(productions),
-        ordersByStatus: summarizeProductionsByStatus(productions),
-        totalCost: productions
+        averageUnitCost: getAverageProductionUnitCost(periodProductions),
+        ordersByStatus: summarizeProductionsByStatus(periodProductions),
+        totalCost: periodProductions
           .filter((production) => production.status === "finished")
-          .reduce(
-          (sum, production) => sum + production.totalCost,
-          0,
-        ),
-        totalProduced: productions
+          .reduce((sum, production) => sum + production.totalCost, 0),
+        totalProduced: periodProductions
           .filter((production) => production.status === "finished")
-          .reduce(
-          (sum, production) => sum + production.quantityProduced,
-          0,
-        ),
+          .reduce((sum, production) => sum + production.quantityProduced, 0),
       },
       purchases: {
-        byStatus: summarizePurchasesByStatus(purchases),
-        totalPurchased: purchases.reduce(
+        byStatus: summarizePurchasesByStatus(periodPurchases),
+        totalPurchased: periodPurchases.reduce(
           (sum, purchase) =>
             purchase.status === "cancelled" ? sum : sum + purchase.total,
           0,
         ),
       },
       sales: {
-        byPaymentMethod: summarizeSalesByPayment(sales),
-        byStatus: summarizeSalesByStatus(sales),
-        grossMarginRate: getGrossMarginRate(sales),
-        grossMargin: sales.reduce(
+        byPaymentMethod: summarizeSalesByPayment(periodSales),
+        byStatus: summarizeSalesByStatus(periodSales),
+        grossMarginRate: getGrossMarginRate(periodSales),
+        grossMargin: periodSales.reduce(
           (sum, sale) => (sale.status === "paid" ? sum + sale.grossMargin : sum),
           0,
         ),
-        lowMarginProducts: summarizeLowMarginProducts(sales),
-        totalCost: sales.reduce(
+        lowMarginProducts: summarizeLowMarginProducts(periodSales),
+        totalCost: periodSales.reduce(
           (sum, sale) => (sale.status === "paid" ? sum + sale.totalCost : sum),
           0,
         ),
-        totalRevenue: sales.reduce(
+        totalRevenue: periodSales.reduce(
           (sum, sale) => (sale.status === "paid" ? sum + sale.total : sum),
           0,
         ),
       },
     };
   }
+}
+
+function normalizeReportsPeriod(input: ReportsPeriodInput): ReportsPeriod {
+  const startDate = input.startDate ? startOfDay(input.startDate) : null;
+  const endDate = input.endDate ? endOfDay(input.endDate) : null;
+
+  if (startDate && endDate && startDate > endDate) {
+    throw new Error("Data inicial do relatorio deve ser menor ou igual a data final");
+  }
+
+  return {
+    endDate,
+    startDate,
+  };
+}
+
+function startOfDay(date: Date) {
+  const normalized = new Date(date);
+
+  normalized.setHours(0, 0, 0, 0);
+
+  return normalized;
+}
+
+function endOfDay(date: Date) {
+  const normalized = new Date(date);
+
+  normalized.setHours(23, 59, 59, 999);
+
+  return normalized;
+}
+
+function isWithinPeriod(date: Date, period: ReportsPeriod) {
+  if (period.startDate && date < period.startDate) {
+    return false;
+  }
+
+  if (period.endDate && date > period.endDate) {
+    return false;
+  }
+
+  return true;
 }
 
 function getGrossMarginRate(sales: Awaited<ReturnType<SaleRepository["findAll"]>>) {

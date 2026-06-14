@@ -12,6 +12,10 @@ export type BusinessReportsDTO = {
     projected_balance: number;
   };
   generated_at: string;
+  period: {
+    end_date: string | null;
+    start_date: string | null;
+  };
   inventory: {
     below_minimum: ReportTableRowDTO[];
     estimated_value: number;

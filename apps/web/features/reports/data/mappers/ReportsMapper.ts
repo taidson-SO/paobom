@@ -12,6 +12,10 @@ export const ReportsMapper = {
         projected_balance: reports.cashFlow.projectedBalance,
       },
       generated_at: reports.generatedAt.toISOString(),
+      period: {
+        end_date: reports.period.endDate?.toISOString() ?? null,
+        start_date: reports.period.startDate?.toISOString() ?? null,
+      },
       inventory: {
         below_minimum: reports.inventory.belowMinimum,
         estimated_value: reports.inventory.estimatedValue,
