@@ -167,6 +167,7 @@ export interface SaleInventoryGateway {
 }
 
 export interface SaleFinanceGateway {
+  cancelReceivable(sale: Sale): Promise<void>;
   registerReceivable(sale: Sale): Promise<void>;
 }
 
@@ -244,25 +245,39 @@ export class CreateSaleUseCase {
 }
 
 export class PaySaleUseCase {
-  constructor(private readonly repository: SaleRepository) {}
+  constructor(
+    private readonly repository: SaleRepository,
+    private readonly finance: SaleFinanceGateway,
+  ) {}
 
   async execute(id: string) {
     if (!id) {
       throw new Error("Venda nao informada");
     }
 
-    return this.repository.pay(id);
+    const sale = await this.repository.pay(id);
+
+    await this.finance.registerReceivable(sale);
+
+    return sale;
   }
 }
 
 export class CancelSaleUseCase {
-  constructor(private readonly repository: SaleRepository) {}
+  constructor(
+    private readonly repository: SaleRepository,
+    private readonly finance: SaleFinanceGateway,
+  ) {}
 
-  execute(id: string) {
+  async execute(id: string) {
     if (!id) {
       throw new Error("Venda nao informada");
     }
 
-    return this.repository.cancel(id);
+    const sale = await this.repository.cancel(id);
+
+    await this.finance.cancelReceivable(sale);
+
+    return sale;
   }
 }

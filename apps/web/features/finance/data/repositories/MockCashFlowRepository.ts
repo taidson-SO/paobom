@@ -50,13 +50,7 @@ export class MockCashFlowRepository implements CashFlowRepository {
   constructor(events: EventBus<AppEvents>) {
     if (!subscribed) {
       events.on("finance:entry-requested", (payload) => {
-        void this.register(payload).then((entry) => {
-          if (payload.status === "settled") {
-            return this.settle(entry.id);
-          }
-
-          return entry;
-        });
+        void this.register(payload);
       });
       subscribed = true;
     }
@@ -80,21 +74,27 @@ export class MockCashFlowRepository implements CashFlowRepository {
   }
 
   async register(input: RegisterCashEntryInput) {
+    const current = input.referenceId
+      ? entries.find((entry) => entry.reference_id === input.referenceId)
+      : null;
     const entry = new CashEntry({
       amount: input.amount,
       category: input.category,
-      createdAt: new Date(),
+      createdAt: current ? new Date(current.created_at) : new Date(),
       description: input.description,
       dueDate: input.dueDate,
-      id: crypto.randomUUID(),
+      id: current?.id ?? crypto.randomUUID(),
       referenceId: input.referenceId ?? null,
-      settledAt: null,
-      status: "pending",
+      settledAt: input.settledAt ?? null,
+      status: input.status ?? "pending",
       type: input.type,
       updatedAt: new Date(),
     });
+    const dto = FinanceMapper.entryToDTO(entry);
 
-    entries = [FinanceMapper.entryToDTO(entry), ...entries];
+    entries = current
+      ? entries.map((item) => (item.id === current.id ? dto : item))
+      : [dto, ...entries];
 
     return entry;
   }

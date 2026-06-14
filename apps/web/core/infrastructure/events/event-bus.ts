@@ -17,7 +17,7 @@ export type AppEvents = {
     dueDate: Date;
     referenceId: string | null;
     settledAt?: Date | null;
-    status?: "pending" | "settled";
+    status?: "pending" | "settled" | "cancelled";
     type: "income" | "expense";
   };
 };

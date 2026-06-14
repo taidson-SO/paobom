@@ -157,6 +157,7 @@ export interface PurchaseInventoryGateway {
 }
 
 export interface PurchaseFinanceGateway {
+  cancelPayable(purchase: Purchase): Promise<void>;
   registerPayable(purchase: Purchase): Promise<void>;
 }
 
@@ -219,13 +220,20 @@ export class ReceivePurchaseUseCase {
 }
 
 export class CancelPurchaseUseCase {
-  constructor(private readonly repository: PurchaseRepository) {}
+  constructor(
+    private readonly repository: PurchaseRepository,
+    private readonly finance?: PurchaseFinanceGateway,
+  ) {}
 
-  execute(id: string) {
+  async execute(id: string) {
     if (!id) {
       throw new Error("Compra nao informada");
     }
 
-    return this.repository.cancel(id);
+    const purchase = await this.repository.cancel(id);
+
+    await this.finance?.cancelPayable(purchase);
+
+    return purchase;
   }
 }

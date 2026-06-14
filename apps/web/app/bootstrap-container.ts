@@ -239,7 +239,11 @@ function registerUseCases() {
   );
   container.register(
     TOKENS.cancelPurchaseUseCase,
-    () => new CancelPurchaseUseCase(container.get(TOKENS.purchaseRepository)),
+    () =>
+      new CancelPurchaseUseCase(
+        container.get(TOKENS.purchaseRepository),
+        container.get(TOKENS.purchaseFinanceGateway),
+      ),
   );
   container.register(
     TOKENS.listInventoryBalancesUseCase,
@@ -315,11 +319,19 @@ function registerUseCases() {
   );
   container.register(
     TOKENS.paySaleUseCase,
-    () => new PaySaleUseCase(container.get(TOKENS.saleRepository)),
+    () =>
+      new PaySaleUseCase(
+        container.get(TOKENS.saleRepository),
+        container.get(TOKENS.saleFinanceGateway),
+      ),
   );
   container.register(
     TOKENS.cancelSaleUseCase,
-    () => new CancelSaleUseCase(container.get(TOKENS.saleRepository)),
+    () =>
+      new CancelSaleUseCase(
+        container.get(TOKENS.saleRepository),
+        container.get(TOKENS.saleFinanceGateway),
+      ),
   );
   container.register(
     TOKENS.listCashEntriesUseCase,

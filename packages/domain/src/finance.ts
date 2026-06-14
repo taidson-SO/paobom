@@ -23,6 +23,8 @@ export type RegisterCashEntryInput = {
   amount: number;
   dueDate: Date;
   referenceId?: string | null;
+  settledAt?: Date | null;
+  status?: CashEntryStatus;
 };
 
 export type CashFlowSummary = {
@@ -83,14 +85,14 @@ export class CashEntry {
     return this.props.updatedAt;
   }
 
-  settle() {
+  settle(settledAt = new Date()) {
     if (this.props.status === "cancelled") {
       throw new Error("Lancamento cancelado nao pode ser baixado");
     }
 
     this.props = {
       ...this.props,
-      settledAt: new Date(),
+      settledAt,
       status: "settled",
       updatedAt: new Date(),
     };
