@@ -80,6 +80,32 @@ pnpm --filter mobile typecheck
 pnpm --filter mobile lint
 ```
 
+## DevOps Local
+
+A Fase 13 adiciona os artefatos minimos para preparar automacao e infraestrutura local:
+
+- `.env.example`: contrato inicial de variaveis de ambiente
+- `docker-compose.yml`: PostgreSQL local e pgAdmin opcional
+- `.github/workflows/ci.yml`: pipeline com `typecheck`, `lint`, `test` e `build`
+
+Subir somente PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Subir PostgreSQL com pgAdmin:
+
+```bash
+docker compose --profile tools up -d
+```
+
+Encerrar os servicos:
+
+```bash
+docker compose down
+```
+
 ## Validacao do MVP Mock
 
 Na estabilizacao da fase 12, estes comandos passam:
@@ -129,7 +155,6 @@ Esta versao nao esta pronta para producao real. Ela e um MVP demonstravel com as
 - Permissoes sem validacao server-side
 - Auditoria em memoria
 - Sem testes reais automatizados
-- Sem CI/CD
 - Sem ambiente staging
 - Sem backup, restore ou plano de rollback
 
@@ -145,13 +170,12 @@ Objetivo da tag: congelar uma versao demonstravel do ERP PaoBom antes da entrada
 
 ## Proximas Fases
 
-1. DevOps minimo
-2. Testes reais de dominio
-3. Banco de dados persistente
-4. Backend/API real
-5. Autenticacao e autorizacao real
-6. Migracao dos repositories mock para API
-7. Auditoria persistente
-8. Estoque, compras, vendas e caixa robustos
-9. Mobile transacional
-10. Staging, E2E, piloto interno e producao assistida
+1. Testes reais de dominio
+2. Banco de dados persistente
+3. Backend/API real
+4. Autenticacao e autorizacao real
+5. Migracao dos repositories mock para API
+6. Auditoria persistente
+7. Estoque, compras, vendas e caixa robustos
+8. Mobile transacional
+9. Staging, E2E, piloto interno e producao assistida
