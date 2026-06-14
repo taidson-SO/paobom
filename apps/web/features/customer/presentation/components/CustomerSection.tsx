@@ -3,6 +3,8 @@
 import { CreateCustomerInput } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useCustomers } from "@/features/customer/presentation/hooks/useCustomers";
 import { CustomerSchema } from "@/features/customer/schemas/CustomerSchema";
 
@@ -23,11 +25,18 @@ export function CustomerSection() {
     setSelectedCustomer,
     updateCustomer,
   } = useCustomers();
+  const { can } = usePermissionSession();
+  const canManageCustomers = can("customer:manage");
   const [form, setForm] = useState<CreateCustomerInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageCustomers) {
+      setError("Seu perfil nao pode alterar clientes.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -55,6 +64,9 @@ export function CustomerSection() {
             Relacionamento com clientes
           </h2>
         </div>
+        {!canManageCustomers ? (
+          <PermissionNotice description="Voce pode consultar clientes, mas nao criar, editar ou inativar." />
+        ) : null}
 
         <Field
           label="Nome"
@@ -88,7 +100,10 @@ export function CustomerSection() {
         </label>
 
         <div className="flex gap-2">
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canManageCustomers}
+          >
             {selectedCustomerId ? "Salvar" : "Criar"}
           </button>
           {selectedCustomerId ? (
@@ -111,7 +126,7 @@ export function CustomerSection() {
               <th className="px-3 py-2">Cliente</th>
               <th className="px-3 py-2">Contato</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2" />
+              {canManageCustomers ? <th className="px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
@@ -130,22 +145,24 @@ export function CustomerSection() {
                 <td className="px-3 py-3">
                   <Status active={customer.active} />
                 </td>
-                <td className="px-3 py-3 text-right">
-                  <RowActions
-                    active={customer.active}
-                    onDeactivate={() => deactivateCustomer.mutate(customer.id)}
-                    onEdit={() => {
-                      setSelectedCustomer(customer.id);
-                      setForm({
-                        document: customer.document,
-                        email: customer.email,
-                        name: customer.name,
-                        notes: customer.notes,
-                        phone: customer.phone,
-                      });
-                    }}
-                  />
-                </td>
+                {canManageCustomers ? (
+                  <td className="px-3 py-3 text-right">
+                    <RowActions
+                      active={customer.active}
+                      onDeactivate={() => deactivateCustomer.mutate(customer.id)}
+                      onEdit={() => {
+                        setSelectedCustomer(customer.id);
+                        setForm({
+                          document: customer.document,
+                          email: customer.email,
+                          name: customer.name,
+                          notes: customer.notes,
+                          phone: customer.phone,
+                        });
+                      }}
+                    />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

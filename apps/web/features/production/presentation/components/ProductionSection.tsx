@@ -3,6 +3,8 @@
 import { Product } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useProduction } from "@/features/production/presentation/hooks/useProduction";
 import {
   ProductionOrderSchema,
@@ -52,6 +54,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
     setSelectedRecipe,
     startProductionOrder,
   } = useProduction();
+  const { can } = usePermissionSession();
+  const canManageRecipe = can("production:manage-recipe");
+  const canManageOrder = can("production:manage-order");
+  const canCancelProduction = can("production:cancel");
   const [recipeForm, setRecipeForm] = useState<RecipeForm>(initialRecipeForm);
   const [orderForm, setOrderForm] = useState<OrderForm>(initialOrderForm);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +73,11 @@ export function ProductionSection({ products }: { products: Product[] }) {
 
   async function handleCreateRecipe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageRecipe) {
+      setError("Seu perfil nao pode criar fichas tecnicas.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -81,6 +92,11 @@ export function ProductionSection({ products }: { products: Product[] }) {
 
   async function handleCreateOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageOrder) {
+      setError("Seu perfil nao pode planejar producao.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -117,6 +133,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
           <h3 className="text-sm font-bold text-zinc-800">
             Nova versao de ficha tecnica
           </h3>
+          {!canManageRecipe ? (
+            <PermissionNotice description="Voce pode consultar fichas, mas nao criar novas versoes." />
+          ) : null}
           <Field
             label="Nome"
             value={recipeForm.name}
@@ -174,7 +193,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
             >
               Adicionar insumo
             </button>
-            <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+            <button
+              className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+              disabled={!canManageRecipe}
+            >
               Criar ficha
             </button>
           </div>
@@ -182,6 +204,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
 
         <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateOrder}>
           <h3 className="text-sm font-bold text-zinc-800">Nova ordem</h3>
+          {!canManageOrder ? (
+            <PermissionNotice description="Voce pode acompanhar ordens, mas nao planejar ou executar producao." />
+          ) : null}
           <label className="grid gap-1 text-sm font-medium text-zinc-700">
             Ficha tecnica
             <select
@@ -225,7 +250,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
               {selectedRecipe.ingredients.length} insumo(s).
             </p>
           ) : null}
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canManageOrder}
+          >
             Planejar producao
           </button>
         </form>
@@ -310,34 +338,50 @@ export function ProductionSection({ products }: { products: Product[] }) {
                     <div className="flex justify-end gap-2">
                       {order.status === "planned" ? (
                         <>
-                          <button
-                            className="text-sm font-semibold text-green-800"
-                            onClick={() => startProductionOrder.mutate(order.id)}
-                          >
-                            Iniciar
-                          </button>
-                          <button
-                            className="text-sm font-semibold text-zinc-500"
-                            onClick={() => cancelProductionOrder.mutate(order.id)}
-                          >
-                            Cancelar
-                          </button>
+                          {canManageOrder ? (
+                            <button
+                              className="text-sm font-semibold text-green-800"
+                              onClick={() =>
+                                startProductionOrder.mutate(order.id)
+                              }
+                            >
+                              Iniciar
+                            </button>
+                          ) : null}
+                          {canCancelProduction ? (
+                            <button
+                              className="text-sm font-semibold text-zinc-500"
+                              onClick={() =>
+                                cancelProductionOrder.mutate(order.id)
+                              }
+                            >
+                              Cancelar
+                            </button>
+                          ) : null}
                         </>
                       ) : null}
                       {order.status === "started" ? (
                         <>
-                          <button
-                            className="text-sm font-semibold text-green-800"
-                            onClick={() => finishProductionOrder.mutate(order.id)}
-                          >
-                            Finalizar
-                          </button>
-                          <button
-                            className="text-sm font-semibold text-zinc-500"
-                            onClick={() => cancelProductionOrder.mutate(order.id)}
-                          >
-                            Cancelar
-                          </button>
+                          {canManageOrder ? (
+                            <button
+                              className="text-sm font-semibold text-green-800"
+                              onClick={() =>
+                                finishProductionOrder.mutate(order.id)
+                              }
+                            >
+                              Finalizar
+                            </button>
+                          ) : null}
+                          {canCancelProduction ? (
+                            <button
+                              className="text-sm font-semibold text-zinc-500"
+                              onClick={() =>
+                                cancelProductionOrder.mutate(order.id)
+                              }
+                            >
+                              Cancelar
+                            </button>
+                          ) : null}
                         </>
                       ) : null}
                     </div>

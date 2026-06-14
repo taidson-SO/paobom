@@ -3,6 +3,8 @@
 import { Product, ProductKind, StockMovementOrigin } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useInventory } from "@/features/inventory/presentation/hooks/useInventory";
 import {
   RegisterAdjustmentSchema,
@@ -63,6 +65,10 @@ export function InventorySection({ products }: { products: Product[] }) {
     selectedProductId,
     setSelectedProduct,
   } = useInventory();
+  const { can } = usePermissionSession();
+  const canRegisterLoss = can("inventory:register-loss");
+  const canAdjustInventory = can("inventory:adjust");
+  const canRegisterMovement = canRegisterLoss || canAdjustInventory;
   const [form, setForm] = useState<InventoryForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const productNames = useMemo(
@@ -85,6 +91,16 @@ export function InventorySection({ products }: { products: Product[] }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (form.mode === "loss" && !canRegisterLoss) {
+      setError("Seu perfil nao pode registrar perdas.");
+      return;
+    }
+
+    if (form.mode === "adjustment" && !canAdjustInventory) {
+      setError("Seu perfil nao pode registrar ajustes.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -120,6 +136,9 @@ export function InventorySection({ products }: { products: Product[] }) {
         </div>
 
         <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleSubmit}>
+          {!canRegisterMovement ? (
+            <PermissionNotice description="Voce pode consultar estoque e movimentos, mas nao registrar perdas ou ajustes." />
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <button
               className={`rounded-md border px-3 py-2 text-sm font-bold ${
@@ -127,6 +146,7 @@ export function InventorySection({ products }: { products: Product[] }) {
                   ? "border-red-200 bg-red-50 text-red-800"
                   : "border-zinc-300 text-zinc-700"
               }`}
+              disabled={!canRegisterLoss}
               type="button"
               onClick={() => setForm((state) => ({ ...state, mode: "loss" }))}
             >
@@ -138,6 +158,7 @@ export function InventorySection({ products }: { products: Product[] }) {
                   ? "border-green-200 bg-green-50 text-green-800"
                   : "border-zinc-300 text-zinc-700"
               }`}
+              disabled={!canAdjustInventory}
               type="button"
               onClick={() =>
                 setForm((state) => ({ ...state, mode: "adjustment" }))
@@ -190,7 +211,10 @@ export function InventorySection({ products }: { products: Product[] }) {
             />
           </label>
 
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canRegisterMovement}
+          >
             Registrar
           </button>
 

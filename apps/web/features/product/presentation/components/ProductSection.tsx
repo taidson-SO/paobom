@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 
 import { CreateProductInput, ProductKind, ProductUnit } from "@paobom/domain";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useProducts } from "@/features/product/presentation/hooks/useProducts";
 import { ProductSchema } from "@/features/product/schemas/ProductSchema";
 
@@ -27,11 +29,18 @@ export function ProductSection() {
     setSelectedProduct,
     updateProduct,
   } = useProducts();
+  const { can } = usePermissionSession();
+  const canManageProducts = can("product:manage");
   const [form, setForm] = useState<CreateProductInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageProducts) {
+      setError("Seu perfil nao pode alterar produtos.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -59,6 +68,9 @@ export function ProductSection() {
             Cadastro de produtos
           </h2>
         </div>
+        {!canManageProducts ? (
+          <PermissionNotice description="Voce pode consultar produtos, mas nao criar, editar ou inativar." />
+        ) : null}
 
         <Field
           label="Nome"
@@ -138,7 +150,10 @@ export function ProductSection() {
         </div>
 
         <div className="flex gap-2">
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canManageProducts}
+          >
             {selectedProductId ? "Salvar" : "Criar"}
           </button>
           {selectedProductId ? (
@@ -162,7 +177,7 @@ export function ProductSection() {
               <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">Preco</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2" />
+              {canManageProducts ? <th className="px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
@@ -183,25 +198,27 @@ export function ProductSection() {
                 <td className="px-3 py-3">
                   <Status active={product.active} />
                 </td>
-                <td className="px-3 py-3 text-right">
-                  <RowActions
-                    active={product.active}
-                    onDeactivate={() => deactivateProduct.mutate(product.id)}
-                    onEdit={() => {
-                      setSelectedProduct(product.id);
-                      setForm({
-                        category: product.category,
-                        kind: product.kind,
-                        minimumStock: product.minimumStock,
-                        name: product.name,
-                        purchasePrice: product.purchasePrice,
-                        salePrice: product.salePrice,
-                        sku: product.sku,
-                        unit: product.unit,
-                      });
-                    }}
-                  />
-                </td>
+                {canManageProducts ? (
+                  <td className="px-3 py-3 text-right">
+                    <RowActions
+                      active={product.active}
+                      onDeactivate={() => deactivateProduct.mutate(product.id)}
+                      onEdit={() => {
+                        setSelectedProduct(product.id);
+                        setForm({
+                          category: product.category,
+                          kind: product.kind,
+                          minimumStock: product.minimumStock,
+                          name: product.name,
+                          purchasePrice: product.purchasePrice,
+                          salePrice: product.salePrice,
+                          sku: product.sku,
+                          unit: product.unit,
+                        });
+                      }}
+                    />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

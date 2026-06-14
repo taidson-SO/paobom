@@ -7,6 +7,8 @@ import {
 } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useCustomerRelationship } from "@/features/customer-relationship/presentation/hooks/useCustomerRelationship";
 import { CustomerInteractionSchema } from "@/features/customer-relationship/schemas/CustomerRelationshipSchema";
 
@@ -42,6 +44,8 @@ export function CustomerRelationshipSection({
     setSelectedStatus,
     summary,
   } = useCustomerRelationship();
+  const { can } = usePermissionSession();
+  const canManageCrm = can("crm:manage");
   const [form, setForm] = useState<RelationshipForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const activeCustomers = customers.filter((customer) => customer.active);
@@ -52,6 +56,11 @@ export function CustomerRelationshipSection({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageCrm) {
+      setError("Seu perfil nao pode registrar interacoes de CRM.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -76,6 +85,9 @@ export function CustomerRelationshipSection({
             Historico e retornos
           </h2>
         </div>
+        {!canManageCrm ? (
+          <PermissionNotice description="Voce pode consultar o relacionamento, mas nao registrar ou alterar interacoes." />
+        ) : null}
 
         <div className="grid grid-cols-2 gap-2">
           <Metric label="Interacoes" value={summary.totalInteractions} />
@@ -192,7 +204,10 @@ export function CustomerRelationshipSection({
           <p className="text-sm font-semibold text-zinc-600">
             Feedbacks: {summary.interactionsByType.feedback}
           </p>
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canManageCrm}
+          >
             Registrar
           </button>
         </div>
@@ -252,7 +267,7 @@ export function CustomerRelationshipSection({
                     <Status status={interaction.status} />
                   </td>
                   <td className="px-3 py-3 text-right">
-                    {interaction.status === "open" ? (
+                    {interaction.status === "open" && canManageCrm ? (
                       <div className="flex justify-end gap-2">
                         <button
                           className="text-sm font-semibold text-green-800"

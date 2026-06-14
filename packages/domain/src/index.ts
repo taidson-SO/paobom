@@ -4,6 +4,7 @@ export * from "./customer";
 export * from "./customer-relationship";
 export * from "./purchase";
 export * from "./inventory";
+export * from "./permissions";
 export * from "./production";
 export * from "./finance";
 export * from "./sales";

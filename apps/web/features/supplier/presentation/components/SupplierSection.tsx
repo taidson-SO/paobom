@@ -3,6 +3,8 @@
 import { CreateSupplierInput } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
 import { SupplierSchema } from "@/features/supplier/schemas/SupplierSchema";
 
@@ -23,11 +25,18 @@ export function SupplierSection() {
     suppliers,
     updateSupplier,
   } = useSuppliers();
+  const { can } = usePermissionSession();
+  const canManageSuppliers = can("supplier:manage");
   const [form, setForm] = useState<CreateSupplierInput>(initialForm);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageSuppliers) {
+      setError("Seu perfil nao pode alterar fornecedores.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -55,6 +64,9 @@ export function SupplierSection() {
             Relacionamento com fornecedores
           </h2>
         </div>
+        {!canManageSuppliers ? (
+          <PermissionNotice description="Voce pode consultar fornecedores, mas nao criar, editar ou inativar." />
+        ) : null}
 
         <Field
           label="Nome"
@@ -85,7 +97,10 @@ export function SupplierSection() {
         />
 
         <div className="flex gap-2">
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canManageSuppliers}
+          >
             {selectedSupplierId ? "Salvar" : "Criar"}
           </button>
           {selectedSupplierId ? (
@@ -108,7 +123,7 @@ export function SupplierSection() {
               <th className="px-3 py-2">Fornecedor</th>
               <th className="px-3 py-2">Contato</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2" />
+              {canManageSuppliers ? <th className="px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
@@ -127,22 +142,24 @@ export function SupplierSection() {
                 <td className="px-3 py-3">
                   <Status active={supplier.active} />
                 </td>
-                <td className="px-3 py-3 text-right">
-                  <RowActions
-                    active={supplier.active}
-                    onDeactivate={() => deactivateSupplier.mutate(supplier.id)}
-                    onEdit={() => {
-                      setSelectedSupplier(supplier.id);
-                      setForm({
-                        contactName: supplier.contactName,
-                        document: supplier.document,
-                        email: supplier.email,
-                        name: supplier.name,
-                        phone: supplier.phone,
-                      });
-                    }}
-                  />
-                </td>
+                {canManageSuppliers ? (
+                  <td className="px-3 py-3 text-right">
+                    <RowActions
+                      active={supplier.active}
+                      onDeactivate={() => deactivateSupplier.mutate(supplier.id)}
+                      onEdit={() => {
+                        setSelectedSupplier(supplier.id);
+                        setForm({
+                          contactName: supplier.contactName,
+                          document: supplier.document,
+                          email: supplier.email,
+                          name: supplier.name,
+                          phone: supplier.phone,
+                        });
+                      }}
+                    />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

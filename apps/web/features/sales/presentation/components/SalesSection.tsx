@@ -9,6 +9,8 @@ import {
 } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useSales } from "@/features/sales/presentation/hooks/useSales";
 import { SaleSchema } from "@/features/sales/schemas/SalesSchema";
 
@@ -59,6 +61,12 @@ export function SalesSection({
     selectedStatus,
     setSelectedStatus,
   } = useSales();
+  const { can } = usePermissionSession();
+  const canCreateSale = can("sales:create");
+  const canPaySale = can("sales:pay");
+  const canCancelSale = can("sales:cancel");
+  const canAuthorizeDiscount = can("sales:authorize-discount");
+  const canAuthorizeOversell = can("sales:authorize-oversell");
   const [form, setForm] = useState<SaleForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const activeCustomers = customers.filter((customer) => customer.active);
@@ -96,6 +104,21 @@ export function SalesSection({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canCreateSale) {
+      setError("Seu perfil nao pode registrar vendas.");
+      return;
+    }
+
+    if (needsDiscountAuthorization && !canAuthorizeDiscount) {
+      setError("Desconto acima do limite exige perfil autorizado.");
+      return;
+    }
+
+    if (needsOversellAuthorization && !canAuthorizeOversell) {
+      setError("Venda acima do estoque exige perfil autorizado.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -142,6 +165,9 @@ export function SalesSection({
             Balcao e encomendas
           </h2>
         </div>
+        {!canCreateSale ? (
+          <PermissionNotice description="Voce pode consultar vendas, mas nao registrar novos atendimentos." />
+        ) : null}
 
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
           Cliente
@@ -259,6 +285,11 @@ export function SalesSection({
             <p className="text-sm font-bold text-amber-900">
               Desconto acima de 10%
             </p>
+            {!canAuthorizeDiscount ? (
+              <p className="text-xs font-semibold text-amber-900">
+                Seu perfil nao pode autorizar este desconto.
+              </p>
+            ) : null}
             <Field
               label="Responsavel"
               value={form.discountAuthorizedBy}
@@ -284,6 +315,11 @@ export function SalesSection({
             <p className="text-xs text-red-800">
               {oversellItems.length} item(ns) excedem o saldo atual.
             </p>
+            {!canAuthorizeOversell ? (
+              <p className="text-xs font-semibold text-red-900">
+                Seu perfil nao pode autorizar venda acima do estoque.
+              </p>
+            ) : null}
             <Field
               label="Responsavel"
               value={form.oversellApprovedBy}
@@ -316,7 +352,14 @@ export function SalesSection({
           <p className="text-sm font-bold text-zinc-700">
             Total: R$ {total.toFixed(2)}
           </p>
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={
+              !canCreateSale ||
+              (needsDiscountAuthorization && !canAuthorizeDiscount) ||
+              (needsOversellAuthorization && !canAuthorizeOversell)
+            }
+          >
             Registrar venda
           </button>
         </div>
@@ -392,7 +435,7 @@ export function SalesSection({
                   <td className="px-3 py-3 text-right">
                     {sale.status === "open" || sale.status === "paid" ? (
                       <div className="flex justify-end gap-2">
-                        {sale.status === "open" ? (
+                        {sale.status === "open" && canPaySale ? (
                           <button
                             className="text-sm font-semibold text-green-800"
                             onClick={() => paySale.mutate(sale.id)}
@@ -400,12 +443,14 @@ export function SalesSection({
                             Receber
                           </button>
                         ) : null}
-                        <button
-                          className="text-sm font-semibold text-zinc-500"
-                          onClick={() => cancelSale.mutate(sale.id)}
-                        >
-                          Cancelar
-                        </button>
+                        {canCancelSale ? (
+                          <button
+                            className="text-sm font-semibold text-zinc-500"
+                            onClick={() => cancelSale.mutate(sale.id)}
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </td>

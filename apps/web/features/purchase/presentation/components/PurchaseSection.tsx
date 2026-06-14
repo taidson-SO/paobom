@@ -3,6 +3,8 @@
 import { Product, PurchaseStatus, Supplier } from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { usePurchases } from "@/features/purchase/presentation/hooks/usePurchases";
 import { PurchaseSchema } from "@/features/purchase/schemas/PurchaseSchema";
 
@@ -35,6 +37,10 @@ export function PurchaseSection({
 }) {
   const { cancelPurchase, createPurchase, purchases, receivePurchase } =
     usePurchases();
+  const { can } = usePermissionSession();
+  const canCreatePurchase = can("purchase:create");
+  const canReceivePurchase = can("purchase:receive");
+  const canCancelPurchase = can("purchase:cancel");
   const [form, setForm] = useState<PurchaseForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const activeProducts = products.filter((product) => product.isPurchasable());
@@ -54,6 +60,11 @@ export function PurchaseSection({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canCreatePurchase) {
+      setError("Seu perfil nao pode criar compras.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -93,6 +104,9 @@ export function PurchaseSection({
             Pedido e recebimento
           </h2>
         </div>
+        {!canCreatePurchase ? (
+          <PermissionNotice description="Voce pode consultar compras, mas nao criar novos pedidos." />
+        ) : null}
 
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
           Fornecedor
@@ -201,7 +215,10 @@ export function PurchaseSection({
           <p className="text-sm font-bold text-zinc-700">
             Total: R$ {total.toFixed(2)}
           </p>
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canCreatePurchase}
+          >
             Criar compra
           </button>
         </div>
@@ -249,21 +266,25 @@ export function PurchaseSection({
                   <div className="flex justify-end gap-2">
                     {purchase.status === "ordered" ? (
                       <>
-                        <button
-                          className="text-sm font-semibold text-green-800"
-                          onClick={() => receivePurchase.mutate(purchase.id)}
-                        >
-                          Receber
-                        </button>
-                        <button
-                          className="text-sm font-semibold text-zinc-500"
-                          onClick={() => cancelPurchase.mutate(purchase.id)}
-                        >
-                          Cancelar
-                        </button>
+                        {canReceivePurchase ? (
+                          <button
+                            className="text-sm font-semibold text-green-800"
+                            onClick={() => receivePurchase.mutate(purchase.id)}
+                          >
+                            Receber
+                          </button>
+                        ) : null}
+                        {canCancelPurchase ? (
+                          <button
+                            className="text-sm font-semibold text-zinc-500"
+                            onClick={() => cancelPurchase.mutate(purchase.id)}
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
-                    {purchase.status === "received" ? (
+                    {purchase.status === "received" && canCancelPurchase ? (
                       <button
                         className="text-sm font-semibold text-zinc-500"
                         onClick={() => cancelPurchase.mutate(purchase.id)}

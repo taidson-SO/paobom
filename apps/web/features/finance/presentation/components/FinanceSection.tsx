@@ -3,6 +3,8 @@
 import { CashEntryStatus, CashEntryType } from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
+import { PermissionNotice } from "@/core/permissions/PermissionGate";
+import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useFinance } from "@/features/finance/presentation/hooks/useFinance";
 import {
   CashEntrySchema,
@@ -62,6 +64,12 @@ export function FinanceSection() {
     settleCashEntry,
     summary,
   } = useFinance();
+  const { can } = usePermissionSession();
+  const canRegisterEntry = can("finance:register-entry");
+  const canSettleEntry = can("finance:settle");
+  const canCancelEntry = can("finance:cancel");
+  const canOpenRegister = can("finance:open-register");
+  const canCloseRegister = can("finance:close-register");
   const [form, setForm] = useState<FinanceForm>(initialForm);
   const [openRegisterForm, setOpenRegisterForm] = useState<OpenRegisterForm>(
     initialOpenRegisterForm,
@@ -72,6 +80,11 @@ export function FinanceSection() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canRegisterEntry) {
+      setError("Seu perfil nao pode registrar lancamentos financeiros.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -88,6 +101,11 @@ export function FinanceSection() {
 
   async function handleOpenRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canOpenRegister) {
+      setError("Seu perfil nao pode abrir caixa.");
+      return;
+    }
+
     setError(null);
 
     try {
@@ -102,6 +120,11 @@ export function FinanceSection() {
 
   async function handleCloseRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canCloseRegister) {
+      setError("Seu perfil nao pode fechar caixa.");
+      return;
+    }
+
     setError(null);
 
     if (!currentCashRegister) {
@@ -144,6 +167,9 @@ export function FinanceSection() {
           </h3>
           {currentCashRegister ? (
             <form className="mt-3 space-y-3" onSubmit={handleCloseRegister}>
+              {!canCloseRegister ? (
+                <PermissionNotice description="Voce pode consultar o caixa aberto, mas nao fecha-lo." />
+              ) : null}
               <div className="rounded-md bg-green-50 p-3 text-sm text-green-900">
                 <p className="font-bold">
                   Aberto por {currentCashRegister.openedBy}
@@ -177,12 +203,18 @@ export function FinanceSection() {
                   setCloseRegisterForm((state) => ({ ...state, closingNote }))
                 }
               />
-              <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+              <button
+                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                disabled={!canCloseRegister}
+              >
                 Fechar caixa
               </button>
             </form>
           ) : (
             <form className="mt-3 space-y-3" onSubmit={handleOpenRegister}>
+              {!canOpenRegister ? (
+                <PermissionNotice description="Voce pode consultar caixas, mas nao abrir um novo caixa." />
+              ) : null}
               <NumberField
                 label="Valor inicial"
                 value={openRegisterForm.openingAmount}
@@ -197,7 +229,10 @@ export function FinanceSection() {
                   setOpenRegisterForm((state) => ({ ...state, openedBy }))
                 }
               />
-              <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+              <button
+                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                disabled={!canOpenRegister}
+              >
                 Abrir caixa
               </button>
             </form>
@@ -205,6 +240,9 @@ export function FinanceSection() {
         </div>
 
         <form className="space-y-3" onSubmit={handleSubmit}>
+        {!canRegisterEntry ? (
+          <PermissionNotice description="Voce pode consultar o fluxo financeiro, mas nao lancar entradas ou saidas." />
+        ) : null}
 
         <div className="grid grid-cols-2 gap-2">
           <label className="grid gap-1 text-sm font-medium text-zinc-700">
@@ -273,7 +311,10 @@ export function FinanceSection() {
             Pendente: R$ {summary.pendingIncome.toFixed(2)} / R${" "}
             {summary.pendingExpense.toFixed(2)}
           </p>
-          <button className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white">
+          <button
+            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canRegisterEntry}
+          >
             Lancar
           </button>
         </div>
@@ -331,18 +372,22 @@ export function FinanceSection() {
                   <td className="px-3 py-3 text-right">
                     {entry.status === "pending" ? (
                       <div className="flex justify-end gap-2">
-                        <button
-                          className="text-sm font-semibold text-green-800"
-                          onClick={() => settleCashEntry.mutate(entry.id)}
-                        >
-                          Baixar
-                        </button>
-                        <button
-                          className="text-sm font-semibold text-zinc-500"
-                          onClick={() => cancelCashEntry.mutate(entry.id)}
-                        >
-                          Cancelar
-                        </button>
+                        {canSettleEntry ? (
+                          <button
+                            className="text-sm font-semibold text-green-800"
+                            onClick={() => settleCashEntry.mutate(entry.id)}
+                          >
+                            Baixar
+                          </button>
+                        ) : null}
+                        {canCancelEntry ? (
+                          <button
+                            className="text-sm font-semibold text-zinc-500"
+                            onClick={() => cancelCashEntry.mutate(entry.id)}
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </td>
