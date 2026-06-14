@@ -187,8 +187,8 @@ export class CreatePurchaseUseCase {
     for (const item of input.items) {
       const product = await this.products.findById(item.productId);
 
-      if (!product || !product.active) {
-        throw new Error("Todos os itens devem usar produtos ativos");
+      if (!product || !product.isPurchasable()) {
+        throw new Error("Todos os itens devem usar insumos ou itens compraveis ativos");
       }
     }
 

@@ -52,7 +52,10 @@ export function ProductionSection({ products }: { products: Product[] }) {
   const [recipeForm, setRecipeForm] = useState<RecipeForm>(initialRecipeForm);
   const [orderForm, setOrderForm] = useState<OrderForm>(initialOrderForm);
   const [error, setError] = useState<string | null>(null);
-  const activeProducts = products.filter((product) => product.active);
+  const ingredientProducts = products.filter((product) =>
+    product.canBeRecipeIngredient(),
+  );
+  const outputProducts = products.filter((product) => product.canBeProduced());
   const productNames = useMemo(
     () => new Map(products.map((product) => [product.id, product.name])),
     [products],
@@ -118,7 +121,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
           />
           <ProductSelect
             label="Produto produzido"
-            products={activeProducts}
+            products={outputProducts}
             value={recipeForm.outputProductId}
             onChange={(outputProductId) =>
               setRecipeForm((state) => ({ ...state, outputProductId }))
@@ -137,7 +140,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
               <div className="grid gap-2 rounded-md bg-zinc-50 p-2" key={index}>
                 <ProductSelect
                   label="Insumo"
-                  products={activeProducts}
+                  products={ingredientProducts}
                   value={ingredient.productId}
                   onChange={(productId) => updateIngredient(index, { productId })}
                 />

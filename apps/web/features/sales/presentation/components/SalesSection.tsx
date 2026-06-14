@@ -44,7 +44,7 @@ export function SalesSection({
   const [form, setForm] = useState<SaleForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
   const activeCustomers = customers.filter((customer) => customer.active);
-  const activeProducts = products.filter((product) => product.active);
+  const activeProducts = products.filter((product) => product.isSellable());
   const customerNames = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer.name])),
     [customers],

@@ -1,9 +1,16 @@
-export type ProductUnit = "kg" | "g" | "unit" | "liter" | "package";
+export type ProductUnit = "kg" | "g" | "ml" | "unit" | "liter" | "package";
+
+export type ProductKind =
+  | "raw_material"
+  | "finished_product"
+  | "resale"
+  | "packaging";
 
 export type ProductProps = {
   id: string;
   name: string;
   sku: string;
+  kind: ProductKind;
   unit: ProductUnit;
   category: string;
   purchasePrice: number;
@@ -17,6 +24,7 @@ export type ProductProps = {
 export type CreateProductInput = {
   name: string;
   sku: string;
+  kind: ProductKind;
   unit: ProductUnit;
   category: string;
   purchasePrice: number;
@@ -41,6 +49,10 @@ export class Product {
 
   get sku() {
     return this.props.sku;
+  }
+
+  get kind() {
+    return this.props.kind;
   }
 
   get unit() {
@@ -105,6 +117,33 @@ export class Product {
     return currentStock < this.props.minimumStock;
   }
 
+  isSellable() {
+    return (
+      this.props.active &&
+      (this.props.kind === "finished_product" || this.props.kind === "resale")
+    );
+  }
+
+  isPurchasable() {
+    return (
+      this.props.active &&
+      (this.props.kind === "raw_material" ||
+        this.props.kind === "resale" ||
+        this.props.kind === "packaging")
+    );
+  }
+
+  canBeProduced() {
+    return this.props.active && this.props.kind === "finished_product";
+  }
+
+  canBeRecipeIngredient() {
+    return (
+      this.props.active &&
+      (this.props.kind === "raw_material" || this.props.kind === "packaging")
+    );
+  }
+
   toJSON(): ProductProps {
     return { ...this.props };
   }
@@ -118,8 +157,19 @@ export class Product {
       throw new Error("SKU do produto deve ter pelo menos 2 caracteres");
     }
 
+    if (this.props.category.trim().length < 2) {
+      throw new Error("Categoria do produto deve ser informada");
+    }
+
     if (this.props.purchasePrice < 0 || this.props.salePrice < 0) {
       throw new Error("Precos do produto nao podem ser negativos");
+    }
+
+    if (
+      (this.props.kind === "finished_product" || this.props.kind === "resale") &&
+      this.props.salePrice <= 0
+    ) {
+      throw new Error("Preco de venda deve ser maior que zero");
     }
 
     if (this.props.minimumStock < 0) {

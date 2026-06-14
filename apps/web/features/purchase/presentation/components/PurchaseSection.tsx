@@ -37,7 +37,7 @@ export function PurchaseSection({
     usePurchases();
   const [form, setForm] = useState<PurchaseForm>(initialForm);
   const [error, setError] = useState<string | null>(null);
-  const activeProducts = products.filter((product) => product.active);
+  const activeProducts = products.filter((product) => product.isPurchasable());
   const activeSuppliers = suppliers.filter((supplier) => supplier.active);
   const productNames = useMemo(
     () => new Map(products.map((product) => [product.id, product.name])),

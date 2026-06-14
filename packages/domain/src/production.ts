@@ -233,15 +233,15 @@ export class CreateRecipeUseCase {
   async execute(input: CreateRecipeInput) {
     const outputProduct = await this.products.findById(input.outputProductId);
 
-    if (!outputProduct || !outputProduct.active) {
-      throw new Error("Produto produzido deve estar ativo");
+    if (!outputProduct || !outputProduct.canBeProduced()) {
+      throw new Error("Produto produzido deve ser um item fabricado ativo");
     }
 
     for (const ingredient of input.ingredients) {
       const product = await this.products.findById(ingredient.productId);
 
-      if (!product || !product.active) {
-        throw new Error("Todos os insumos devem usar produtos ativos");
+      if (!product || !product.canBeRecipeIngredient()) {
+        throw new Error("Todos os insumos devem usar itens de insumo ou embalagem ativos");
       }
     }
 
@@ -274,8 +274,8 @@ export class CreateProductionOrderUseCase {
 
     const outputProduct = await this.products.findById(recipe.outputProductId);
 
-    if (!outputProduct || !outputProduct.active) {
-      throw new Error("Produto produzido deve estar ativo");
+    if (!outputProduct || !outputProduct.canBeProduced()) {
+      throw new Error("Produto produzido deve ser um item fabricado ativo");
     }
 
     const consumptions = [];
@@ -283,8 +283,8 @@ export class CreateProductionOrderUseCase {
     for (const ingredient of recipe.scaleIngredients(input.quantityProduced)) {
       const product = await this.products.findById(ingredient.productId);
 
-      if (!product || !product.active) {
-        throw new Error("Todos os insumos devem estar ativos");
+      if (!product || !product.canBeRecipeIngredient()) {
+        throw new Error("Todos os insumos devem estar ativos e classificados como insumo ou embalagem");
       }
 
       consumptions.push({

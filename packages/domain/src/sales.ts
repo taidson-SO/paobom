@@ -202,8 +202,8 @@ export class CreateSaleUseCase {
     for (const item of input.items) {
       const product = await this.products.findById(item.productId);
 
-      if (!product || !product.active) {
-        throw new Error("Todos os itens devem usar produtos ativos");
+      if (!product || !product.isSellable()) {
+        throw new Error("Todos os itens devem usar produtos vendaveis ativos");
       }
 
       items.push({

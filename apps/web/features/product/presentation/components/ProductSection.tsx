@@ -2,13 +2,14 @@
 
 import { FormEvent, useState } from "react";
 
-import { CreateProductInput, ProductUnit } from "@paobom/domain";
+import { CreateProductInput, ProductKind, ProductUnit } from "@paobom/domain";
 
 import { useProducts } from "@/features/product/presentation/hooks/useProducts";
 import { ProductSchema } from "@/features/product/schemas/ProductSchema";
 
 const initialForm: CreateProductInput = {
   category: "",
+  kind: "raw_material",
   minimumStock: 0,
   name: "",
   purchasePrice: 0,
@@ -75,6 +76,24 @@ export function ProductSection() {
           onChange={(category) => setForm((state) => ({ ...state, category }))}
         />
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          Tipo
+          <select
+            className="rounded-md border border-zinc-300 px-3 py-2"
+            value={form.kind}
+            onChange={(event) =>
+              setForm((state) => ({
+                ...state,
+                kind: event.target.value as ProductKind,
+              }))
+            }
+          >
+            <option value="raw_material">Insumo</option>
+            <option value="finished_product">Produto fabricado</option>
+            <option value="resale">Revenda</option>
+            <option value="packaging">Embalagem</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-zinc-700">
           Unidade
           <select
             className="rounded-md border border-zinc-300 px-3 py-2"
@@ -89,6 +108,7 @@ export function ProductSection() {
             <option value="unit">Unidade</option>
             <option value="kg">Kg</option>
             <option value="g">Grama</option>
+            <option value="ml">Mililitro</option>
             <option value="liter">Litro</option>
             <option value="package">Pacote</option>
           </select>
@@ -139,6 +159,7 @@ export function ProductSection() {
           <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
             <tr>
               <th className="px-3 py-2">Produto</th>
+              <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">Preco</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2" />
@@ -150,8 +171,11 @@ export function ProductSection() {
                 <td className="px-3 py-3">
                   <p className="font-semibold text-zinc-950">{product.name}</p>
                   <p className="text-xs text-zinc-500">
-                    {product.sku} · {product.category}
+                    {product.sku} · {product.category} · {getUnitLabel(product.unit)}
                   </p>
+                </td>
+                <td className="px-3 py-3 text-zinc-700">
+                  {getKindLabel(product.kind)}
                 </td>
                 <td className="px-3 py-3 text-zinc-700">
                   R$ {product.salePrice.toFixed(2)}
@@ -167,6 +191,7 @@ export function ProductSection() {
                       setSelectedProduct(product.id);
                       setForm({
                         category: product.category,
+                        kind: product.kind,
                         minimumStock: product.minimumStock,
                         name: product.name,
                         purchasePrice: product.purchasePrice,
@@ -184,6 +209,30 @@ export function ProductSection() {
       </div>
     </section>
   );
+}
+
+function getKindLabel(kind: ProductKind) {
+  const labels: Record<ProductKind, string> = {
+    finished_product: "Fabricado",
+    packaging: "Embalagem",
+    raw_material: "Insumo",
+    resale: "Revenda",
+  };
+
+  return labels[kind];
+}
+
+function getUnitLabel(unit: ProductUnit) {
+  const labels: Record<ProductUnit, string> = {
+    g: "g",
+    kg: "kg",
+    liter: "L",
+    ml: "ml",
+    package: "pct.",
+    unit: "un.",
+  };
+
+  return labels[unit];
 }
 
 function Field({
