@@ -10,7 +10,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/core/infrastructure/di/container";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
-import { inventoryQueryKeys } from "@/features/inventory/presentation/react-query/keys";
 
 import { productionQueryKeys } from "./keys";
 
@@ -32,10 +31,7 @@ export function useProductionMutations() {
           queryKey: productionQueryKeys.orders,
         });
         void queryClient.invalidateQueries({
-          queryKey: inventoryQueryKeys.balances,
-        });
-        void queryClient.invalidateQueries({
-          queryKey: inventoryQueryKeys.movements,
+          queryKey: ["inventory"],
         });
       },
     }),

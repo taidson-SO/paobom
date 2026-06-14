@@ -10,8 +10,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/core/infrastructure/di/container";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
-import { inventoryQueryKeys } from "@/features/inventory/presentation/react-query/keys";
-import { financeQueryKeys } from "@/features/finance/presentation/react-query/keys";
 
 import { purchaseQueryKeys } from "./keys";
 
@@ -35,17 +33,14 @@ export function usePurchaseMutations() {
   const onCreateSuccess = () => {
     onSuccess();
     void queryClient.invalidateQueries({
-      queryKey: financeQueryKeys.all,
+      queryKey: ["finance"],
     });
   };
 
   const onReceiptSuccess = () => {
     onSuccess();
     void queryClient.invalidateQueries({
-      queryKey: inventoryQueryKeys.balances,
-    });
-    void queryClient.invalidateQueries({
-      queryKey: inventoryQueryKeys.movements,
+      queryKey: ["inventory"],
     });
   };
 
