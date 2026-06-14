@@ -7,6 +7,7 @@ export type StockMovementType =
   | "production_in"
   | "production_reversal"
   | "sale_out"
+  | "sale_reversal"
   | "loss"
   | "adjustment";
 
@@ -107,6 +108,7 @@ export class StockMovement {
       this.props.type === "purchase_in" ||
       this.props.type === "production_in" ||
       this.props.type === "production_reversal" ||
+      this.props.type === "sale_reversal" ||
       this.props.type === "adjustment"
     );
   }
@@ -149,7 +151,8 @@ function requiresReference(type: StockMovementType) {
     type === "production_in" ||
     type === "production_out" ||
     type === "production_reversal" ||
-    type === "sale_out"
+    type === "sale_out" ||
+    type === "sale_reversal"
   );
 }
 

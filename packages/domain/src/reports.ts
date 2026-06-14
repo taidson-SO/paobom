@@ -177,6 +177,7 @@ function summarizeMovementsByType(
     purchase_in: "Entrada compra",
     purchase_reversal: "Estorno compra",
     sale_out: "Saida venda",
+    sale_reversal: "Estorno venda",
   };
 
   return summarizeBy(movements, (movement) => movement.type, labels);

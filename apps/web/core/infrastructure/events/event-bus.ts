@@ -13,7 +13,8 @@ export type AppEvents = {
       | "production_out"
       | "production_in"
       | "production_reversal"
-      | "sale_out";
+      | "sale_out"
+      | "sale_reversal";
     unitCost: number;
   };
   "finance:entry-requested": {

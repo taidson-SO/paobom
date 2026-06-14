@@ -6,6 +6,7 @@ import { useCustomers } from "@/features/customer/presentation/hooks/useCustomer
 import { DashboardSection } from "@/features/dashboard/presentation/components/DashboardSection";
 import { FinanceSection } from "@/features/finance/presentation/components/FinanceSection";
 import { InventorySection } from "@/features/inventory/presentation/components/InventorySection";
+import { useInventory } from "@/features/inventory/presentation/hooks/useInventory";
 import { ProductSection } from "@/features/product/presentation/components/ProductSection";
 import { useProducts } from "@/features/product/presentation/hooks/useProducts";
 import { ProductionSection } from "@/features/production/presentation/components/ProductionSection";
@@ -19,6 +20,7 @@ export function ErpHome() {
   const { products } = useProducts();
   const { suppliers } = useSuppliers();
   const { customers } = useCustomers();
+  const { balances } = useInventory();
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -79,7 +81,11 @@ export function ErpHome() {
       <PurchaseSection products={products} suppliers={suppliers} />
       <ProductionSection products={products} />
       <InventorySection products={products} />
-      <SalesSection customers={customers} products={products} />
+      <SalesSection
+        customers={customers}
+        inventoryBalances={balances}
+        products={products}
+      />
       <FinanceSection />
       <CustomerRelationshipSection customers={customers} />
       <ProductSection />

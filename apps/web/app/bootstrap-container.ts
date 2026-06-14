@@ -365,6 +365,7 @@ function registerUseCases() {
         container.get(TOKENS.saleRepository),
         container.get(TOKENS.productRepository),
         container.get(TOKENS.customerRepository),
+        container.get(TOKENS.inventoryRepository),
         container.get(TOKENS.saleInventoryGateway),
         container.get(TOKENS.saleFinanceGateway),
       ),
@@ -383,6 +384,7 @@ function registerUseCases() {
       new CancelSaleUseCase(
         container.get(TOKENS.saleRepository),
         container.get(TOKENS.saleFinanceGateway),
+        container.get(TOKENS.saleInventoryGateway),
       ),
   );
   container.register(

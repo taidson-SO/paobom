@@ -34,6 +34,7 @@ const movementLabels = {
   purchase_in: "Compra",
   purchase_reversal: "Estorno compra",
   sale_out: "Venda",
+  sale_reversal: "Estorno venda",
 };
 
 const originLabels: Record<StockMovementOrigin, string> = {

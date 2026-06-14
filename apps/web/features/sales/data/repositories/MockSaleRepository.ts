@@ -9,6 +9,9 @@ let sales: SaleDTO[] = [
   {
     created_at: now,
     customer_id: "cus-1",
+    discount_amount: 0,
+    discount_authorized_by: null,
+    discount_reason: null,
     id: "sale-1",
     items: [
       {
@@ -20,6 +23,8 @@ let sales: SaleDTO[] = [
       },
     ],
     notes: "Venda inicial de paes",
+    oversell_approved_by: null,
+    oversell_justification: null,
     paid_at: now,
     payment_method: "pix",
     status: "paid",

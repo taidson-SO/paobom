@@ -1,6 +1,12 @@
 "use client";
 
-import { Customer, PaymentMethod, Product, SaleStatus } from "@paobom/domain";
+import {
+  Customer,
+  InventoryBalance,
+  PaymentMethod,
+  Product,
+  SaleStatus,
+} from "@paobom/domain";
 import { FormEvent, useMemo, useState } from "react";
 
 import { useSales } from "@/features/sales/presentation/hooks/useSales";
@@ -14,23 +20,35 @@ type SaleFormItem = {
 
 type SaleForm = {
   customerId: string;
+  discountAmount: number;
+  discountAuthorizedBy: string;
+  discountReason: string;
   items: SaleFormItem[];
   notes: string;
+  oversellApprovedBy: string;
+  oversellJustification: string;
   paymentMethod: PaymentMethod;
 };
 
 const initialForm: SaleForm = {
   customerId: "",
+  discountAmount: 0,
+  discountAuthorizedBy: "",
+  discountReason: "",
   items: [{ productId: "", quantity: 1, unitPrice: 0 }],
   notes: "",
+  oversellApprovedBy: "",
+  oversellJustification: "",
   paymentMethod: "pix",
 };
 
 export function SalesSection({
   customers,
+  inventoryBalances,
   products,
 }: {
   customers: Customer[];
+  inventoryBalances: InventoryBalance[];
   products: Product[];
 }) {
   const {
@@ -53,10 +71,28 @@ export function SalesSection({
     () => new Map(products.map((product) => [product.id, product.name])),
     [products],
   );
-  const total = form.items.reduce(
+  const stockByProduct = useMemo(
+    () =>
+      new Map(
+        inventoryBalances.map((balance) => [balance.productId, balance.quantity]),
+      ),
+    [inventoryBalances],
+  );
+  const subtotal = form.items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
     0,
   );
+  const total = Math.max(0, subtotal - form.discountAmount);
+  const discountRate = subtotal > 0 ? form.discountAmount / subtotal : 0;
+  const needsDiscountAuthorization = discountRate > 0.1;
+  const oversellItems = form.items.filter((item) => {
+    if (!item.productId) {
+      return false;
+    }
+
+    return (stockByProduct.get(item.productId) ?? 0) < item.quantity;
+  });
+  const needsOversellAuthorization = oversellItems.length > 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,6 +102,10 @@ export function SalesSection({
       const input = SaleSchema.parse({
         ...form,
         customerId: form.customerId || null,
+        discountAuthorizedBy: form.discountAuthorizedBy || null,
+        discountReason: form.discountReason || null,
+        oversellApprovedBy: form.oversellApprovedBy || null,
+        oversellJustification: form.oversellJustification || null,
       });
 
       await createSale.mutateAsync(input);
@@ -159,7 +199,7 @@ export function SalesSection({
                   <option value="">Selecione</option>
                   {activeProducts.map((product) => (
                     <option key={product.id} value={product.id}>
-                      {product.name}
+                      {product.name} · saldo {stockByProduct.get(product.id) ?? 0}
                     </option>
                   ))}
                 </select>
@@ -195,6 +235,71 @@ export function SalesSection({
         >
           Adicionar item
         </button>
+
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField
+            label="Desconto"
+            value={form.discountAmount}
+            onChange={(discountAmount) =>
+              setForm((state) => ({ ...state, discountAmount }))
+            }
+          />
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+            <p className="font-bold text-zinc-700">
+              Subtotal: R$ {subtotal.toFixed(2)}
+            </p>
+            <p className="text-xs text-zinc-500">
+              Limite sem autorizacao: R$ {(subtotal * 0.1).toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {needsDiscountAuthorization ? (
+          <div className="grid gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-bold text-amber-900">
+              Desconto acima de 10%
+            </p>
+            <Field
+              label="Responsavel"
+              value={form.discountAuthorizedBy}
+              onChange={(discountAuthorizedBy) =>
+                setForm((state) => ({ ...state, discountAuthorizedBy }))
+              }
+            />
+            <Field
+              label="Justificativa"
+              value={form.discountReason}
+              onChange={(discountReason) =>
+                setForm((state) => ({ ...state, discountReason }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {needsOversellAuthorization ? (
+          <div className="grid gap-2 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-sm font-bold text-red-900">
+              Venda acima do estoque
+            </p>
+            <p className="text-xs text-red-800">
+              {oversellItems.length} item(ns) excedem o saldo atual.
+            </p>
+            <Field
+              label="Responsavel"
+              value={form.oversellApprovedBy}
+              onChange={(oversellApprovedBy) =>
+                setForm((state) => ({ ...state, oversellApprovedBy }))
+              }
+            />
+            <Field
+              label="Justificativa"
+              value={form.oversellJustification}
+              onChange={(oversellJustification) =>
+                setForm((state) => ({ ...state, oversellJustification }))
+              }
+            />
+          </div>
+        ) : null}
 
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
           Observacoes
@@ -272,6 +377,11 @@ export function SalesSection({
                   </td>
                   <td className="px-3 py-3 font-semibold text-zinc-800">
                     R$ {sale.total.toFixed(2)}
+                    {sale.discountAmount > 0 ? (
+                      <p className="text-xs font-medium text-amber-700">
+                        Desc. R$ {sale.discountAmount.toFixed(2)}
+                      </p>
+                    ) : null}
                     <p className="text-xs font-medium text-zinc-500">
                       Margem R$ {sale.grossMargin.toFixed(2)}
                     </p>
@@ -280,14 +390,16 @@ export function SalesSection({
                     <Status status={sale.status} />
                   </td>
                   <td className="px-3 py-3 text-right">
-                    {sale.status === "open" ? (
+                    {sale.status === "open" || sale.status === "paid" ? (
                       <div className="flex justify-end gap-2">
-                        <button
-                          className="text-sm font-semibold text-green-800"
-                          onClick={() => paySale.mutate(sale.id)}
-                        >
-                          Receber
-                        </button>
+                        {sale.status === "open" ? (
+                          <button
+                            className="text-sm font-semibold text-green-800"
+                            onClick={() => paySale.mutate(sale.id)}
+                          >
+                            Receber
+                          </button>
+                        ) : null}
                         <button
                           className="text-sm font-semibold text-zinc-500"
                           onClick={() => cancelSale.mutate(sale.id)}
@@ -304,6 +416,27 @@ export function SalesSection({
         </div>
       </div>
     </section>
+  );
+}
+
+function Field({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+      {label}
+      <input
+        className="rounded-md border border-zinc-300 bg-white px-3 py-2"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 

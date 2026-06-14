@@ -106,7 +106,7 @@ function upsertBalance(
   const direction = getDirection(movement);
   const nextQuantity = (current?.quantity ?? 0) + direction * movement.quantity;
 
-  if (nextQuantity < 0) {
+  if (nextQuantity < 0 && movement.type !== "sale_out") {
     throw new Error("Movimentacao deixaria o estoque negativo");
   }
 
@@ -162,6 +162,7 @@ function getOrigin(type: RegisterStockMovementInput["type"]) {
     purchase_in: "purchase",
     purchase_reversal: "purchase",
     sale_out: "sale",
+    sale_reversal: "sale",
   } as const;
 
   return origins[type];

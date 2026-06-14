@@ -1,4 +1,5 @@
 import { CustomerRepository } from "./customer";
+import { InventoryRepository } from "./inventory";
 import { ProductRepository } from "./product";
 
 export type SaleStatus = "open" | "paid" | "cancelled";
@@ -19,6 +20,11 @@ export type SaleProps = {
   status: SaleStatus;
   paymentMethod: PaymentMethod;
   items: SaleItemProps[];
+  discountAmount: number;
+  discountAuthorizedBy: string | null;
+  discountReason: string | null;
+  oversellApprovedBy: string | null;
+  oversellJustification: string | null;
   notes: string;
   createdAt: Date;
   updatedAt: Date;
@@ -33,9 +39,14 @@ export type CreateSaleItemInput = {
 
 export type CreateSaleInput = {
   customerId?: string | null;
+  discountAmount?: number;
+  discountAuthorizedBy?: string | null;
+  discountReason?: string | null;
   paymentMethod: PaymentMethod;
   items: CreateSaleItemInput[];
   notes: string;
+  oversellApprovedBy?: string | null;
+  oversellJustification?: string | null;
 };
 
 export class Sale {
@@ -67,6 +78,26 @@ export class Sale {
     return this.props.notes;
   }
 
+  get discountAmount() {
+    return this.props.discountAmount;
+  }
+
+  get discountAuthorizedBy() {
+    return this.props.discountAuthorizedBy;
+  }
+
+  get discountReason() {
+    return this.props.discountReason;
+  }
+
+  get oversellApprovedBy() {
+    return this.props.oversellApprovedBy;
+  }
+
+  get oversellJustification() {
+    return this.props.oversellJustification;
+  }
+
   get createdAt() {
     return this.props.createdAt;
   }
@@ -79,11 +110,19 @@ export class Sale {
     return this.props.paidAt;
   }
 
-  get total() {
+  get subtotal() {
     return this.props.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0,
     );
+  }
+
+  get total() {
+    return Math.max(0, this.subtotal - this.props.discountAmount);
+  }
+
+  get discountRate() {
+    return this.subtotal > 0 ? this.props.discountAmount / this.subtotal : 0;
   }
 
   get totalCost() {
@@ -115,8 +154,8 @@ export class Sale {
   }
 
   cancel() {
-    if (this.props.status === "paid") {
-      throw new Error("Venda paga nao pode ser cancelada");
+    if (this.props.status === "cancelled") {
+      throw new Error("Venda ja foi cancelada");
     }
 
     this.props = {
@@ -147,10 +186,28 @@ export class Sale {
         throw new Error("Quantidade do item deve ser maior que zero");
       }
 
-      if (item.unitPrice < 0 || item.unitCost < 0) {
-        throw new Error("Valores do item nao podem ser negativos");
+      if (item.unitPrice <= 0 || item.unitCost < 0) {
+        throw new Error("Preco deve ser maior que zero e custo nao pode ser negativo");
       }
     });
+
+    if (this.props.discountAmount < 0) {
+      throw new Error("Desconto nao pode ser negativo");
+    }
+
+    if (this.props.discountAmount > this.subtotal) {
+      throw new Error("Desconto nao pode superar o subtotal da venda");
+    }
+
+    if (this.discountRate > 0.1) {
+      if (!this.props.discountAuthorizedBy?.trim()) {
+        throw new Error("Desconto acima do limite exige autorizacao");
+      }
+
+      if (!this.props.discountReason?.trim()) {
+        throw new Error("Desconto acima do limite exige justificativa");
+      }
+    }
   }
 }
 
@@ -163,6 +220,7 @@ export interface SaleRepository {
 }
 
 export interface SaleInventoryGateway {
+  reverseSale(sale: Sale): Promise<void>;
   registerSale(sale: Sale): Promise<void>;
 }
 
@@ -184,6 +242,7 @@ export class CreateSaleUseCase {
     private readonly repository: SaleRepository,
     private readonly products: ProductRepository,
     private readonly customers: CustomerRepository,
+    private readonly inventoryRepository: InventoryRepository,
     private readonly inventory: SaleInventoryGateway,
     private readonly finance: SaleFinanceGateway,
   ) {}
@@ -215,12 +274,19 @@ export class CreateSaleUseCase {
       });
     }
 
+    await this.assertInventoryAvailability(items, input);
+
     const sale = new Sale({
       createdAt: new Date(),
       customerId: input.customerId ?? null,
+      discountAmount: input.discountAmount ?? 0,
+      discountAuthorizedBy: input.discountAuthorizedBy ?? null,
+      discountReason: input.discountReason ?? null,
       id: crypto.randomUUID(),
       items,
       notes: input.notes,
+      oversellApprovedBy: input.oversellApprovedBy ?? null,
+      oversellJustification: input.oversellJustification ?? null,
       paidAt: null,
       paymentMethod: input.paymentMethod,
       status: "open",
@@ -241,6 +307,30 @@ export class CreateSaleUseCase {
     await this.finance.registerReceivable(createdSale);
 
     return createdSale;
+  }
+
+  private async assertInventoryAvailability(
+    items: SaleItemProps[],
+    input: CreateSaleInput,
+  ) {
+    const balances = await this.inventoryRepository.findBalances();
+    const insufficientItems = items.filter((item) => {
+      const balance = balances.find((entry) => entry.productId === item.productId);
+
+      return !balance || balance.quantity < item.quantity;
+    });
+
+    if (insufficientItems.length === 0) {
+      return;
+    }
+
+    if (!input.oversellApprovedBy?.trim()) {
+      throw new Error("Venda acima do estoque exige responsavel");
+    }
+
+    if (!input.oversellJustification?.trim()) {
+      throw new Error("Venda acima do estoque exige justificativa");
+    }
   }
 }
 
@@ -267,6 +357,7 @@ export class CancelSaleUseCase {
   constructor(
     private readonly repository: SaleRepository,
     private readonly finance: SaleFinanceGateway,
+    private readonly inventory: SaleInventoryGateway,
   ) {}
 
   async execute(id: string) {
@@ -276,6 +367,7 @@ export class CancelSaleUseCase {
 
     const sale = await this.repository.cancel(id);
 
+    await this.inventory.reverseSale(sale);
     await this.finance.cancelReceivable(sale);
 
     return sale;
