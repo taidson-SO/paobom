@@ -2,11 +2,11 @@
 
 ERP para gestao de panificadora, construido em monorepo com versoes web e mobile.
 
-Este repositorio esta estabilizado como MVP demonstravel em modo mock/in-memory na tag `v0.1.0-mock-mvp`.
+O checkpoint demonstravel em modo mock/in-memory foi congelado na tag `v0.1.0-mock-mvp`. O estado atual avanca para API real com PostgreSQL e web consumindo `ApiRepository`.
 
 ## Estado Atual
 
-O MVP mock cobre os principais fluxos operacionais da padaria:
+O projeto cobre os principais fluxos operacionais da padaria:
 
 - Produtos e insumos
 - Fornecedores
@@ -69,6 +69,16 @@ Rodar API:
 
 ```bash
 pnpm dev-api
+```
+
+Para usar a web com dados persistentes, suba PostgreSQL, aplique migrations/seeds e inicie a API antes da web:
+
+```bash
+docker compose up -d postgres
+pnpm db:deploy
+pnpm db:seed
+pnpm dev-api
+pnpm dev-web
 ```
 
 Rodar mobile:

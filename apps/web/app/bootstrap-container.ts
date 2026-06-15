@@ -55,28 +55,40 @@ import {
 import { container } from "@/core/infrastructure/di/container";
 import { bootstrapCoreContainer } from "@/core/infrastructure/di/bootstrap";
 import { TOKENS } from "@/core/infrastructure/di/tokens";
-import { eventBus } from "@/core/infrastructure/events/event-bus";
-import { MockAuditLogRepository } from "@/features/audit/data/repositories/MockAuditLogRepository";
-import { MockCustomerRelationshipRepository } from "@/features/customer-relationship/data/repositories/MockCustomerRelationshipRepository";
-import { MockCustomerRepository } from "@/features/customer/data/repositories/MockCustomerRepository";
-import { EventPurchaseFinanceGateway } from "@/features/finance/data/gateways/EventPurchaseFinanceGateway";
-import { MockCashFlowRepository } from "@/features/finance/data/repositories/MockCashFlowRepository";
-import { MockHealthRepository } from "@/features/health/data/repositories/MockHealthRepository";
+import {
+  ApiAuditLogRepository,
+  ApiCashFlowRepository,
+  ApiCustomerRelationshipRepository,
+  ApiCustomerRepository,
+  ApiHealthRepository,
+  ApiInventoryRepository,
+  ApiProductRepository,
+  ApiProductionOrderRepository,
+  ApiPurchaseRepository,
+  ApiRecipeRepository,
+  ApiSaleRepository,
+  ApiSupplierRepository,
+  NoopProductionInventoryGateway,
+  NoopPurchaseFinanceGateway,
+  NoopPurchaseInventoryGateway,
+  NoopSaleFinanceGateway,
+  NoopSaleInventoryGateway,
+} from "@/core/infrastructure/api/api-repositories";
+import { ApiClient } from "@/core/infrastructure/api/api-client";
 import { GetSystemHealthUseCase } from "@/features/health/domain/usecases/GetSystemHealthUseCase";
-import { MockInventoryRepository } from "@/features/inventory/data/repositories/MockInventoryRepository";
-import { MockProductRepository } from "@/features/product/data/repositories/MockProductRepository";
-import { EventProductionInventoryGateway } from "@/features/production/data/gateways/EventProductionInventoryGateway";
-import { MockProductionOrderRepository } from "@/features/production/data/repositories/MockProductionOrderRepository";
-import { MockRecipeRepository } from "@/features/production/data/repositories/MockRecipeRepository";
-import { MockPurchaseInventoryGateway } from "@/features/purchase/data/gateways/MockPurchaseInventoryGateway";
-import { MockPurchaseRepository } from "@/features/purchase/data/repositories/MockPurchaseRepository";
-import { EventSaleFinanceGateway } from "@/features/sales/data/gateways/EventSaleFinanceGateway";
-import { EventSaleInventoryGateway } from "@/features/sales/data/gateways/EventSaleInventoryGateway";
-import { MockSaleRepository } from "@/features/sales/data/repositories/MockSaleRepository";
-import { MockSupplierRepository } from "@/features/supplier/data/repositories/MockSupplierRepository";
 
 let bootstrapped = false;
-const auditLogRepository = new MockAuditLogRepository(eventBus);
+let saleRepository: ApiSaleRepository | null = null;
+
+function apiClient() {
+  return container.get<ApiClient>(TOKENS.apiClient);
+}
+
+function getSaleRepository() {
+  saleRepository ??= new ApiSaleRepository(apiClient());
+
+  return saleRepository;
+}
 
 export function bootstrapAppContainer() {
   if (bootstrapped) {
@@ -85,53 +97,74 @@ export function bootstrapAppContainer() {
 
   bootstrapCoreContainer();
 
-  container.register(TOKENS.auditLogRepository, () => auditLogRepository);
-  container.register(TOKENS.healthRepository, () => new MockHealthRepository());
-  container.register(TOKENS.productRepository, () => new MockProductRepository());
-  container.register(TOKENS.supplierRepository, () => new MockSupplierRepository());
-  container.register(TOKENS.customerRepository, () => new MockCustomerRepository());
+  container.register(
+    TOKENS.auditLogRepository,
+    () => new ApiAuditLogRepository(apiClient()),
+  );
+  container.register(
+    TOKENS.healthRepository,
+    () => new ApiHealthRepository(apiClient()),
+  );
+  container.register(
+    TOKENS.productRepository,
+    () => new ApiProductRepository(apiClient()),
+  );
+  container.register(
+    TOKENS.supplierRepository,
+    () => new ApiSupplierRepository(apiClient()),
+  );
+  container.register(
+    TOKENS.customerRepository,
+    () => new ApiCustomerRepository(apiClient()),
+  );
   container.register(
     TOKENS.customerRelationshipRepository,
-    () => new MockCustomerRelationshipRepository(),
+    () => new ApiCustomerRelationshipRepository(apiClient()),
   );
   container.register(
     TOKENS.cashFlowRepository,
-    () => new MockCashFlowRepository(eventBus),
+    () => new ApiCashFlowRepository(apiClient()),
   );
   container.register(
     TOKENS.cashRegisterRepository,
-    () => new MockCashFlowRepository(eventBus),
+    () => new ApiCashFlowRepository(apiClient()),
   );
   container.register(
     TOKENS.inventoryRepository,
-    () => new MockInventoryRepository(eventBus),
+    () => new ApiInventoryRepository(apiClient()),
   );
-  container.register(TOKENS.recipeRepository, () => new MockRecipeRepository());
-  container.register(TOKENS.saleRepository, () => new MockSaleRepository());
+  container.register(
+    TOKENS.recipeRepository,
+    () => new ApiRecipeRepository(apiClient()),
+  );
+  container.register(TOKENS.saleRepository, () => getSaleRepository());
   container.register(
     TOKENS.productionOrderRepository,
-    () => new MockProductionOrderRepository(),
+    () => new ApiProductionOrderRepository(apiClient()),
   );
   container.register(
     TOKENS.productionInventoryGateway,
-    () => new EventProductionInventoryGateway(),
+    () => new NoopProductionInventoryGateway(),
   );
-  container.register(TOKENS.purchaseRepository, () => new MockPurchaseRepository());
+  container.register(
+    TOKENS.purchaseRepository,
+    () => new ApiPurchaseRepository(apiClient()),
+  );
   container.register(
     TOKENS.purchaseInventoryGateway,
-    () => new MockPurchaseInventoryGateway(),
+    () => new NoopPurchaseInventoryGateway(),
   );
   container.register(
     TOKENS.purchaseFinanceGateway,
-    () => new EventPurchaseFinanceGateway(),
+    () => new NoopPurchaseFinanceGateway(),
   );
   container.register(
     TOKENS.saleInventoryGateway,
-    () => new EventSaleInventoryGateway(),
+    () => new NoopSaleInventoryGateway(),
   );
   container.register(
     TOKENS.saleFinanceGateway,
-    () => new EventSaleFinanceGateway(),
+    () => new NoopSaleFinanceGateway(),
   );
   registerUseCases();
 

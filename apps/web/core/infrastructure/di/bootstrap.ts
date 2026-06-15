@@ -7,13 +7,24 @@ import { container } from "./container";
 import { TOKENS } from "./tokens";
 
 let bootstrapped = false;
+let apiClient: ApiClient | null = null;
 
 export function bootstrapCoreContainer() {
   if (bootstrapped) {
     return;
   }
 
-  container.register(TOKENS.apiClient, () => new ApiClient(appConfig.apiBaseUrl));
+  container.register(
+    TOKENS.apiClient,
+    () => {
+      apiClient ??= new ApiClient(appConfig.apiBaseUrl, {
+        email: appConfig.apiDefaultEmail,
+        password: appConfig.apiDefaultPassword,
+      });
+
+      return apiClient;
+    },
+  );
   container.register(TOKENS.eventBus, () => eventBus);
   container.register(TOKENS.storage, () => new MemoryStorage());
 

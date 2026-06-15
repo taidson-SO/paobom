@@ -6,7 +6,7 @@ Fase 16 - Backend/API real
 
 Adicionar uma API HTTP real para operar sobre o PostgreSQL criado na Fase 15. A API fica em `apps/api` e usa Prisma Client diretamente sobre o banco persistente.
 
-Esta fase cria o backend transacional inicial. A UI web/mobile ainda continua usando repositories mock; a troca para `ApiRepository` fica para a fase de migracao dos repositories.
+A partir da Fase 18, a aplicacao web usa `ApiRepository` por padrao e conversa com esta API mantendo os use cases e os componentes atuais. O mobile ainda permanece com repositories mock/operacionais ate a fase mobile transacional.
 
 ## Aplicacao
 
@@ -70,6 +70,17 @@ DATABASE_URL=postgresql://paobom:paobom@localhost:5433/paobom?schema=public pnpm
 - `AUTH_TOKEN_SECRET`: segredo usado para assinar/hash de tokens de sessao.
 - `SESSION_TTL_HOURS`: duracao das sessoes. Padrao: `12`.
 - `SEED_USER_PASSWORD`: senha usada nos usuarios iniciais do seed. Padrao: `Paobom@123`.
+- `NEXT_PUBLIC_API_BASE_URL`: URL da API usada pela web. Padrao local: `http://localhost:3333`.
+- `NEXT_PUBLIC_API_DEFAULT_EMAIL`: usuario usado pela web durante a etapa sem tela de login. Padrao: `dono@paobom.local`.
+- `NEXT_PUBLIC_API_DEFAULT_PASSWORD`: senha do usuario padrao da web. Padrao: `Paobom@123`.
+
+## Migracao web para ApiRepository
+
+A Fase 18 substitui os repositories mock da web por adaptadores HTTP em `apps/web/core/infrastructure/api/api-repositories.ts`.
+
+Os adaptadores preservam os contratos dos repositories do dominio, portanto React Query, Zustand, componentes e use cases continuam na mesma estrutura arquitetural. As operacoes transacionais que a API ja executa de ponta a ponta usam gateways no-op na web para evitar duplicidade de efeitos, como baixa de estoque e lancamentos financeiros em compras, vendas e producao.
+
+Limitacao conhecida: interacoes de CRM ainda usam um modelo reduzido na API persistente. A web lista e registra interacoes via API, mas concluir/cancelar interacao precisa de ampliacao de schema/endpoints em uma fase posterior.
 
 ## Endpoints principais
 
