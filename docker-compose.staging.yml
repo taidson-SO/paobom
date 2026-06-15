@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: paobom-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-paobom_staging}
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:-paobom_staging}
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-paobom_staging}
+    ports:
+      - "${STAGING_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - paobom_staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  staging-seed:
+    image: node:24-bookworm
+    profiles:
+      - seed
+    user: "${STAGING_NODE_UID:-1000}:${STAGING_NODE_GID:-1000}"
+    working_dir: /workspace
+    environment:
+      CI: "true"
+      DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-paobom_staging}:${STAGING_POSTGRES_PASSWORD:-paobom_staging}@postgres:5432/${STAGING_POSTGRES_DB:-paobom_staging}?schema=public
+      SEED_USER_PASSWORD: ${STAGING_SEED_USER_PASSWORD:-Paobom@123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/workspace
+    command: >
+      sh -c "corepack enable &&
+      pnpm db:generate &&
+      pnpm db:deploy &&
+      pnpm db:seed:staging"
+
+  api:
+    image: node:24-bookworm
+    container_name: paobom-staging-api
+    restart: unless-stopped
+    user: "${STAGING_NODE_UID:-1000}:${STAGING_NODE_GID:-1000}"
+    working_dir: /workspace
+    environment:
+      CI: "true"
+      APP_ENV: staging
+      NODE_ENV: production
+      API_PORT: 3333
+      PORT: 3333
+      CORS_ORIGIN: ${STAGING_CORS_ORIGIN:-http://localhost:3001}
+      AUTH_TOKEN_SECRET: ${STAGING_AUTH_TOKEN_SECRET:-paobom-staging-secret}
+      SESSION_TTL_HOURS: ${STAGING_SESSION_TTL_HOURS:-12}
+      DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-paobom_staging}:${STAGING_POSTGRES_PASSWORD:-paobom_staging}@postgres:5432/${STAGING_POSTGRES_DB:-paobom_staging}?schema=public
+    ports:
+      - "${STAGING_API_PORT:-3335}:3333"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/workspace
+    command: >
+      sh -c "corepack enable &&
+      pnpm db:generate &&
+      pnpm db:deploy &&
+      pnpm --filter api build &&
+      pnpm --filter api start"
+
+  web:
+    image: node:24-bookworm
+    container_name: paobom-staging-web
+    restart: unless-stopped
+    user: "${STAGING_NODE_UID:-1000}:${STAGING_NODE_GID:-1000}"
+    working_dir: /workspace
+    environment:
+      CI: "true"
+      APP_ENV: staging
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${STAGING_PUBLIC_API_BASE_URL:-http://localhost:3335}
+      NEXT_PUBLIC_API_DEFAULT_EMAIL: ${STAGING_DEFAULT_EMAIL:-dono@paobom.local}
+      NEXT_PUBLIC_API_DEFAULT_PASSWORD: ${STAGING_SEED_USER_PASSWORD:-Paobom@123}
+    ports:
+      - "${STAGING_WEB_PORT:-3001}:3000"
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - .:/workspace
+    command: >
+      sh -c "corepack enable &&
+      pnpm --filter web build &&
+      pnpm --filter web start"
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: paobom-staging-pgadmin
+    restart: unless-stopped
+    profiles:
+      - tools
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${STAGING_PGADMIN_EMAIL:-admin-staging@paobom.local}
+      PGADMIN_DEFAULT_PASSWORD: ${STAGING_PGADMIN_PASSWORD:-paobom-staging}
+    ports:
+      - "${STAGING_PGADMIN_PORT:-5051}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - paobom_staging_pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  paobom_staging_pgadmin_data:
+  paobom_staging_postgres_data:

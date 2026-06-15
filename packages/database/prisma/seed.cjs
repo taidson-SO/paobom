@@ -1,7 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { pbkdf2Sync, randomBytes } = require("node:crypto");
 
-const prisma = new PrismaClient();
 const seedPassword = process.env.SEED_USER_PASSWORD ?? "Paobom@123";
 
 function hashPassword(password) {
@@ -11,8 +10,8 @@ function hashPassword(password) {
   return `pbkdf2_sha256$120000$${salt}$${hash}`;
 }
 
-async function main() {
-  await prisma.$transaction(async (tx) => {
+async function seedBase(client) {
+  await client.$transaction(async (tx) => {
     await tx.auditLog.deleteMany();
     await tx.authSession.deleteMany();
     await tx.cashReconciliation.deleteMany();
@@ -533,12 +532,18 @@ async function main() {
   });
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+module.exports = { seedBase };
+
+if (require.main === module) {
+  const prisma = new PrismaClient();
+
+  seedBase(prisma)
+    .then(async () => {
+      await prisma.$disconnect();
+    })
+    .catch(async (error) => {
+      console.error(error);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

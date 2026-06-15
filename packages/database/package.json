@@ -7,6 +7,7 @@
     "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma generate --schema prisma/schema.prisma",
     "db:migrate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma migrate dev --schema prisma/schema.prisma",
     "db:seed": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} node prisma/seed.cjs",
+    "db:seed:staging": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} node prisma/seed-staging.cjs",
     "db:studio": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma studio --schema prisma/schema.prisma",
     "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma validate --schema prisma/schema.prisma",
     "typecheck": "tsc --noEmit"

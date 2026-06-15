@@ -122,6 +122,30 @@ Encerrar os servicos:
 docker compose down
 ```
 
+## Staging Local
+
+A Fase 25 adiciona um ambiente staging local com PostgreSQL isolado, API, Web, pgAdmin opcional e seed com dados simulados proximos da operacao real. A documentacao detalhada fica em [docs/staging.md](docs/staging.md).
+
+Fluxo recomendado:
+
+```bash
+cp .env.staging.example .env.staging
+pnpm staging:seed
+pnpm staging:up
+```
+
+URLs padrao:
+
+- Web staging: `http://localhost:3001`
+- API staging: `http://localhost:3335`
+- PostgreSQL staging: `localhost:55432`
+
+Encerrar staging:
+
+```bash
+pnpm staging:down
+```
+
 ## Banco Persistente
 
 A Fase 15 adiciona o pacote `@paobom/database` com PostgreSQL + Prisma, migration inicial e seed local. A documentacao detalhada fica em [docs/banco-persistente.md](docs/banco-persistente.md).
@@ -221,8 +245,8 @@ Esta versao ainda nao esta pronta para producao real. O projeto ja possui banco,
 - Web ainda usa credenciais padrao via env, sem tela de login real
 - Testes de API/web/mobile ainda sao placeholders parciais
 - CRM persistente ainda usa modelo reduzido para interacoes
-- Sem ambiente staging
-- Sem backup, restore ou plano de rollback
+- Staging ainda e local/assistido, sem hospedagem HTTPS
+- Sem backup, restore ou plano de rollback automatizado
 
 ## Checkpoint
 
