@@ -67,12 +67,21 @@ DATABASE_URL=postgresql://paobom:paobom@localhost:5433/paobom?schema=public pnpm
 - `DATABASE_URL`: conexao PostgreSQL.
 - `API_PORT` ou `PORT`: porta HTTP da API. Padrao: `3333`.
 - `CORS_ORIGIN`: origem permitida para browser. Padrao: `*`.
+- `AUTH_TOKEN_SECRET`: segredo usado para assinar/hash de tokens de sessao.
+- `SESSION_TTL_HOURS`: duracao das sessoes. Padrao: `12`.
+- `SEED_USER_PASSWORD`: senha usada nos usuarios iniciais do seed. Padrao: `Paobom@123`.
 
 ## Endpoints principais
 
 Saude:
 
 - `GET /health`
+
+Autenticacao:
+
+- `POST /auth/login`
+- `GET /auth/me`
+- `POST /auth/logout`
 
 Cadastros:
 
@@ -132,6 +141,9 @@ Gestao:
 - `GET /audit-logs`
 - `POST /audit-logs`
 - `GET /users`
+- `POST /users`
+- `PATCH /users/:id`
+- `DELETE /users/:id`
 
 ## Efeitos transacionais iniciais
 
@@ -142,10 +154,32 @@ Gestao:
 - Cancelar venda gera reversao de estoque e cancela lancamentos financeiros vinculados.
 - Fechar caixa calcula valor esperado a partir dos lancamentos baixados desde a abertura.
 
+## Autenticacao e autorizacao
+
+Todas as rotas, exceto `GET /health` e `POST /auth/login`, exigem header:
+
+```txt
+Authorization: Bearer <token>
+```
+
+O login retorna o token, os dados do usuario e as permissoes derivadas do papel operacional.
+
+Usuarios iniciais do seed:
+
+- `dono@paobom.local`
+- `gerente@paobom.local`
+- `caixa@paobom.local`
+
+Senha padrao local:
+
+```txt
+Paobom@123
+```
+
+Em ambientes reais, troque `SEED_USER_PASSWORD` e `AUTH_TOKEN_SECRET`.
+
 ## Limites desta fase
 
-- Ainda nao ha autenticacao real.
-- Ainda nao ha autorizacao server-side.
 - A API nao substitui os repositories mock da UI nesta fase.
 - Validacoes de entrada sao basicas e devem evoluir para schemas compartilhados.
 - Testes automatizados da API ficam para uma fase posterior.

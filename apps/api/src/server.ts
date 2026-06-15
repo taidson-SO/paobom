@@ -1,3 +1,9 @@
+import {
+  createHash,
+  pbkdf2Sync,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -9,6 +15,7 @@ type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 type Context = {
   body: unknown;
+  currentUser: AuthenticatedUser | null;
   method: HttpMethod;
   params: Record<string, string>;
   query: URLSearchParams;
@@ -24,6 +31,61 @@ type Route = {
   pattern: string;
 };
 
+type UserRole =
+  | "owner"
+  | "manager"
+  | "cashier"
+  | "baker"
+  | "stock"
+  | "sales"
+  | "viewer";
+
+type Permission =
+  | "dashboard:view"
+  | "reports:view"
+  | "audit:view"
+  | "product:view"
+  | "product:manage"
+  | "supplier:view"
+  | "supplier:manage"
+  | "customer:view"
+  | "customer:manage"
+  | "crm:view"
+  | "crm:manage"
+  | "purchase:view"
+  | "purchase:create"
+  | "purchase:receive"
+  | "purchase:cancel"
+  | "inventory:view"
+  | "inventory:adjust"
+  | "inventory:register-loss"
+  | "production:view"
+  | "production:manage-recipe"
+  | "production:manage-order"
+  | "production:cancel"
+  | "sales:view"
+  | "sales:create"
+  | "sales:pay"
+  | "sales:cancel"
+  | "sales:authorize-discount"
+  | "sales:authorize-oversell"
+  | "finance:view"
+  | "finance:register-entry"
+  | "finance:settle"
+  | "finance:cancel"
+  | "finance:open-register"
+  | "finance:close-register"
+  | "permissions:manage";
+
+type AuthenticatedUser = {
+  id: string;
+  email: string;
+  name: string;
+  permissions: Permission[];
+  role: UserRole;
+  sessionId: string;
+};
+
 class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -35,6 +97,9 @@ class HttpError extends Error {
 
 const routes: Route[] = [
   route("GET", "/health", async () => ({ status: "ok", service: "paobom-api" })),
+  route("POST", "/auth/login", login),
+  route("GET", "/auth/me", me),
+  route("POST", "/auth/logout", logout),
 
   route("GET", "/products", listProducts),
   route("POST", "/products", createProduct),
@@ -89,6 +154,9 @@ const routes: Route[] = [
   route("GET", "/audit-logs", listAuditLogs),
   route("POST", "/audit-logs", createAuditLog),
   route("GET", "/users", listUsers),
+  route("POST", "/users", createUser),
+  route("PATCH", "/users/:id", updateUser),
+  route("DELETE", "/users/:id", deactivateUser),
 ];
 
 const server = createServer(async (req, res) => {
@@ -110,8 +178,10 @@ const server = createServer(async (req, res) => {
     }
 
     const body = method === "GET" ? undefined : await readJsonBody(req);
+    const currentUser = await authorize(req, match.route);
     const result = await match.route.handler({
       body,
+      currentUser,
       method,
       params: match.params,
       query: requestUrl.searchParams,
@@ -143,6 +213,305 @@ async function shutdown() {
 
 function route(method: HttpMethod, pattern: string, handler: Handler): Route {
   return { handler, method, pattern };
+}
+
+const allPermissions = [
+  "dashboard:view",
+  "reports:view",
+  "audit:view",
+  "product:view",
+  "product:manage",
+  "supplier:view",
+  "supplier:manage",
+  "customer:view",
+  "customer:manage",
+  "crm:view",
+  "crm:manage",
+  "purchase:view",
+  "purchase:create",
+  "purchase:receive",
+  "purchase:cancel",
+  "inventory:view",
+  "inventory:adjust",
+  "inventory:register-loss",
+  "production:view",
+  "production:manage-recipe",
+  "production:manage-order",
+  "production:cancel",
+  "sales:view",
+  "sales:create",
+  "sales:pay",
+  "sales:cancel",
+  "sales:authorize-discount",
+  "sales:authorize-oversell",
+  "finance:view",
+  "finance:register-entry",
+  "finance:settle",
+  "finance:cancel",
+  "finance:open-register",
+  "finance:close-register",
+  "permissions:manage",
+] satisfies Permission[];
+
+const rolePermissions: Record<UserRole, Permission[]> = {
+  baker: [
+    "dashboard:view",
+    "product:view",
+    "inventory:view",
+    "inventory:register-loss",
+    "production:view",
+    "production:manage-order",
+    "production:cancel",
+  ],
+  cashier: [
+    "dashboard:view",
+    "reports:view",
+    "audit:view",
+    "customer:view",
+    "customer:manage",
+    "sales:view",
+    "sales:create",
+    "sales:pay",
+    "sales:cancel",
+    "finance:view",
+    "finance:register-entry",
+    "finance:settle",
+    "finance:cancel",
+    "finance:open-register",
+    "finance:close-register",
+  ],
+  manager: allPermissions.filter(
+    (permission) => permission !== "permissions:manage",
+  ),
+  owner: allPermissions,
+  sales: [
+    "dashboard:view",
+    "customer:view",
+    "customer:manage",
+    "crm:view",
+    "crm:manage",
+    "sales:view",
+    "sales:create",
+    "sales:pay",
+  ],
+  stock: [
+    "dashboard:view",
+    "product:view",
+    "supplier:view",
+    "supplier:manage",
+    "purchase:view",
+    "purchase:create",
+    "purchase:receive",
+    "purchase:cancel",
+    "inventory:view",
+    "inventory:adjust",
+    "inventory:register-loss",
+  ],
+  viewer: ["dashboard:view", "reports:view"],
+};
+
+async function authorize(req: IncomingMessage, route: Route) {
+  const requiredPermissions = getRequiredPermissions(route);
+
+  if (requiredPermissions === null) {
+    return null;
+  }
+
+  const token = getBearerToken(req);
+
+  if (!token) {
+    throw new HttpError(401, "Token de autenticacao nao informado");
+  }
+
+  const session = await prisma.authSession.findUnique({
+    include: { user: true },
+    where: { tokenHash: hashToken(token) },
+  });
+
+  if (
+    !session ||
+    session.revokedAt ||
+    session.expiresAt <= new Date() ||
+    !session.user.active
+  ) {
+    throw new HttpError(401, "Sessao invalida ou expirada");
+  }
+
+  const user: AuthenticatedUser = {
+    email: session.user.email,
+    id: session.user.id,
+    name: session.user.name,
+    permissions: rolePermissions[session.user.role as UserRole],
+    role: session.user.role as UserRole,
+    sessionId: session.id,
+  };
+
+  const allowed = requiredPermissions.every((permission) =>
+    user.permissions.includes(permission),
+  );
+
+  if (!allowed) {
+    throw new HttpError(403, "Usuario sem permissao para executar esta acao");
+  }
+
+  return user;
+}
+
+function getRequiredPermissions(route: Route): Permission[] | null {
+  if (
+    route.pattern === "/health" ||
+    route.pattern === "/auth/login"
+  ) {
+    return null;
+  }
+
+  if (route.pattern === "/auth/me" || route.pattern === "/auth/logout") {
+    return [];
+  }
+
+  if (route.pattern.startsWith("/products")) {
+    return route.method === "GET" ? ["product:view"] : ["product:manage"];
+  }
+
+  if (route.pattern.startsWith("/suppliers")) {
+    return route.method === "GET" ? ["supplier:view"] : ["supplier:manage"];
+  }
+
+  if (route.pattern.includes("/interactions")) {
+    return ["crm:manage"];
+  }
+
+  if (route.pattern.startsWith("/customers")) {
+    return route.method === "GET" ? ["customer:view"] : ["customer:manage"];
+  }
+
+  if (route.pattern === "/purchases") {
+    return route.method === "GET" ? ["purchase:view"] : ["purchase:create"];
+  }
+
+  if (route.pattern.includes("/receive")) {
+    return ["purchase:receive"];
+  }
+
+  if (route.pattern.includes("/purchases") && route.pattern.includes("/cancel")) {
+    return ["purchase:cancel"];
+  }
+
+  if (route.pattern.startsWith("/inventory")) {
+    return route.method === "GET" ? ["inventory:view"] : ["inventory:adjust"];
+  }
+
+  if (route.pattern === "/production/recipes") {
+    return route.method === "GET"
+      ? ["production:view"]
+      : ["production:manage-recipe"];
+  }
+
+  if (route.pattern.includes("/production/orders") && route.pattern.includes("/cancel")) {
+    return ["production:cancel"];
+  }
+
+  if (route.pattern.startsWith("/production/orders")) {
+    return route.method === "GET"
+      ? ["production:view"]
+      : ["production:manage-order"];
+  }
+
+  if (route.pattern === "/sales") {
+    return route.method === "GET" ? ["sales:view"] : ["sales:create"];
+  }
+
+  if (route.pattern.includes("/sales") && route.pattern.includes("/pay")) {
+    return ["sales:pay"];
+  }
+
+  if (route.pattern.includes("/sales") && route.pattern.includes("/cancel")) {
+    return ["sales:cancel"];
+  }
+
+  if (route.pattern === "/cash/entries") {
+    return route.method === "GET" ? ["finance:view"] : ["finance:register-entry"];
+  }
+
+  if (route.pattern.includes("/cash/entries") && route.pattern.includes("/settle")) {
+    return ["finance:settle"];
+  }
+
+  if (route.pattern.includes("/cash/entries") && route.pattern.includes("/cancel")) {
+    return ["finance:cancel"];
+  }
+
+  if (route.pattern === "/cash/registers") {
+    return ["finance:view"];
+  }
+
+  if (route.pattern.includes("/cash/registers/open")) {
+    return ["finance:open-register"];
+  }
+
+  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/close")) {
+    return ["finance:close-register"];
+  }
+
+  if (route.pattern === "/reports") {
+    return ["reports:view"];
+  }
+
+  if (route.pattern === "/dashboard") {
+    return ["dashboard:view"];
+  }
+
+  if (route.pattern === "/audit-logs") {
+    return route.method === "GET" ? ["audit:view"] : ["audit:view"];
+  }
+
+  if (route.pattern.startsWith("/users")) {
+    return ["permissions:manage"];
+  }
+
+  return [];
+}
+
+function getBearerToken(req: IncomingMessage) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  return authorization.slice("Bearer ".length).trim();
+}
+
+function hashToken(token: string) {
+  return createHash("sha256")
+    .update(`${process.env.AUTH_TOKEN_SECRET ?? "paobom-dev-secret"}:${token}`)
+    .digest("hex");
+}
+
+function hashPassword(password: string, salt = randomBytes(16).toString("hex")) {
+  const iterations = 120000;
+  const hash = pbkdf2Sync(password, salt, iterations, 32, "sha256").toString("hex");
+
+  return `pbkdf2_sha256$${iterations}$${salt}$${hash}`;
+}
+
+function verifyPassword(password: string, storedHash: string) {
+  const [algorithm, iterationsValue, salt, hash] = storedHash.split("$");
+
+  if (algorithm !== "pbkdf2_sha256" || !iterationsValue || !salt || !hash) {
+    return false;
+  }
+
+  const computed = pbkdf2Sync(
+    password,
+    salt,
+    Number(iterationsValue),
+    32,
+    "sha256",
+  );
+  const expected = Buffer.from(hash, "hex");
+
+  return expected.length === computed.length && timingSafeEqual(expected, computed);
 }
 
 function normalizeMethod(method?: string): HttpMethod {
@@ -330,6 +699,96 @@ function booleanQuery(query: URLSearchParams, field: string) {
   }
 
   return value === "true";
+}
+
+async function login({ body }: Context) {
+  const input = bodyAsRecord(body);
+  const email = stringField(input, "email").toLowerCase();
+  const password = stringField(input, "password");
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user || !user.active || !verifyPassword(password, user.passwordHash)) {
+    throw new HttpError(401, "Credenciais invalidas");
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date();
+
+  expiresAt.setHours(
+    expiresAt.getHours() + Number(process.env.SESSION_TTL_HOURS ?? 12),
+  );
+
+  const session = await prisma.authSession.create({
+    data: {
+      expiresAt,
+      tokenHash: hashToken(token),
+      user: { connect: { id: user.id } },
+    },
+  });
+  const role = user.role as UserRole;
+
+  await prisma.auditLog.create({
+    data: {
+      action: "auth.login",
+      description: "Login realizado na API",
+      entity: "auth_session",
+      entityId: session.id,
+      metadata: { email: user.email },
+      occurredAt: new Date(),
+      result: "success",
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+    },
+  });
+
+  return {
+    expiresAt,
+    token,
+    user: {
+      email: user.email,
+      id: user.id,
+      name: user.name,
+      permissions: rolePermissions[role],
+      role,
+    },
+  };
+}
+
+async function me({ currentUser }: Context) {
+  if (!currentUser) {
+    throw new HttpError(401, "Usuario nao autenticado");
+  }
+
+  return currentUser;
+}
+
+async function logout({ currentUser }: Context) {
+  if (!currentUser) {
+    throw new HttpError(401, "Usuario nao autenticado");
+  }
+
+  await prisma.authSession.update({
+    data: { revokedAt: new Date() },
+    where: { id: currentUser.sessionId },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "auth.logout",
+      description: "Logout realizado na API",
+      entity: "auth_session",
+      entityId: currentUser.sessionId,
+      metadata: {},
+      occurredAt: new Date(),
+      result: "success",
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+    },
+  });
+
+  return { revoked: true };
 }
 
 function requireArray(value: unknown, field: string) {
@@ -880,7 +1339,7 @@ async function listSales() {
   });
 }
 
-async function createSale({ body }: Context) {
+async function createSale({ body, currentUser }: Context) {
   const input = bodyAsRecord(body);
   const items = requireArray(input.items, "items");
   const discountAmount = optionalNumberField(input, "discountAmount");
@@ -902,7 +1361,10 @@ async function createSale({ body }: Context) {
         throw new HttpError(400, "Todos os itens devem usar produtos vendaveis ativos");
       }
 
-      if ((!balance || decimalToNumber(balance.quantity) < quantity) && !optionalStringField(input, "oversellApprovedBy")) {
+      if (
+        (!balance || decimalToNumber(balance.quantity) < quantity) &&
+        !currentUser?.permissions.includes("sales:authorize-oversell")
+      ) {
         throw new HttpError(409, "Venda acima do estoque exige responsavel");
       }
 
@@ -920,7 +1382,7 @@ async function createSale({ body }: Context) {
     }
 
     if (subtotal > 0 && discountAmount / subtotal > 0.1) {
-      if (!optionalStringField(input, "discountAuthorizedBy")) {
+      if (!currentUser?.permissions.includes("sales:authorize-discount")) {
         throw new HttpError(400, "Desconto acima do limite exige autorizacao");
       }
 
@@ -938,7 +1400,10 @@ async function createSale({ body }: Context) {
             ? { connect: { id: input.customerId } }
             : undefined,
         discountAmount,
-        discountAuthorizedBy: optionalStringField(input, "discountAuthorizedBy"),
+        discountAuthorizedBy:
+          discountAmount > 0
+            ? currentUser?.id ?? null
+            : optionalStringField(input, "discountAuthorizedBy"),
         discountReason: optionalStringField(input, "discountReason"),
         items: {
           create: preparedItems.map((item) => ({
@@ -949,7 +1414,7 @@ async function createSale({ body }: Context) {
           })),
         },
         notes: typeof input.notes === "string" ? input.notes : "",
-        oversellApprovedBy: optionalStringField(input, "oversellApprovedBy"),
+        oversellApprovedBy: optionalStringField(input, "oversellApprovedBy") ?? currentUser?.id ?? null,
         oversellJustification: optionalStringField(input, "oversellJustification"),
         paidAt: isPaidNow ? new Date() : null,
         paymentMethod,
@@ -1322,7 +1787,98 @@ async function createAuditLog({ body }: Context) {
 }
 
 async function listUsers() {
-  return prisma.user.findMany({ orderBy: { name: "asc" } });
+  return prisma.user.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      active: true,
+      createdAt: true,
+      email: true,
+      id: true,
+      name: true,
+      role: true,
+      updatedAt: true,
+    },
+  });
+}
+
+async function createUser({ body }: Context) {
+  const input = bodyAsRecord(body);
+  const role = stringField(input, "role") as UserRole;
+
+  if (!rolePermissions[role]) {
+    throw new HttpError(400, "Papel de usuario invalido");
+  }
+
+  return prisma.user.create({
+    data: {
+      email: stringField(input, "email").toLowerCase(),
+      name: stringField(input, "name"),
+      passwordHash: hashPassword(stringField(input, "password")),
+      role,
+    },
+    select: {
+      active: true,
+      createdAt: true,
+      email: true,
+      id: true,
+      name: true,
+      role: true,
+      updatedAt: true,
+    },
+  });
+}
+
+async function updateUser({ body, params }: Context) {
+  const input = bodyAsRecord(body);
+  const role = typeof input.role === "string" ? (input.role as UserRole) : undefined;
+
+  if (role && !rolePermissions[role]) {
+    throw new HttpError(400, "Papel de usuario invalido");
+  }
+
+  return prisma.user.update({
+    data: {
+      active: typeof input.active === "boolean" ? input.active : undefined,
+      email: typeof input.email === "string" ? input.email.toLowerCase() : undefined,
+      name: typeof input.name === "string" ? input.name : undefined,
+      passwordHash:
+        typeof input.password === "string" && input.password
+          ? hashPassword(input.password)
+          : undefined,
+      role,
+    },
+    select: {
+      active: true,
+      createdAt: true,
+      email: true,
+      id: true,
+      name: true,
+      role: true,
+      updatedAt: true,
+    },
+    where: { id: params.id },
+  });
+}
+
+async function deactivateUser({ params }: Context) {
+  await prisma.authSession.updateMany({
+    data: { revokedAt: new Date() },
+    where: { userId: params.id, revokedAt: null },
+  });
+
+  return prisma.user.update({
+    data: { active: false },
+    select: {
+      active: true,
+      createdAt: true,
+      email: true,
+      id: true,
+      name: true,
+      role: true,
+      updatedAt: true,
+    },
+    where: { id: params.id },
+  });
 }
 
 async function findOr404<T>(promise: Promise<T | null>, entity: string) {

@@ -1,10 +1,20 @@
 const { PrismaClient } = require("@prisma/client");
+const { pbkdf2Sync, randomBytes } = require("node:crypto");
 
 const prisma = new PrismaClient();
+const seedPassword = process.env.SEED_USER_PASSWORD ?? "Paobom@123";
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = pbkdf2Sync(password, salt, 120000, 32, "sha256").toString("hex");
+
+  return `pbkdf2_sha256$120000$${salt}$${hash}`;
+}
 
 async function main() {
   await prisma.$transaction(async (tx) => {
     await tx.auditLog.deleteMany();
+    await tx.authSession.deleteMany();
     await tx.cashRegister.deleteMany();
     await tx.cashEntry.deleteMany();
     await tx.saleItem.deleteMany();
@@ -29,18 +39,21 @@ async function main() {
           id: "user-owner",
           name: "Dono PaoBom",
           email: "dono@paobom.local",
+          passwordHash: hashPassword(seedPassword),
           role: "owner",
         },
         {
           id: "user-manager",
           name: "Gerente PaoBom",
           email: "gerente@paobom.local",
+          passwordHash: hashPassword(seedPassword),
           role: "manager",
         },
         {
           id: "user-cashier",
           name: "Caixa PaoBom",
           email: "caixa@paobom.local",
+          passwordHash: hashPassword(seedPassword),
           role: "cashier",
         },
       ],
