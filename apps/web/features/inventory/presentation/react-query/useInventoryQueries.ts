@@ -2,6 +2,8 @@
 
 import {
   ListInventoryBalancesUseCase,
+  ListInventoryLotsUseCase,
+  ListPhysicalInventoryCountsUseCase,
   ListStockMovementsUseCase,
 } from "@paobom/domain";
 import { useQuery } from "@tanstack/react-query";
@@ -30,5 +32,27 @@ export function useStockMovementsQuery() {
   return useQuery({
     queryFn: () => useCase.execute(),
     queryKey: inventoryQueryKeys.movements,
+  });
+}
+
+export function useInventoryLotsQuery() {
+  const useCase = container.get<ListInventoryLotsUseCase>(
+    TOKENS.listInventoryLotsUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: inventoryQueryKeys.lots,
+  });
+}
+
+export function usePhysicalInventoryCountsQuery() {
+  const useCase = container.get<ListPhysicalInventoryCountsUseCase>(
+    TOKENS.listPhysicalInventoryCountsUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: inventoryQueryKeys.counts,
   });
 }

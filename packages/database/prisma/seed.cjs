@@ -24,6 +24,8 @@ async function main() {
     await tx.recipeIngredient.deleteMany();
     await tx.recipe.deleteMany();
     await tx.stockMovement.deleteMany();
+    await tx.physicalInventoryCount.deleteMany();
+    await tx.inventoryLot.deleteMany();
     await tx.inventoryBalance.deleteMany();
     await tx.purchaseItem.deleteMany();
     await tx.purchase.deleteMany();
@@ -208,11 +210,57 @@ async function main() {
       ],
     });
 
+    await tx.inventoryLot.createMany({
+      data: [
+        {
+          id: "lot-flour-001",
+          productId: "prod-flour",
+          lotCode: "FAR-2026-06-14",
+          quantity: "42.000",
+          unitCost: "4.20",
+          expirationDate: new Date("2026-09-14T00:00:00.000Z"),
+          supplierId: "supplier-moinho",
+          purchaseId: "purchase-flour-001",
+          receivedAt: new Date("2026-06-14T10:00:00.000Z"),
+        },
+        {
+          id: "lot-yeast-001",
+          productId: "prod-yeast",
+          lotCode: "FER-2026-06-14",
+          quantity: "4.500",
+          unitCost: "18.00",
+          expirationDate: new Date("2026-07-14T00:00:00.000Z"),
+          supplierId: "supplier-moinho",
+          purchaseId: "purchase-flour-001",
+          receivedAt: new Date("2026-06-14T10:00:00.000Z"),
+        },
+        {
+          id: "lot-bread-001",
+          productId: "prod-bread",
+          lotCode: "PROD-2026-06-14-PAO",
+          quantity: "160.000",
+          unitCost: "0.35",
+          expirationDate: new Date("2026-06-15T00:00:00.000Z"),
+          receivedAt: new Date("2026-06-14T12:00:00.000Z"),
+        },
+        {
+          id: "lot-coffee-001",
+          productId: "prod-coffee",
+          lotCode: "CAF-2026-06-14",
+          quantity: "35.000",
+          unitCost: "1.20",
+          expirationDate: new Date("2026-08-14T00:00:00.000Z"),
+          receivedAt: new Date("2026-06-14T08:00:00.000Z"),
+        },
+      ],
+    });
+
     await tx.stockMovement.createMany({
       data: [
         {
           id: "movement-purchase-flour",
           productId: "prod-flour",
+          lotId: "lot-flour-001",
           type: "purchase_in",
           origin: "purchase",
           quantity: "50.000",
@@ -224,6 +272,7 @@ async function main() {
         {
           id: "movement-production-flour",
           productId: "prod-flour",
+          lotId: "lot-flour-001",
           type: "production_out",
           origin: "production",
           quantity: "8.000",
@@ -235,6 +284,7 @@ async function main() {
         {
           id: "movement-production-bread",
           productId: "prod-bread",
+          lotId: "lot-bread-001",
           type: "production_in",
           origin: "production",
           quantity: "180.000",
@@ -244,6 +294,19 @@ async function main() {
           occurredAt: new Date("2026-06-14T12:00:00.000Z"),
         },
       ],
+    });
+
+    await tx.physicalInventoryCount.create({
+      data: {
+        id: "count-flour-001",
+        productId: "prod-flour",
+        expectedQuantity: "42.000",
+        countedQuantity: "41.500",
+        divergenceQuantity: "-0.500",
+        reason: "Diferenca pequena encontrada na conferencia inicial",
+        countedBy: "Gerente PaoBom",
+        countedAt: new Date("2026-06-14T17:00:00.000Z"),
+      },
     });
 
     await tx.recipe.create({

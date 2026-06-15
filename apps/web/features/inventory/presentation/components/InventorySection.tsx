@@ -10,6 +10,7 @@ import { useInventory } from "@/features/inventory/presentation/hooks/useInvento
 import {
   RegisterAdjustmentSchema,
   RegisterLossSchema,
+  RegisterPhysicalInventoryCountSchema,
 } from "@/features/inventory/schemas/InventorySchema";
 
 type MovementMode = "loss" | "adjustment";
@@ -21,10 +22,24 @@ type InventoryForm = {
   reason: string;
 };
 
+type CountForm = {
+  countedBy: string;
+  countedQuantity: number;
+  productId: string;
+  reason: string;
+};
+
 const initialForm: InventoryForm = {
   mode: "loss",
   productId: "",
   quantity: 1,
+  reason: "",
+};
+
+const initialCountForm: CountForm = {
+  countedBy: "Gerencia",
+  countedQuantity: 0,
+  productId: "",
   reason: "",
 };
 
@@ -60,8 +75,11 @@ const kindLabels: Record<ProductKind, string> = {
 export function InventorySection({ products }: { products: Product[] }) {
   const {
     balances,
+    counts,
+    lots,
     movements,
     registerAdjustment,
+    registerPhysicalCount,
     registerLoss,
     selectedProductId,
     setSelectedProduct,
@@ -72,7 +90,9 @@ export function InventorySection({ products }: { products: Product[] }) {
   const canAdjustInventory = can("inventory:adjust");
   const canRegisterMovement = canRegisterLoss || canAdjustInventory;
   const [form, setForm] = useState<InventoryForm>(initialForm);
+  const [countForm, setCountForm] = useState<CountForm>(initialCountForm);
   const [error, setError] = useState<string | null>(null);
+  const [countError, setCountError] = useState<string | null>(null);
   const productNames = useMemo(
     () => new Map(products.map((product) => [product.id, product.name])),
     [products],
@@ -83,6 +103,18 @@ export function InventorySection({ products }: { products: Product[] }) {
   );
   const activeProducts = products.filter((product) => product.active);
   const lowStockCount = balances.filter((balance) => balance.isBelowMinimum).length;
+  const expiringLots = lots.filter((lot) => {
+    if (!lot.expirationDate || lot.status === "depleted") {
+      return false;
+    }
+
+    const threshold = new Date();
+
+    threshold.setDate(threshold.getDate() + 7);
+
+    return lot.expirationDate <= threshold;
+  }).length;
+  const divergenceCount = counts.filter((count) => count.hasDivergence).length;
   const totalValue = balances.reduce(
     (sum, balance) => sum + balance.estimatedValue,
     0,
@@ -90,6 +122,12 @@ export function InventorySection({ products }: { products: Product[] }) {
   const visibleMovements = selectedProductId
     ? movements.filter((movement) => movement.productId === selectedProductId)
     : movements;
+  const visibleLots = selectedProductId
+    ? lots.filter((lot) => lot.productId === selectedProductId)
+    : lots;
+  const visibleCounts = selectedProductId
+    ? counts.filter((count) => count.productId === selectedProductId)
+    : counts;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,6 +180,42 @@ export function InventorySection({ products }: { products: Product[] }) {
     }
   }
 
+  async function handleCountSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canAdjustInventory) {
+      setCountError("Seu perfil nao pode registrar inventario fisico.");
+      return;
+    }
+
+    setCountError(null);
+
+    try {
+      const input = RegisterPhysicalInventoryCountSchema.parse({
+        ...countForm,
+        reason: countForm.reason || null,
+      });
+      const count = await registerPhysicalCount.mutateAsync(input);
+
+      recordAudit({
+        action: "inventory.count",
+        description: "Contagem fisica de estoque registrada",
+        entity: "inventory",
+        entityId: count.productId,
+        metadata: {
+          countedQuantity: count.countedQuantity,
+          divergenceQuantity: count.divergenceQuantity,
+          productId: count.productId,
+        },
+      });
+      setCountForm(initialCountForm);
+    } catch (cause) {
+      setCountError(
+        cause instanceof Error ? cause.message : "Contagem invalida",
+      );
+    }
+  }
+
   return (
     <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
       <div className="space-y-4">
@@ -155,6 +229,8 @@ export function InventorySection({ products }: { products: Product[] }) {
         <div className="grid grid-cols-2 gap-2">
           <Metric label="Valor estimado" value={`R$ ${totalValue.toFixed(2)}`} />
           <Metric label="Abaixo minimo" value={String(lowStockCount)} />
+          <Metric label="Lotes a vencer" value={String(expiringLots)} />
+          <Metric label="Divergencias" value={String(divergenceCount)} />
         </div>
 
         <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleSubmit}>
@@ -242,9 +318,122 @@ export function InventorySection({ products }: { products: Product[] }) {
 
           {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
         </form>
+
+        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCountSubmit}>
+          {!canAdjustInventory ? (
+            <PermissionNotice description="Voce pode consultar inventario fisico, mas nao registrar contagens." />
+          ) : null}
+          <div>
+            <p className="text-sm font-bold text-zinc-950">Inventario fisico</p>
+            <p className="text-xs text-zinc-500">
+              Registre contagens e justifique divergencias.
+            </p>
+          </div>
+          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+            Produto
+            <select
+              className="rounded-md border border-zinc-300 px-3 py-2"
+              value={countForm.productId}
+              onChange={(event) =>
+                setCountForm((state) => ({
+                  ...state,
+                  productId: event.target.value,
+                }))
+              }
+            >
+              <option value="">Selecione</option>
+              {activeProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <NumberField
+            label="Quantidade contada"
+            value={countForm.countedQuantity}
+            onChange={(countedQuantity) =>
+              setCountForm((state) => ({ ...state, countedQuantity }))
+            }
+          />
+          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+            Responsavel
+            <input
+              className="rounded-md border border-zinc-300 px-3 py-2"
+              value={countForm.countedBy}
+              onChange={(event) =>
+                setCountForm((state) => ({
+                  ...state,
+                  countedBy: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+            Justificativa
+            <input
+              className="rounded-md border border-zinc-300 px-3 py-2"
+              value={countForm.reason}
+              onChange={(event) =>
+                setCountForm((state) => ({
+                  ...state,
+                  reason: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <button
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            disabled={!canAdjustInventory}
+          >
+            Registrar contagem
+          </button>
+          {countError ? (
+            <p className="text-sm font-semibold text-red-700">{countError}</p>
+          ) : null}
+        </form>
       </div>
 
       <div className="grid gap-4">
+        <div className="overflow-hidden rounded-md border border-zinc-200">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+              <tr>
+                <th className="px-3 py-2">Lote</th>
+                <th className="px-3 py-2">Produto</th>
+                <th className="px-3 py-2">Qtd.</th>
+                <th className="px-3 py-2">Validade</th>
+                <th className="px-3 py-2">Origem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleLots.map((lot) => (
+                <tr className="border-t border-zinc-100" key={lot.id}>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold text-zinc-950">{lot.lotCode}</p>
+                    <p className="text-xs text-zinc-500">{lot.status}</p>
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {productNames.get(lot.productId) ?? "Produto"}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">{lot.quantity}</td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {lot.expirationDate
+                      ? lot.expirationDate.toLocaleDateString()
+                      : "sem validade"}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    <p>{lot.purchaseId ?? "operacional"}</p>
+                    <p className="text-xs text-zinc-500">
+                      {lot.supplierId ?? "sem fornecedor"}
+                    </p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         <div className="overflow-hidden rounded-md border border-zinc-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
@@ -305,6 +494,7 @@ export function InventorySection({ products }: { products: Product[] }) {
               <tr>
                 <th className="px-3 py-2">Movimento</th>
                 <th className="px-3 py-2">Produto</th>
+                <th className="px-3 py-2">Lote</th>
                 <th className="px-3 py-2">Qtd.</th>
                 <th className="px-3 py-2">Origem</th>
                 <th className="px-3 py-2">Data</th>
@@ -325,6 +515,9 @@ export function InventorySection({ products }: { products: Product[] }) {
                     {productNames.get(movement.productId) ?? "Produto"}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
+                    {movement.lotId ?? "sem lote"}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
                     {movement.quantity}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
@@ -335,6 +528,57 @@ export function InventorySection({ products }: { products: Product[] }) {
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {movement.occurredAt.toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="overflow-hidden rounded-md border border-zinc-200">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+              <tr>
+                <th className="px-3 py-2">Contagem</th>
+                <th className="px-3 py-2">Produto</th>
+                <th className="px-3 py-2">Esperado</th>
+                <th className="px-3 py-2">Contado</th>
+                <th className="px-3 py-2">Divergencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleCounts.map((count) => (
+                <tr className="border-t border-zinc-100" key={count.id}>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold text-zinc-950">
+                      {count.countedBy}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {count.countedAt.toLocaleDateString()}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {productNames.get(count.productId) ?? "Produto"}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {count.expectedQuantity}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    {count.countedQuantity}
+                  </td>
+                  <td className="px-3 py-3 text-zinc-700">
+                    <p
+                      className={
+                        count.hasDivergence
+                          ? "font-bold text-red-700"
+                          : "font-semibold text-green-700"
+                      }
+                    >
+                      {count.divergenceQuantity}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {count.reason ?? "sem divergencia"}
+                    </p>
                   </td>
                 </tr>
               ))}

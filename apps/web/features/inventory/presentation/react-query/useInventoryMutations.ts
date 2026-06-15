@@ -5,6 +5,8 @@ import {
   RegisterInventoryAdjustmentUseCase,
   RegisterLossInput,
   RegisterLossUseCase,
+  RegisterPhysicalInventoryCountInput,
+  RegisterPhysicalInventoryCountUseCase,
 } from "@paobom/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -22,6 +24,10 @@ export function useInventoryMutations() {
     container.get<RegisterInventoryAdjustmentUseCase>(
       TOKENS.registerInventoryAdjustmentUseCase,
     );
+  const registerPhysicalCountUseCase =
+    container.get<RegisterPhysicalInventoryCountUseCase>(
+      TOKENS.registerPhysicalInventoryCountUseCase,
+    );
 
   const onSuccess = () => {
     void queryClient.invalidateQueries({
@@ -29,6 +35,12 @@ export function useInventoryMutations() {
     });
     void queryClient.invalidateQueries({
       queryKey: inventoryQueryKeys.movements,
+    });
+    void queryClient.invalidateQueries({
+      queryKey: inventoryQueryKeys.lots,
+    });
+    void queryClient.invalidateQueries({
+      queryKey: inventoryQueryKeys.counts,
     });
   };
 
@@ -40,6 +52,11 @@ export function useInventoryMutations() {
     }),
     registerLoss: useMutation({
       mutationFn: (input: RegisterLossInput) => registerLossUseCase.execute(input),
+      onSuccess,
+    }),
+    registerPhysicalCount: useMutation({
+      mutationFn: (input: RegisterPhysicalInventoryCountInput) =>
+        registerPhysicalCountUseCase.execute(input),
       onSuccess,
     }),
   };

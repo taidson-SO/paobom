@@ -22,7 +22,7 @@ O banco fica em `packages/database`, respeitando a arquitetura do monorepo:
 - Clientes
 - Interacoes de CRM
 - Compras e itens de compra
-- Saldos e movimentacoes de estoque
+- Saldos, lotes, validade, contagens fisicas e movimentacoes de estoque
 - Receitas versionadas e ingredientes
 - Ordens de producao e consumos
 - Vendas e itens de venda
@@ -102,10 +102,12 @@ postgresql://paobom:paobom@localhost:5432/paobom?schema=public
 
 Para ambientes reais, defina `DATABASE_URL` explicitamente.
 
-## Limites desta fase
+## Evolucao apos Fase 20
 
-- A UI ainda usa repositories mock.
-- Ainda nao existe API/backend real consumindo o banco.
-- Autenticacao e autorizacao seguem mockadas no frontend.
-- Auditoria ja esta modelada, mas ainda nao persistida pelos fluxos da UI.
-- Estoque avancado por lote/validade fica para fase posterior.
+O banco ja possui persistencia para estoque real avancado:
+
+- `inventory_lots`: rastreia lote, validade, fornecedor, compra de origem, custo e saldo do lote.
+- `stock_movements.lotId`: conecta movimentos ao lote afetado quando aplicavel.
+- `physical_inventory_counts`: registra contagem fisica, saldo esperado, saldo contado, divergencia, responsavel e justificativa.
+
+A UI web consome esses dados via API. O mobile permanece em modo operacional/mock ate a fase mobile transacional.

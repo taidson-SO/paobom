@@ -118,6 +118,8 @@ model Product {
   updatedAt              DateTime                @updatedAt
   purchaseItems          PurchaseItem[]
   stockMovements         StockMovement[]
+  inventoryLots          InventoryLot[]
+  physicalInventoryCounts PhysicalInventoryCount[]
   inventoryBalance       InventoryBalance?
   recipeOutputs          Recipe[]                @relation("RecipeOutputProduct")
   recipeIngredients      RecipeIngredient[]
@@ -141,6 +143,7 @@ model Supplier {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   purchases   Purchase[]
+  inventoryLots InventoryLot[]
 
   @@unique([document])
   @@index([active])
@@ -190,6 +193,7 @@ model Purchase {
   updatedAt    DateTime       @updatedAt
   receivedAt   DateTime?
   items        PurchaseItem[]
+  inventoryLots InventoryLot[]
 
   @@index([supplierId])
   @@index([status])
@@ -226,6 +230,8 @@ model StockMovement {
   id          String              @id @default(uuid())
   productId   String
   product     Product             @relation(fields: [productId], references: [id])
+  lotId       String?
+  lot         InventoryLot?       @relation(fields: [lotId], references: [id])
   type        StockMovementType
   origin      StockMovementOrigin
   quantity    Decimal             @db.Decimal(12, 3)
@@ -236,10 +242,54 @@ model StockMovement {
   createdAt   DateTime            @default(now())
 
   @@index([productId, occurredAt])
+  @@index([lotId])
   @@index([type])
   @@index([origin])
   @@index([referenceId])
   @@map("stock_movements")
+}
+
+model InventoryLot {
+  id             String          @id @default(uuid())
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id])
+  lotCode        String
+  quantity       Decimal         @db.Decimal(12, 3)
+  unitCost       Decimal         @db.Decimal(12, 2)
+  expirationDate DateTime?
+  supplierId     String?
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  purchaseId     String?
+  purchase       Purchase?       @relation(fields: [purchaseId], references: [id])
+  receivedAt     DateTime
+  status         String          @default("active")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  movements      StockMovement[]
+
+  @@unique([productId, lotCode])
+  @@index([productId, status])
+  @@index([expirationDate])
+  @@index([supplierId])
+  @@index([purchaseId])
+  @@map("inventory_lots")
+}
+
+model PhysicalInventoryCount {
+  id                 String   @id @default(uuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  expectedQuantity   Decimal  @db.Decimal(12, 3)
+  countedQuantity    Decimal  @db.Decimal(12, 3)
+  divergenceQuantity Decimal  @db.Decimal(12, 3)
+  reason             String?
+  countedBy          String
+  countedAt          DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([productId, countedAt])
+  @@index([countedAt])
+  @@map("physical_inventory_counts")
 }
 
 model Recipe {

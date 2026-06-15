@@ -16,7 +16,9 @@ import {
   CustomerRelationshipRepository,
   CustomerRepository,
   InventoryBalance,
+  InventoryLot,
   InventoryRepository,
+  PhysicalInventoryCount,
   Product,
   ProductRepository,
   ProductionInventoryGateway,
@@ -31,6 +33,7 @@ import {
   RegisterAuditLogInput,
   RegisterCashEntryInput,
   RegisterCustomerInteractionInput,
+  RegisterPhysicalInventoryCountInput,
   RegisterStockMovementInput,
   Sale,
   SaleFinanceGateway,
@@ -191,10 +194,28 @@ export class ApiInventoryRepository implements InventoryRepository {
     return balances.map(toInventoryBalance);
   }
 
+  async findLots() {
+    const lots = await this.api.get<ApiRecord[]>("/inventory/lots");
+
+    return lots.map(toInventoryLot);
+  }
+
   async findMovements() {
     const movements = await this.api.get<ApiRecord[]>("/inventory/movements");
 
     return movements.map(toStockMovement);
+  }
+
+  async findPhysicalCounts() {
+    const counts = await this.api.get<ApiRecord[]>("/inventory/counts");
+
+    return counts.map(toPhysicalInventoryCount);
+  }
+
+  async registerPhysicalCount(input: RegisterPhysicalInventoryCountInput) {
+    return toPhysicalInventoryCount(
+      await this.api.post<ApiRecord>("/inventory/counts", input),
+    );
   }
 
   async registerMovement(input: RegisterStockMovementInput) {
@@ -522,9 +543,25 @@ function toInventoryBalance(record: ApiRecord) {
   });
 }
 
+function toInventoryLot(record: ApiRecord) {
+  return new InventoryLot({
+    expirationDate: nullableDate(record.expirationDate),
+    id: stringValue(record.id),
+    lotCode: stringValue(record.lotCode),
+    productId: stringValue(record.productId),
+    purchaseId: nullableString(record.purchaseId),
+    quantity: numberValue(record.quantity),
+    receivedAt: dateValue(record.receivedAt),
+    status: stringValue(record.status) as never,
+    supplierId: nullableString(record.supplierId),
+    unitCost: numberValue(record.unitCost),
+  });
+}
+
 function toStockMovement(record: ApiRecord) {
   return new StockMovement({
     id: stringValue(record.id),
+    lotId: nullableString(record.lotId),
     occurredAt: dateValue(record.occurredAt),
     origin: stringValue(record.origin) as never,
     productId: stringValue(record.productId),
@@ -533,6 +570,19 @@ function toStockMovement(record: ApiRecord) {
     referenceId: nullableString(record.referenceId),
     type: stringValue(record.type) as never,
     unitCost: numberValue(record.unitCost),
+  });
+}
+
+function toPhysicalInventoryCount(record: ApiRecord) {
+  return new PhysicalInventoryCount({
+    countedAt: dateValue(record.countedAt),
+    countedBy: stringValue(record.countedBy),
+    countedQuantity: numberValue(record.countedQuantity),
+    divergenceQuantity: numberValue(record.divergenceQuantity),
+    expectedQuantity: numberValue(record.expectedQuantity),
+    id: stringValue(record.id),
+    productId: stringValue(record.productId),
+    reason: nullableString(record.reason),
   });
 }
 

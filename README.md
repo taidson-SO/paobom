@@ -12,7 +12,7 @@ O projeto cobre os principais fluxos operacionais da padaria:
 - Fornecedores
 - Clientes e CRM
 - Compras com custo
-- Estoque rastreavel, perdas e ajustes
+- Estoque rastreavel, lotes, validade, perdas, ajustes e inventario fisico
 - Receitas versionadas
 - Producao com status
 - Vendas com estoque, desconto e cancelamento
@@ -215,15 +215,12 @@ Nesta versao, o mobile e voltado para acompanhamento. Acoes transacionais mobile
 
 ## Limitacoes Conhecidas
 
-Esta versao nao esta pronta para producao real. Ela e um MVP demonstravel com as seguintes limitacoes:
+Esta versao ainda nao esta pronta para producao real. O projeto ja possui banco, API, autorizacao backend, auditoria persistente e web consumindo `ApiRepository`, mas ainda restam pontos antes de piloto:
 
-- Dados em memoria/mock
-- Sem backend/API real
-- Sem banco persistente
-- Sem autenticacao real
-- Permissoes sem validacao server-side
-- Auditoria em memoria
-- Sem testes reais automatizados
+- Mobile ainda em modo mock/operacional
+- Web ainda usa credenciais padrao via env, sem tela de login real
+- Testes de API/web/mobile ainda sao placeholders parciais
+- CRM persistente ainda usa modelo reduzido para interacoes
 - Sem ambiente staging
 - Sem backup, restore ou plano de rollback
 
@@ -245,6 +242,6 @@ Objetivo da tag: congelar uma versao demonstravel do ERP PaoBom antes da entrada
 4. Autenticacao e autorizacao real
 5. Migracao dos repositories mock para API
 6. Auditoria persistente
-7. Estoque, compras, vendas e caixa robustos
+7. Estoque avancado, compras, vendas e caixa robustos
 8. Mobile transacional
 9. Staging, E2E, piloto interno e producao assistida

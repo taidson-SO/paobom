@@ -16,6 +16,7 @@ import {
   hasPermission,
   InventoryBalance,
   type InventoryRepository,
+  PhysicalInventoryCount,
   Product,
   type ProductRepository,
   ProductionOrder,
@@ -28,6 +29,7 @@ import {
   type RecipeRepository,
   RegisterInventoryAdjustmentUseCase,
   RegisterLossUseCase,
+  RegisterPhysicalInventoryCountUseCase,
   Sale,
   type SaleFinanceGateway,
   type SaleInventoryGateway,
@@ -254,8 +256,35 @@ class MemoryInventoryRepository implements InventoryRepository {
     return this.balances;
   }
 
+  async findLots() {
+    return [];
+  }
+
   async findMovements() {
     return this.movements;
+  }
+
+  async findPhysicalCounts() {
+    return [];
+  }
+
+  async registerPhysicalCount(
+    input: Parameters<InventoryRepository["registerPhysicalCount"]>[0],
+  ) {
+    const expectedQuantity =
+      this.balances.find((balance) => balance.productId === input.productId)
+        ?.quantity ?? 0;
+
+    return new PhysicalInventoryCount({
+      countedAt: fixedDate,
+      countedBy: input.countedBy,
+      countedQuantity: input.countedQuantity,
+      divergenceQuantity: input.countedQuantity - expectedQuantity,
+      expectedQuantity,
+      id: "count-1",
+      productId: input.productId,
+      reason: input.reason ?? null,
+    });
   }
 
   async registerMovement(input: Parameters<InventoryRepository["registerMovement"]>[0]) {
@@ -574,6 +603,58 @@ describe("Estoque rastreavel", () => {
           unitCost: 1,
         }),
       /referencia de origem/,
+    );
+  });
+
+  it("registra contagem fisica com divergencia justificada", async () => {
+    const inventory = new MemoryInventoryRepository([
+      new InventoryBalance({
+        averageCost: 4,
+        minimumStock: 5,
+        productId: "product-1",
+        quantity: 10,
+      }),
+    ]);
+    const useCase = new RegisterPhysicalInventoryCountUseCase(
+      inventory,
+      new MemoryProductRepository([product()]),
+    );
+
+    const count = await useCase.execute({
+      countedBy: "Gerencia",
+      countedQuantity: 8,
+      productId: "product-1",
+      reason: "Quebra encontrada na conferencia",
+    });
+
+    assert.equal(count.expectedQuantity, 10);
+    assert.equal(count.countedQuantity, 8);
+    assert.equal(count.divergenceQuantity, -2);
+    assert.equal(count.hasDivergence, true);
+  });
+
+  it("bloqueia divergencia de inventario sem justificativa", async () => {
+    const inventory = new MemoryInventoryRepository([
+      new InventoryBalance({
+        averageCost: 4,
+        minimumStock: 5,
+        productId: "product-1",
+        quantity: 10,
+      }),
+    ]);
+    const useCase = new RegisterPhysicalInventoryCountUseCase(
+      inventory,
+      new MemoryProductRepository([product()]),
+    );
+
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          countedBy: "Gerencia",
+          countedQuantity: 8,
+          productId: "product-1",
+        }),
+      /justificativa/,
     );
   });
 });

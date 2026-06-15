@@ -1,6 +1,7 @@
 import {
   InventoryBalance,
   InventoryRepository,
+  PhysicalInventoryCount,
   RegisterStockMovementInput,
   StockMovement,
 } from "@paobom/domain";
@@ -70,10 +71,22 @@ export class MockInventoryRepository implements InventoryRepository {
     return balances.map(InventoryMapper.balanceToEntity);
   }
 
+  async findLots() {
+    return [];
+  }
+
   async findMovements() {
     return movements
       .map(InventoryMapper.movementToEntity)
       .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+  }
+
+  async findPhysicalCounts() {
+    return [];
+  }
+
+  async registerPhysicalCount(): Promise<PhysicalInventoryCount> {
+    throw new Error("Inventario fisico nao esta disponivel no modo mock");
   }
 
   async registerMovement(input: RegisterStockMovementInput) {

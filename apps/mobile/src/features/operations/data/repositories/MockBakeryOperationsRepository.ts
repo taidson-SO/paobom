@@ -14,6 +14,7 @@ import {
   PurchaseRepository,
   RegisterAuditLogInput,
   RegisterCashEntryInput,
+  RegisterPhysicalInventoryCountInput,
   RegisterStockMovementInput,
   Sale,
   SaleRepository,
@@ -340,8 +341,22 @@ export class MockMobileInventoryRepository implements InventoryRepository {
     return balances;
   }
 
+  async findLots() {
+    return [];
+  }
+
   async findMovements() {
     return movements;
+  }
+
+  async findPhysicalCounts() {
+    return [];
+  }
+
+  async registerPhysicalCount(_input: RegisterPhysicalInventoryCountInput) {
+    return Promise.reject(
+      new Error("Mobile nao registra inventario fisico neste modo"),
+    );
   }
 
   async registerMovement(_input: RegisterStockMovementInput) {

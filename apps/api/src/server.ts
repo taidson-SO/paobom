@@ -132,7 +132,10 @@ const routes: Route[] = [
   route("POST", "/purchases/:id/cancel", cancelPurchase),
 
   route("GET", "/inventory/balances", listInventoryBalances),
+  route("GET", "/inventory/lots", listInventoryLots),
   route("GET", "/inventory/movements", listStockMovements),
+  route("GET", "/inventory/counts", listPhysicalInventoryCounts),
+  route("POST", "/inventory/counts", registerPhysicalInventoryCount),
   route("POST", "/inventory/movements", registerStockMovement),
 
   route("GET", "/production/recipes", listRecipes),
@@ -1105,11 +1108,18 @@ async function applyStockMovement(
     unitCost: number;
     reason: string;
     referenceId?: string | null;
+    lotCode?: string | null;
+    lotId?: string | null;
+    expirationDate?: Date | null;
+    supplierId?: string | null;
+    purchaseId?: string | null;
     occurredAt?: Date;
   },
 ) {
+  const lotId = await applyLotMovement(tx, input);
   const movement = await tx.stockMovement.create({
     data: {
+      lot: lotId ? { connect: { id: lotId } } : undefined,
       origin: input.origin,
       product: { connect: { id: input.productId } },
       quantity: input.quantity,
@@ -1154,6 +1164,185 @@ async function applyStockMovement(
   });
 
   return movement;
+}
+
+async function applyLotMovement(
+  tx: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    type: Prisma.StockMovementCreateInput["type"];
+    origin: Prisma.StockMovementCreateInput["origin"];
+    quantity: number;
+    unitCost: number;
+    referenceId?: string | null;
+    lotCode?: string | null;
+    lotId?: string | null;
+    expirationDate?: Date | null;
+    supplierId?: string | null;
+    purchaseId?: string | null;
+    occurredAt?: Date;
+  },
+) {
+  if (isInboundMovement(input.type)) {
+    return upsertInboundLot(tx, input);
+  }
+
+  return consumeOutboundLots(tx, input);
+}
+
+async function upsertInboundLot(
+  tx: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    type: Prisma.StockMovementCreateInput["type"];
+    origin: Prisma.StockMovementCreateInput["origin"];
+    quantity: number;
+    unitCost: number;
+    referenceId?: string | null;
+    lotCode?: string | null;
+    lotId?: string | null;
+    expirationDate?: Date | null;
+    supplierId?: string | null;
+    purchaseId?: string | null;
+    occurredAt?: Date;
+  },
+) {
+  if (input.lotId) {
+    const lot = await tx.inventoryLot.findUnique({ where: { id: input.lotId } });
+
+    if (lot) {
+      const nextQuantity = decimalToNumber(lot.quantity) + input.quantity;
+
+      await tx.inventoryLot.update({
+        data: {
+          quantity: nextQuantity,
+          status: getLotStatus(nextQuantity, lot.expirationDate),
+          unitCost: input.unitCost,
+        },
+        where: { id: lot.id },
+      });
+
+      return lot.id;
+    }
+  }
+
+  const lotCode =
+    input.lotCode ??
+    `${input.origin}-${input.referenceId ?? new Date().toISOString()}-${input.productId}`.slice(
+      0,
+      80,
+    );
+
+  const existing = await tx.inventoryLot.findUnique({
+    where: { productId_lotCode: { lotCode, productId: input.productId } },
+  });
+
+  if (existing) {
+    const nextQuantity = decimalToNumber(existing.quantity) + input.quantity;
+
+    await tx.inventoryLot.update({
+      data: {
+        expirationDate: input.expirationDate ?? existing.expirationDate,
+        quantity: nextQuantity,
+        status: getLotStatus(nextQuantity, input.expirationDate ?? existing.expirationDate),
+        unitCost: input.unitCost,
+      },
+      where: { id: existing.id },
+    });
+
+    return existing.id;
+  }
+
+  const lot = await tx.inventoryLot.create({
+    data: {
+      expirationDate: input.expirationDate ?? null,
+      lotCode,
+      product: { connect: { id: input.productId } },
+      purchase: input.purchaseId ? { connect: { id: input.purchaseId } } : undefined,
+      quantity: input.quantity,
+      receivedAt: input.occurredAt ?? new Date(),
+      status: getLotStatus(input.quantity, input.expirationDate ?? null),
+      supplier: input.supplierId ? { connect: { id: input.supplierId } } : undefined,
+      unitCost: input.unitCost,
+    },
+  });
+
+  return lot.id;
+}
+
+async function consumeOutboundLots(
+  tx: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    quantity: number;
+    lotId?: string | null;
+  },
+) {
+  if (input.lotId) {
+    const lot = await tx.inventoryLot.findUnique({ where: { id: input.lotId } });
+
+    if (!lot) {
+      throw new HttpError(404, "Lote de estoque nao encontrado");
+    }
+
+    const nextQuantity = Math.max(0, decimalToNumber(lot.quantity) - input.quantity);
+
+    await tx.inventoryLot.update({
+      data: {
+        quantity: nextQuantity,
+        status: getLotStatus(nextQuantity, lot.expirationDate),
+      },
+      where: { id: lot.id },
+    });
+
+    return lot.id;
+  }
+
+  const lots = await tx.inventoryLot.findMany({
+    orderBy: [{ expirationDate: "asc" }, { receivedAt: "asc" }],
+    where: {
+      productId: input.productId,
+      quantity: { gt: 0 },
+      status: { not: "depleted" },
+    },
+  });
+  let remaining = input.quantity;
+  let firstLotId: string | null = null;
+
+  for (const lot of lots) {
+    if (remaining <= 0) {
+      break;
+    }
+
+    firstLotId ??= lot.id;
+    const available = decimalToNumber(lot.quantity);
+    const consumed = Math.min(available, remaining);
+    const nextQuantity = available - consumed;
+
+    await tx.inventoryLot.update({
+      data: {
+        quantity: nextQuantity,
+        status: getLotStatus(nextQuantity, lot.expirationDate),
+      },
+      where: { id: lot.id },
+    });
+
+    remaining -= consumed;
+  }
+
+  return firstLotId;
+}
+
+function getLotStatus(quantity: number, expirationDate: Date | null) {
+  if (quantity <= 0) {
+    return "depleted";
+  }
+
+  if (expirationDate && expirationDate < new Date()) {
+    return "expired";
+  }
+
+  return "active";
 }
 
 function periodFilter(query: URLSearchParams) {
@@ -1381,9 +1570,12 @@ async function receivePurchase({ params }: Context) {
       await applyStockMovement(tx, {
         origin: "purchase",
         productId: item.productId,
+        lotCode: `COMPRA-${purchase.id}-${item.productId}`,
         quantity: decimalToNumber(item.quantity),
         reason: "Recebimento de compra",
         referenceId: purchase.id,
+        purchaseId: purchase.id,
+        supplierId: purchase.supplierId,
         type: "purchase_in",
         unitCost: decimalToNumber(item.unitCost),
       });
@@ -1412,10 +1604,49 @@ async function listInventoryBalances() {
   });
 }
 
+async function listInventoryLots() {
+  return prisma.inventoryLot.findMany({
+    include: { product: true, purchase: true, supplier: true },
+    orderBy: [{ expirationDate: "asc" }, { receivedAt: "desc" }],
+  });
+}
+
 async function listStockMovements() {
   return prisma.stockMovement.findMany({
-    include: { product: true },
+    include: { lot: true, product: true },
     orderBy: { occurredAt: "desc" },
+  });
+}
+
+async function listPhysicalInventoryCounts() {
+  return prisma.physicalInventoryCount.findMany({
+    include: { product: true },
+    orderBy: { countedAt: "desc" },
+  });
+}
+
+async function registerPhysicalInventoryCount({ body }: Context) {
+  const input = bodyAsRecord(body);
+  const productId = stringField(input, "productId");
+  const balance = await prisma.inventoryBalance.findUnique({ where: { productId } });
+  const expectedQuantity = decimalToNumber(balance?.quantity);
+  const countedQuantity = numberField(input, "countedQuantity");
+  const divergenceQuantity = countedQuantity - expectedQuantity;
+  const reason = optionalStringField(input, "reason");
+
+  if (divergenceQuantity !== 0 && !reason) {
+    throw new HttpError(400, "Divergencia de inventario exige justificativa");
+  }
+
+  return prisma.physicalInventoryCount.create({
+    data: {
+      countedBy: stringField(input, "countedBy"),
+      countedQuantity,
+      divergenceQuantity,
+      expectedQuantity,
+      product: { connect: { id: productId } },
+      reason,
+    },
   });
 }
 
@@ -1425,6 +1656,10 @@ async function registerStockMovement({ body }: Context) {
   return prisma.$transaction((tx) =>
     applyStockMovement(tx, {
       origin: (optionalStringField(input, "origin") ?? "manual_adjustment") as Prisma.StockMovementCreateInput["origin"],
+      expirationDate:
+        typeof input.expirationDate === "string" ? new Date(input.expirationDate) : null,
+      lotCode: optionalStringField(input, "lotCode"),
+      lotId: optionalStringField(input, "lotId"),
       productId: stringField(input, "productId"),
       quantity: numberField(input, "quantity"),
       reason: stringField(input, "reason"),
@@ -1550,6 +1785,7 @@ async function startProductionOrder({ params }: Context) {
     for (const consumption of order.ingredientConsumptions) {
       await applyStockMovement(tx, {
         origin: "production",
+        lotId: null,
         productId: consumption.productId,
         quantity: decimalToNumber(consumption.quantity),
         reason: "Consumo de producao",
@@ -1586,6 +1822,7 @@ async function finishProductionOrder({ params }: Context) {
 
     await applyStockMovement(tx, {
       origin: "production",
+      lotCode: `PRODUCAO-${order.id}`,
       productId: order.outputProductId,
       quantity: quantityProduced,
       reason: "Entrada de producao",
@@ -1704,6 +1941,7 @@ async function createSale({ body, currentUser }: Context) {
     for (const item of preparedItems) {
       await applyStockMovement(tx, {
         origin: "sale",
+        lotId: null,
         productId: item.productId,
         quantity: item.quantity,
         reason: "Venda",
@@ -1774,6 +2012,7 @@ async function cancelSale({ params }: Context) {
     for (const item of sale.items) {
       await applyStockMovement(tx, {
         origin: "sale",
+        lotId: null,
         productId: item.productId,
         quantity: decimalToNumber(item.quantity),
         reason: "Cancelamento de venda",

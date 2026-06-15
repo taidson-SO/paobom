@@ -118,7 +118,10 @@ Compras e estoque:
 - `POST /purchases/:id/receive`
 - `POST /purchases/:id/cancel`
 - `GET /inventory/balances`
+- `GET /inventory/lots`
 - `GET /inventory/movements`
+- `GET /inventory/counts`
+- `POST /inventory/counts`
 - `POST /inventory/movements`
 
 Producao:

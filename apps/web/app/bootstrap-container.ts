@@ -30,6 +30,8 @@ import {
   ListCustomerInteractionsUseCase,
   ListCustomersUseCase,
   ListInventoryBalancesUseCase,
+  ListInventoryLotsUseCase,
+  ListPhysicalInventoryCountsUseCase,
   ListProductsUseCase,
   ListProductionOrdersUseCase,
   ListPurchasesUseCase,
@@ -44,6 +46,7 @@ import {
   RegisterCashEntryUseCase,
   RegisterCustomerInteractionUseCase,
   RegisterInventoryAdjustmentUseCase,
+  RegisterPhysicalInventoryCountUseCase,
   RegisterLossUseCase,
   SettleCashEntryUseCase,
   StartProductionOrderUseCase,
@@ -340,6 +343,18 @@ function registerUseCases() {
       new ListStockMovementsUseCase(container.get(TOKENS.inventoryRepository)),
   );
   container.register(
+    TOKENS.listInventoryLotsUseCase,
+    () =>
+      new ListInventoryLotsUseCase(container.get(TOKENS.inventoryRepository)),
+  );
+  container.register(
+    TOKENS.listPhysicalInventoryCountsUseCase,
+    () =>
+      new ListPhysicalInventoryCountsUseCase(
+        container.get(TOKENS.inventoryRepository),
+      ),
+  );
+  container.register(
     TOKENS.registerLossUseCase,
     () =>
       new RegisterLossUseCase(
@@ -351,6 +366,14 @@ function registerUseCases() {
     TOKENS.registerInventoryAdjustmentUseCase,
     () =>
       new RegisterInventoryAdjustmentUseCase(
+        container.get(TOKENS.inventoryRepository),
+        container.get(TOKENS.productRepository),
+      ),
+  );
+  container.register(
+    TOKENS.registerPhysicalInventoryCountUseCase,
+    () =>
+      new RegisterPhysicalInventoryCountUseCase(
         container.get(TOKENS.inventoryRepository),
         container.get(TOKENS.productRepository),
       ),
