@@ -27,6 +27,8 @@ async function main() {
     await tx.physicalInventoryCount.deleteMany();
     await tx.inventoryLot.deleteMany();
     await tx.inventoryBalance.deleteMany();
+    await tx.purchasePayable.deleteMany();
+    await tx.purchaseHistory.deleteMany();
     await tx.purchaseItem.deleteMany();
     await tx.purchase.deleteMany();
     await tx.customerInteraction.deleteMany();
@@ -158,19 +160,54 @@ async function main() {
         status: "received",
         notes: "Compra inicial de insumos",
         receivedAt: new Date("2026-06-14T10:00:00.000Z"),
+        approvedAt: new Date("2026-06-14T09:30:00.000Z"),
+        approvedBy: "Gerente PaoBom",
         items: {
           create: [
             {
               productId: "prod-flour",
               quantity: "50.000",
+              receivedQuantity: "50.000",
               unitCost: "4.20",
             },
             {
               productId: "prod-yeast",
               quantity: "5.000",
+              receivedQuantity: "5.000",
               unitCost: "18.00",
             },
           ],
+        },
+        history: {
+          create: [
+            {
+              action: "created",
+              actor: "Sistema",
+              description: "Compra inicial cadastrada",
+              occurredAt: new Date("2026-06-14T09:00:00.000Z"),
+            },
+            {
+              action: "approved",
+              actor: "Gerente PaoBom",
+              description: "Compra inicial aprovada",
+              occurredAt: new Date("2026-06-14T09:30:00.000Z"),
+            },
+            {
+              action: "received",
+              actor: "Estoque PaoBom",
+              description: "Recebimento total sem divergencia",
+              occurredAt: new Date("2026-06-14T10:00:00.000Z"),
+            },
+          ],
+        },
+        payable: {
+          create: {
+            amount: "300.00",
+            dueDate: new Date("2026-06-21T00:00:00.000Z"),
+            paidAmount: "0.00",
+            status: "open",
+            supplierId: "supplier-moinho",
+          },
         },
       },
     });

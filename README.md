@@ -11,7 +11,7 @@ O projeto cobre os principais fluxos operacionais da padaria:
 - Produtos e insumos
 - Fornecedores
 - Clientes e CRM
-- Compras com custo
+- Compras reais com aprovacao, recebimento parcial, divergencias e contas a pagar
 - Estoque rastreavel, lotes, validade, perdas, ajustes e inventario fisico
 - Receitas versionadas
 - Producao com status
@@ -173,7 +173,7 @@ A Fase 14 substitui o placeholder do pacote `@paobom/domain` por testes reais co
 
 - Produtos/Insumos
 - Estoque rastreavel
-- Compras com custo
+- Compras com custo, aprovacao e recebimento parcial
 - Receitas versionadas e producao
 - Vendas com estoque, desconto e cancelamento
 - Caixa, fluxo financeiro e lucratividade

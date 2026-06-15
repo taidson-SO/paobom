@@ -357,9 +357,12 @@ function summarizePurchasesByStatus(
   purchases: Awaited<ReturnType<PurchaseRepository["findAll"]>>,
 ) {
   const labels: Record<PurchaseStatus, string> = {
+    approved: "Aprovada",
     cancelled: "Cancelada",
     draft: "Rascunho",
     ordered: "Pedido",
+    partially_received: "Parcial",
+    pending_approval: "Aguardando aprovacao",
     received: "Recebida",
   };
 

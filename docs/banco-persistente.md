@@ -21,7 +21,7 @@ O banco fica em `packages/database`, respeitando a arquitetura do monorepo:
 - Fornecedores
 - Clientes
 - Interacoes de CRM
-- Compras e itens de compra
+- Compras, itens de compra, historico de aprovacao/recebimento e contas a pagar
 - Saldos, lotes, validade, contagens fisicas e movimentacoes de estoque
 - Receitas versionadas e ingredientes
 - Ordens de producao e consumos
@@ -111,3 +111,13 @@ O banco ja possui persistencia para estoque real avancado:
 - `physical_inventory_counts`: registra contagem fisica, saldo esperado, saldo contado, divergencia, responsavel e justificativa.
 
 A UI web consome esses dados via API. O mobile permanece em modo operacional/mock ate a fase mobile transacional.
+
+## Evolucao apos Fase 21
+
+Compras reais passam a registrar:
+
+- status de aprovacao e recebimento parcial;
+- quantidade pedida e quantidade recebida por item;
+- historico operacional por compra;
+- contas a pagar vinculadas ao fornecedor e a compra;
+- divergencias de recebimento com justificativa obrigatoria.

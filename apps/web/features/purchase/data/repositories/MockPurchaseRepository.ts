@@ -31,6 +31,17 @@ let purchases: PurchaseDTO[] = [
 ];
 
 export class MockPurchaseRepository implements PurchaseRepository {
+  async approve(input: Parameters<PurchaseRepository["approve"]>[0]) {
+    const purchase = await this.requireById(input.purchaseId);
+
+    purchase.approve(input.approvedBy);
+    purchases = purchases.map((item) =>
+      item.id === input.purchaseId ? PurchaseMapper.toDTO(purchase) : item,
+    );
+
+    return purchase;
+  }
+
   async cancel(id: string) {
     const purchase = await this.requireById(id);
 
@@ -71,12 +82,16 @@ export class MockPurchaseRepository implements PurchaseRepository {
     return purchase ? PurchaseMapper.toEntity(purchase) : null;
   }
 
-  async receive(id: string) {
-    const purchase = await this.requireById(id);
+  async findPayables() {
+    return [];
+  }
 
-    purchase.receive();
+  async receive(input: Parameters<PurchaseRepository["receive"]>[0]) {
+    const purchase = await this.requireById(input.purchaseId);
+
+    purchase.receive(input.items, input.divergenceReason);
     purchases = purchases.map((item) =>
-      item.id === id ? PurchaseMapper.toDTO(purchase) : item,
+      item.id === input.purchaseId ? PurchaseMapper.toDTO(purchase) : item,
     );
 
     return purchase;

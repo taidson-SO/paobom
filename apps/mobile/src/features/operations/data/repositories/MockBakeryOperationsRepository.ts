@@ -417,8 +417,18 @@ export class MockMobileCashFlowRepository implements CashFlowRepository {
 }
 
 export class MockMobilePurchaseRepository implements PurchaseRepository {
+  async approve() {
+    return Promise.reject<Purchase>(
+      new Error("Mobile nao aprova compras neste modo"),
+    );
+  }
+
   async findAll() {
     return purchases;
+  }
+
+  async findPayables() {
+    return [];
   }
 
   async findById() {

@@ -6,6 +6,7 @@ export const TOKENS = {
   cancelCustomerInteractionUseCase: Symbol("cancelCustomerInteractionUseCase"),
   cancelProductionOrderUseCase: Symbol("cancelProductionOrderUseCase"),
   cancelPurchaseUseCase: Symbol("cancelPurchaseUseCase"),
+  approvePurchaseUseCase: Symbol("approvePurchaseUseCase"),
   cancelSaleUseCase: Symbol("cancelSaleUseCase"),
   completeCustomerInteractionUseCase: Symbol(
     "completeCustomerInteractionUseCase",
@@ -46,6 +47,7 @@ export const TOKENS = {
   listProductsUseCase: Symbol("listProductsUseCase"),
   listProductionOrdersUseCase: Symbol("listProductionOrdersUseCase"),
   listPurchasesUseCase: Symbol("listPurchasesUseCase"),
+  listPurchasePayablesUseCase: Symbol("listPurchasePayablesUseCase"),
   listRecipesUseCase: Symbol("listRecipesUseCase"),
   listSalesUseCase: Symbol("listSalesUseCase"),
   listStockMovementsUseCase: Symbol("listStockMovementsUseCase"),

@@ -22,6 +22,12 @@ type PurchaseForm = {
   supplierId: string;
 };
 
+type ReceiptDraft = {
+  divergenceReason: string;
+  receivedBy: string;
+  items: Record<string, number>;
+};
+
 const initialForm: PurchaseForm = {
   expectedDate: new Date().toISOString().slice(0, 10),
   items: [{ productId: "", quantity: 1, unitCost: 0 }],
@@ -36,14 +42,22 @@ export function PurchaseSection({
   products: Product[];
   suppliers: Supplier[];
 }) {
-  const { cancelPurchase, createPurchase, purchases, receivePurchase } =
-    usePurchases();
+  const {
+    approvePurchase,
+    cancelPurchase,
+    createPurchase,
+    purchases,
+    receivePurchase,
+  } = usePurchases();
   const { can } = usePermissionSession();
   const { recordAudit } = useAuditRecorder();
   const canCreatePurchase = can("purchase:create");
   const canReceivePurchase = can("purchase:receive");
   const canCancelPurchase = can("purchase:cancel");
   const [form, setForm] = useState<PurchaseForm>(initialForm);
+  const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
   const activeProducts = products.filter((product) => product.isPurchasable());
   const activeSuppliers = suppliers.filter((supplier) => supplier.active);
@@ -105,6 +119,42 @@ export function PurchaseSection({
     updateItem(index, {
       productId,
       unitCost: product?.purchasePrice ?? 0,
+    });
+  }
+
+  function getReceiptDraft(purchaseId: string) {
+    return receiptDrafts[purchaseId] ?? {
+      divergenceReason: "",
+      items: {},
+      receivedBy: "Estoque",
+    };
+  }
+
+  function updateReceiptDraft(
+    purchaseId: string,
+    nextDraft: Partial<ReceiptDraft>,
+  ) {
+    setReceiptDrafts((state) => ({
+      ...state,
+      [purchaseId]: {
+        ...getReceiptDraft(purchaseId),
+        ...nextDraft,
+      },
+    }));
+  }
+
+  function updateReceiptQuantity(
+    purchaseId: string,
+    productId: string,
+    receivedQuantity: number,
+  ) {
+    const draft = getReceiptDraft(purchaseId);
+
+    updateReceiptDraft(purchaseId, {
+      items: {
+        ...draft.items,
+        [productId]: receivedQuantity,
+      },
     });
   }
 
@@ -252,7 +302,7 @@ export function PurchaseSection({
           </thead>
           <tbody>
             {purchases.map((purchase) => (
-              <tr className="border-t border-zinc-100" key={purchase.id}>
+              <tr className="border-t border-zinc-100 align-top" key={purchase.id}>
                 <td className="px-3 py-3">
                   <p className="font-semibold text-zinc-950">
                     {supplierNames.get(purchase.supplierId) ?? "Fornecedor"}
@@ -260,14 +310,68 @@ export function PurchaseSection({
                   <p className="text-xs text-zinc-500">
                     Prev. {purchase.expectedDate.toLocaleDateString()}
                   </p>
+                  {purchase.approvedBy ? (
+                    <p className="text-xs text-zinc-500">
+                      Aprovada por {purchase.approvedBy}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-3 text-zinc-700">
                   {purchase.items.map((item) => (
-                    <p key={item.id}>
-                      {productNames.get(item.productId) ?? "Produto"} ·{" "}
-                      {item.quantity} x R$ {item.unitCost.toFixed(2)}
-                    </p>
+                    <div className="mb-2 grid gap-1" key={item.id}>
+                      <p>
+                        {productNames.get(item.productId) ?? "Produto"} ·{" "}
+                        {item.quantity} x R$ {item.unitCost.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        Recebido: {item.receivedQuantity ?? 0} / {item.quantity}
+                      </p>
+                      {canReceivePurchase &&
+                      isReceivableStatus(purchase.status) ? (
+                        <input
+                          className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                          min="0"
+                          step="0.01"
+                          type="number"
+                          value={
+                            getReceiptDraft(purchase.id).items[item.productId] ??
+                            item.quantity
+                          }
+                          onChange={(event) =>
+                            updateReceiptQuantity(
+                              purchase.id,
+                              item.productId,
+                              Number(event.target.value),
+                            )
+                          }
+                        />
+                      ) : null}
+                    </div>
                   ))}
+                  {canReceivePurchase && isReceivableStatus(purchase.status) ? (
+                    <div className="mt-2 grid max-w-xs gap-2">
+                      <input
+                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                        placeholder="Responsavel"
+                        value={getReceiptDraft(purchase.id).receivedBy}
+                        onChange={(event) =>
+                          updateReceiptDraft(purchase.id, {
+                            receivedBy: event.target.value,
+                          })
+                        }
+                      />
+                      <input
+                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                        placeholder="Justificativa de divergencia"
+                        value={getReceiptDraft(purchase.id).divergenceReason}
+                        onChange={(event) =>
+                          updateReceiptDraft(purchase.id, {
+                            divergenceReason: event.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-3 font-semibold text-zinc-800">
                   R$ {purchase.total.toFixed(2)}
@@ -277,13 +381,45 @@ export function PurchaseSection({
                 </td>
                 <td className="px-3 py-3 text-right">
                   <div className="flex justify-end gap-2">
-                    {purchase.status === "ordered" ? (
+                    {purchase.status === "pending_approval" &&
+                    canCreatePurchase ? (
+                      <button
+                        className="text-sm font-semibold text-green-800"
+                        onClick={async () => {
+                          await approvePurchase.mutateAsync({
+                            approvedBy: "Gerencia",
+                            purchaseId: purchase.id,
+                          });
+                          recordAudit({
+                            action: "purchase.approve",
+                            description: `Compra ${purchase.id} aprovada`,
+                            entity: "purchase",
+                            entityId: purchase.id,
+                            metadata: { total: purchase.total },
+                          });
+                        }}
+                      >
+                        Aprovar
+                      </button>
+                    ) : null}
+                    {isReceivableStatus(purchase.status) ? (
                       <>
                         {canReceivePurchase ? (
                           <button
                             className="text-sm font-semibold text-green-800"
                             onClick={async () => {
-                              await receivePurchase.mutateAsync(purchase.id);
+                              const draft = getReceiptDraft(purchase.id);
+                              await receivePurchase.mutateAsync({
+                                divergenceReason:
+                                  draft.divergenceReason || null,
+                                items: purchase.items.map((item) => ({
+                                  productId: item.productId,
+                                  receivedQuantity:
+                                    draft.items[item.productId] ?? item.quantity,
+                                })),
+                                purchaseId: purchase.id,
+                                receivedBy: draft.receivedBy,
+                              });
                               recordAudit({
                                 action: "purchase.receive",
                                 description: `Compra ${purchase.id} recebida`,
@@ -369,16 +505,22 @@ function NumberField({
 
 function Status({ status }: { status: PurchaseStatus }) {
   const styles = {
+    approved: "bg-emerald-100 text-emerald-800",
     cancelled: "bg-zinc-100 text-zinc-500",
     draft: "bg-sky-100 text-sky-800",
     ordered: "bg-amber-100 text-amber-800",
+    partially_received: "bg-orange-100 text-orange-800",
+    pending_approval: "bg-violet-100 text-violet-800",
     received: "bg-green-100 text-green-800",
   };
 
   const labels = {
+    approved: "Aprovada",
     cancelled: "Cancelada",
     draft: "Rascunho",
     ordered: "Pedido",
+    partially_received: "Parcial",
+    pending_approval: "Aguardando aprovacao",
     received: "Recebida",
   };
 
@@ -386,5 +528,13 @@ function Status({ status }: { status: PurchaseStatus }) {
     <span className={`rounded-full px-2 py-1 text-xs font-bold ${styles[status]}`}>
       {labels[status]}
     </span>
+  );
+}
+
+function isReceivableStatus(status: PurchaseStatus) {
+  return (
+    status === "approved" ||
+    status === "ordered" ||
+    status === "partially_received"
   );
 }

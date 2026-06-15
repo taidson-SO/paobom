@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ApprovePurchaseUseCase,
   AuditLog,
   CashEntry,
   CashRegister,
@@ -27,6 +28,7 @@ import {
   type PurchaseRepository,
   Recipe,
   type RecipeRepository,
+  ReceivePurchaseUseCase,
   RegisterInventoryAdjustmentUseCase,
   RegisterLossUseCase,
   RegisterPhysicalInventoryCountUseCase,
@@ -305,6 +307,13 @@ class MemoryInventoryRepository implements InventoryRepository {
 class MemoryPurchaseRepository implements PurchaseRepository {
   constructor(private readonly purchases: Purchase[] = []) {}
 
+  async approve(input: Parameters<PurchaseRepository["approve"]>[0]) {
+    const purchase = await this.findById(input.purchaseId);
+    if (!purchase) throw new Error("Compra nao encontrada");
+    purchase.approve(input.approvedBy);
+    return purchase;
+  }
+
   async cancel(id: string) {
     const purchase = await this.findById(id);
     if (!purchase) throw new Error("Compra nao encontrada");
@@ -338,10 +347,14 @@ class MemoryPurchaseRepository implements PurchaseRepository {
     return this.purchases.find((item) => item.id === id) ?? null;
   }
 
-  async receive(id: string) {
-    const purchase = await this.findById(id);
+  async findPayables() {
+    return [];
+  }
+
+  async receive(input: Parameters<PurchaseRepository["receive"]>[0]) {
+    const purchase = await this.findById(input.purchaseId);
     if (!purchase) throw new Error("Compra nao encontrada");
-    purchase.receive();
+    purchase.receive(input.items, input.divergenceReason);
     return purchase;
   }
 }
@@ -702,6 +715,100 @@ describe("Compras com custo", () => {
           supplierId: "supplier-1",
         }),
       /compraveis ativos/,
+    );
+  });
+
+  it("aprova compra antes do recebimento", async () => {
+    const repository = new MemoryPurchaseRepository([
+      new Purchase({
+        createdAt: fixedDate,
+        expectedDate: fixedDate,
+        id: "purchase-1",
+        items: [{ id: "item-1", productId: "flour", quantity: 10, unitCost: 4 }],
+        notes: "Reposicao",
+        receivedAt: null,
+        status: "pending_approval",
+        supplierId: "supplier-1",
+        updatedAt: fixedDate,
+      }),
+    ]);
+    const useCase = new ApprovePurchaseUseCase(repository);
+
+    const purchase = await useCase.execute({
+      approvedBy: "Gerencia",
+      purchaseId: "purchase-1",
+    });
+
+    assert.equal(purchase.status, "approved");
+    assert.equal(purchase.approvedBy, "Gerencia");
+  });
+
+  it("recebe parcialmente com divergencia justificada", async () => {
+    const repository = new MemoryPurchaseRepository([
+      new Purchase({
+        approvedAt: fixedDate,
+        approvedBy: "Gerencia",
+        createdAt: fixedDate,
+        expectedDate: fixedDate,
+        id: "purchase-1",
+        items: [{ id: "item-1", productId: "flour", quantity: 10, unitCost: 4 }],
+        notes: "Reposicao",
+        receivedAt: null,
+        status: "approved",
+        supplierId: "supplier-1",
+        updatedAt: fixedDate,
+      }),
+    ]);
+    const inventory: PurchaseInventoryGateway = {
+      registerReceipt: async (purchase) => {
+        assert.equal(purchase.status, "partially_received");
+      },
+      reverseReceipt: async () => undefined,
+    };
+    const useCase = new ReceivePurchaseUseCase(repository, inventory);
+
+    const purchase = await useCase.execute({
+      divergenceReason: "Fornecedor entregou menos volumes",
+      items: [{ productId: "flour", receivedQuantity: 8 }],
+      purchaseId: "purchase-1",
+      receivedBy: "Estoque",
+    });
+
+    assert.equal(purchase.status, "partially_received");
+    assert.equal(purchase.items[0].receivedQuantity, 8);
+    assert.equal(purchase.hasDivergence, true);
+  });
+
+  it("bloqueia recebimento parcial sem justificativa", async () => {
+    const repository = new MemoryPurchaseRepository([
+      new Purchase({
+        approvedAt: fixedDate,
+        approvedBy: "Gerencia",
+        createdAt: fixedDate,
+        expectedDate: fixedDate,
+        id: "purchase-1",
+        items: [{ id: "item-1", productId: "flour", quantity: 10, unitCost: 4 }],
+        notes: "Reposicao",
+        receivedAt: null,
+        status: "approved",
+        supplierId: "supplier-1",
+        updatedAt: fixedDate,
+      }),
+    ]);
+    const inventory: PurchaseInventoryGateway = {
+      registerReceipt: async () => undefined,
+      reverseReceipt: async () => undefined,
+    };
+    const useCase = new ReceivePurchaseUseCase(repository, inventory);
+
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          items: [{ productId: "flour", receivedQuantity: 8 }],
+          purchaseId: "purchase-1",
+          receivedBy: "Estoque",
+        }),
+      /justificativa/,
     );
   });
 });

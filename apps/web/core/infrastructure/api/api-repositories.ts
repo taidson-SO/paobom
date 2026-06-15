@@ -25,6 +25,7 @@ import {
   ProductionOrder,
   ProductionOrderRepository,
   Purchase,
+  PurchasePayable,
   PurchaseFinanceGateway,
   PurchaseInventoryGateway,
   PurchaseRepository,
@@ -298,6 +299,14 @@ export class ApiPurchaseRepository implements PurchaseRepository {
     return toPurchase(await this.api.post<ApiRecord>(`/purchases/${id}/cancel`, {}));
   }
 
+  async approve(input: Parameters<PurchaseRepository["approve"]>[0]) {
+    return toPurchase(
+      await this.api.post<ApiRecord>(`/purchases/${input.purchaseId}/approve`, {
+        approvedBy: input.approvedBy,
+      }),
+    );
+  }
+
   async create(input: CreatePurchaseInput) {
     return toPurchase(await this.api.post<ApiRecord>("/purchases", input));
   }
@@ -312,8 +321,20 @@ export class ApiPurchaseRepository implements PurchaseRepository {
     return (await this.findAll()).find((purchase) => purchase.id === id) ?? null;
   }
 
-  async receive(id: string) {
-    return toPurchase(await this.api.post<ApiRecord>(`/purchases/${id}/receive`, {}));
+  async findPayables() {
+    const payables = await this.api.get<ApiRecord[]>("/purchases/payables");
+
+    return payables.map(toPurchasePayable);
+  }
+
+  async receive(input: Parameters<PurchaseRepository["receive"]>[0]) {
+    return toPurchase(
+      await this.api.post<ApiRecord>(`/purchases/${input.purchaseId}/receive`, {
+        divergenceReason: input.divergenceReason,
+        items: input.items,
+        receivedBy: input.receivedBy,
+      }),
+    );
   }
 }
 
@@ -645,17 +666,41 @@ function toRecipeSnapshot(value: unknown) {
 
 function toPurchase(record: ApiRecord) {
   return new Purchase({
+    approvedAt: nullableDate(record.approvedAt),
+    approvedBy: nullableString(record.approvedBy),
     createdAt: dateValue(record.createdAt),
     expectedDate: dateValue(record.expectedDate),
+    history: getArray(record.history).map((item) => ({
+      action: stringValue(item.action) as never,
+      actor: stringValue(item.actor),
+      description: stringValue(item.description),
+      id: stringValue(item.id),
+      occurredAt: dateValue(item.occurredAt),
+    })),
     id: stringValue(record.id),
     items: getArray(record.items).map((item) => ({
       id: stringValue(item.id),
       productId: stringValue(item.productId),
       quantity: numberValue(item.quantity),
+      receivedQuantity: numberValue(item.receivedQuantity),
       unitCost: numberValue(item.unitCost),
     })),
     notes: stringValue(record.notes),
     receivedAt: nullableDate(record.receivedAt),
+    status: stringValue(record.status) as never,
+    supplierId: stringValue(record.supplierId),
+    updatedAt: dateValue(record.updatedAt),
+  });
+}
+
+function toPurchasePayable(record: ApiRecord) {
+  return new PurchasePayable({
+    amount: numberValue(record.amount),
+    createdAt: dateValue(record.createdAt),
+    dueDate: dateValue(record.dueDate),
+    id: stringValue(record.id),
+    paidAmount: numberValue(record.paidAmount),
+    purchaseId: stringValue(record.purchaseId),
     status: stringValue(record.status) as never,
     supplierId: stringValue(record.supplierId),
     updatedAt: dateValue(record.updatedAt),

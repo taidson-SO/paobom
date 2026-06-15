@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ApprovePurchaseUseCase,
   CancelCashEntryUseCase,
   CloseCashRegisterUseCase,
   CancelCustomerInteractionUseCase,
@@ -34,6 +35,7 @@ import {
   ListPhysicalInventoryCountsUseCase,
   ListProductsUseCase,
   ListProductionOrdersUseCase,
+  ListPurchasePayablesUseCase,
   ListPurchasesUseCase,
   ListRecipesUseCase,
   ListSalesUseCase,
@@ -302,6 +304,17 @@ function registerUseCases() {
   container.register(
     TOKENS.listPurchasesUseCase,
     () => new ListPurchasesUseCase(container.get(TOKENS.purchaseRepository)),
+  );
+  container.register(
+    TOKENS.listPurchasePayablesUseCase,
+    () =>
+      new ListPurchasePayablesUseCase(
+        container.get(TOKENS.purchaseRepository),
+      ),
+  );
+  container.register(
+    TOKENS.approvePurchaseUseCase,
+    () => new ApprovePurchaseUseCase(container.get(TOKENS.purchaseRepository)),
   );
   container.register(
     TOKENS.createPurchaseUseCase,

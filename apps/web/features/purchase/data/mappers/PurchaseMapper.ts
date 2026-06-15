@@ -14,6 +14,7 @@ export class PurchaseMapper {
         id: item.id,
         product_id: item.productId,
         quantity: item.quantity,
+        received_quantity: item.receivedQuantity ?? 0,
         unit_cost: item.unitCost,
       })),
       notes: purchase.notes,
@@ -26,6 +27,8 @@ export class PurchaseMapper {
 
   static toEntity(dto: PurchaseDTO) {
     const props: PurchaseProps = {
+      approvedAt: dto.approved_at ? new Date(dto.approved_at) : null,
+      approvedBy: dto.approved_by ?? null,
       createdAt: new Date(dto.created_at),
       expectedDate: new Date(dto.expected_date),
       id: dto.id,
@@ -33,6 +36,7 @@ export class PurchaseMapper {
         id: item.id,
         productId: item.product_id,
         quantity: item.quantity,
+        receivedQuantity: item.received_quantity ?? 0,
         unitCost: item.unit_cost,
       })),
       notes: dto.notes,

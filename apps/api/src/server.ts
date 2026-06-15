@@ -128,6 +128,8 @@ const routes: Route[] = [
 
   route("GET", "/purchases", listPurchases),
   route("POST", "/purchases", createPurchase),
+  route("GET", "/purchases/payables", listPurchasePayables),
+  route("POST", "/purchases/:id/approve", approvePurchase),
   route("POST", "/purchases/:id/receive", receivePurchase),
   route("POST", "/purchases/:id/cancel", cancelPurchase),
 
@@ -463,6 +465,14 @@ function getRequiredPermissions(route: Route): Permission[] | null {
     return route.method === "GET" ? ["purchase:view"] : ["purchase:create"];
   }
 
+  if (route.pattern === "/purchases/payables") {
+    return ["purchase:view"];
+  }
+
+  if (route.pattern.includes("/approve")) {
+    return ["purchase:create"];
+  }
+
   if (route.pattern.includes("/receive")) {
     return ["purchase:receive"];
   }
@@ -710,6 +720,7 @@ function getAuditEntity(pattern: string) {
 
 function getAuditOperation(method: HttpMethod, pattern: string) {
   if (pattern.includes("/receive")) return "receive";
+  if (pattern.includes("/approve")) return "approve";
   if (pattern.includes("/start")) return "start";
   if (pattern.includes("/finish")) return "finish";
   if (pattern.includes("/pay")) return "pay";
@@ -1524,7 +1535,12 @@ async function updateSimpleEntity(entity: "customer" | "supplier", id: string, b
 
 async function listPurchases() {
   return prisma.purchase.findMany({
-    include: { items: { include: { product: true } }, supplier: true },
+    include: {
+      history: { orderBy: { occurredAt: "desc" } },
+      items: { include: { product: true } },
+      payable: true,
+      supplier: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -1536,6 +1552,13 @@ async function createPurchase({ body }: Context) {
   return prisma.purchase.create({
     data: {
       expectedDate: dateField(input, "expectedDate"),
+      history: {
+        create: {
+          action: "created",
+          actor: "Sistema",
+          description: "Compra cadastrada",
+        },
+      },
       items: {
         create: items.map((item) => ({
           product: { connect: { id: stringField(item, "productId") } },
@@ -1544,14 +1567,91 @@ async function createPurchase({ body }: Context) {
         })),
       },
       notes: typeof input.notes === "string" ? input.notes : "",
-      status: "draft",
+      status: "pending_approval",
       supplier: { connect: { id: stringField(input, "supplierId") } },
     },
-    include: { items: true, supplier: true },
+    include: { history: true, items: true, payable: true, supplier: true },
   });
 }
 
-async function receivePurchase({ params }: Context) {
+async function listPurchasePayables() {
+  return prisma.purchasePayable.findMany({
+    include: { purchase: true, supplier: true },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+async function approvePurchase({ body, params }: Context) {
+  const input = bodyAsRecord(body);
+  const approvedBy = stringField(input, "approvedBy");
+
+  return prisma.$transaction(async (tx) => {
+    const purchase = await tx.purchase.findUnique({
+      include: { items: true },
+      where: { id: params.id },
+    });
+
+    if (!purchase) {
+      throw new HttpError(404, "Compra nao encontrada");
+    }
+
+    if (purchase.status === "cancelled") {
+      throw new HttpError(409, "Compra cancelada nao pode ser aprovada");
+    }
+
+    const total = purchase.items.reduce(
+      (sum, item) =>
+        sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
+      0,
+    );
+
+    await tx.purchasePayable.upsert({
+      create: {
+        amount: total,
+        dueDate: purchase.expectedDate,
+        purchase: { connect: { id: purchase.id } },
+        supplier: { connect: { id: purchase.supplierId } },
+      },
+      update: {
+        amount: total,
+        dueDate: purchase.expectedDate,
+        status: "open",
+      },
+      where: { purchaseId: purchase.id },
+    });
+
+    await tx.purchaseHistory.create({
+      data: {
+        action: "approved",
+        actor: approvedBy,
+        description: "Compra aprovada para recebimento",
+        purchase: { connect: { id: purchase.id } },
+      },
+    });
+
+    return tx.purchase.update({
+      data: {
+        approvedAt: new Date(),
+        approvedBy,
+        status: "approved",
+      },
+      include: { history: true, items: true, payable: true, supplier: true },
+      where: { id: purchase.id },
+    });
+  });
+}
+
+async function receivePurchase({ body, params }: Context) {
+  const input = bodyAsRecord(body);
+  const receivedBy =
+    typeof input.receivedBy === "string" && input.receivedBy.trim()
+      ? input.receivedBy.trim()
+      : "Sistema";
+  const receivedItems = Array.isArray(input.items)
+    ? (input.items.filter(isRecord) as Record<string, unknown>[])
+    : null;
+  const divergenceReason = optionalStringField(input, "divergenceReason");
+
   return prisma.$transaction(async (tx) => {
     const purchase = await tx.purchase.findUnique({
       include: { items: true },
@@ -1566,12 +1666,53 @@ async function receivePurchase({ params }: Context) {
       throw new HttpError(409, "Compra cancelada nao pode ser recebida");
     }
 
+    if (purchase.status === "pending_approval" || purchase.status === "draft") {
+      throw new HttpError(409, "Compra deve ser aprovada antes do recebimento");
+    }
+
+    let hasDivergence = false;
+    let allReceived = true;
+
     for (const item of purchase.items) {
+      const receivedItem = receivedItems?.find(
+        (entry) => stringField(entry, "productId") === item.productId,
+      );
+      const receivedQuantity = receivedItem
+        ? numberField(receivedItem, "receivedQuantity")
+        : decimalToNumber(item.quantity);
+
+      if (receivedQuantity < 0) {
+        throw new HttpError(400, "Quantidade recebida nao pode ser negativa");
+      }
+
+      if (receivedQuantity !== decimalToNumber(item.quantity)) {
+        hasDivergence = true;
+      }
+
+      if (receivedQuantity < decimalToNumber(item.quantity)) {
+        allReceived = false;
+      }
+
+      if (receivedQuantity === 0) {
+        await tx.purchaseItem.update({
+          data: { receivedQuantity },
+          where: { id: item.id },
+        });
+        continue;
+      }
+
       await applyStockMovement(tx, {
+        expirationDate:
+          receivedItem && typeof receivedItem.expirationDate === "string"
+            ? new Date(receivedItem.expirationDate)
+            : null,
+        lotCode:
+          receivedItem && typeof receivedItem.lotCode === "string"
+            ? receivedItem.lotCode
+            : `COMPRA-${purchase.id}-${item.productId}`,
         origin: "purchase",
         productId: item.productId,
-        lotCode: `COMPRA-${purchase.id}-${item.productId}`,
-        quantity: decimalToNumber(item.quantity),
+        quantity: receivedQuantity,
         reason: "Recebimento de compra",
         referenceId: purchase.id,
         purchaseId: purchase.id,
@@ -1579,21 +1720,59 @@ async function receivePurchase({ params }: Context) {
         type: "purchase_in",
         unitCost: decimalToNumber(item.unitCost),
       });
+
+      await tx.purchaseItem.update({
+        data: { receivedQuantity },
+        where: { id: item.id },
+      });
     }
 
+    if (hasDivergence && !divergenceReason) {
+      throw new HttpError(400, "Recebimento com divergencia exige justificativa");
+    }
+
+    await tx.purchaseHistory.create({
+      data: {
+        action: "received",
+        actor: receivedBy,
+        description: hasDivergence
+          ? `Recebimento com divergencia: ${divergenceReason}`
+          : "Recebimento sem divergencia",
+        purchase: { connect: { id: purchase.id } },
+      },
+    });
+
     return tx.purchase.update({
-      data: { receivedAt: new Date(), status: "received" },
-      include: { items: true, supplier: true },
+      data: {
+        receivedAt: new Date(),
+        status: allReceived ? "received" : "partially_received",
+      },
+      include: { history: true, items: true, payable: true, supplier: true },
       where: { id: purchase.id },
     });
   });
 }
 
 async function cancelPurchase({ params }: Context) {
-  return prisma.purchase.update({
-    data: { status: "cancelled" },
-    include: { items: true, supplier: true },
-    where: { id: params.id },
+  return prisma.$transaction(async (tx) => {
+    await tx.purchasePayable.updateMany({
+      data: { status: "cancelled" },
+      where: { purchaseId: params.id },
+    });
+    await tx.purchaseHistory.create({
+      data: {
+        action: "cancelled",
+        actor: "Sistema",
+        description: "Compra cancelada",
+        purchase: { connect: { id: params.id } },
+      },
+    });
+
+    return tx.purchase.update({
+      data: { status: "cancelled" },
+      include: { history: true, items: true, payable: true, supplier: true },
+      where: { id: params.id },
+    });
   });
 }
 

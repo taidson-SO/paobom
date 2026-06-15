@@ -4,10 +4,13 @@ export type PurchaseItemDTO = {
   id: string;
   product_id: string;
   quantity: number;
+  received_quantity?: number;
   unit_cost: number;
 };
 
 export type PurchaseDTO = {
+  approved_at?: string | null;
+  approved_by?: string | null;
   created_at: string;
   expected_date: string;
   id: string;

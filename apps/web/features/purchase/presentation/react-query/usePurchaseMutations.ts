@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  ApprovePurchaseInput,
+  ApprovePurchaseUseCase,
   CancelPurchaseUseCase,
   CreatePurchaseInput,
   CreatePurchaseUseCase,
+  ReceivePurchaseInput,
   ReceivePurchaseUseCase,
 } from "@paobom/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +20,9 @@ export function usePurchaseMutations() {
   const queryClient = useQueryClient();
   const createUseCase = container.get<CreatePurchaseUseCase>(
     TOKENS.createPurchaseUseCase,
+  );
+  const approveUseCase = container.get<ApprovePurchaseUseCase>(
+    TOKENS.approvePurchaseUseCase,
   );
   const receiveUseCase = container.get<ReceivePurchaseUseCase>(
     TOKENS.receivePurchaseUseCase,
@@ -45,6 +51,10 @@ export function usePurchaseMutations() {
   };
 
   return {
+    approvePurchase: useMutation({
+      mutationFn: (input: ApprovePurchaseInput) => approveUseCase.execute(input),
+      onSuccess,
+    }),
     cancelPurchase: useMutation({
       mutationFn: (id: string) => cancelUseCase.execute(id),
       onSuccess,
@@ -54,7 +64,8 @@ export function usePurchaseMutations() {
       onSuccess: onCreateSuccess,
     }),
     receivePurchase: useMutation({
-      mutationFn: (id: string) => receiveUseCase.execute(id),
+      mutationFn: (input: string | ReceivePurchaseInput) =>
+        receiveUseCase.execute(input),
       onSuccess: onReceiptSuccess,
     }),
   };

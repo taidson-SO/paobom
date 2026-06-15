@@ -115,6 +115,8 @@ Compras e estoque:
 
 - `GET /purchases`
 - `POST /purchases`
+- `GET /purchases/payables`
+- `POST /purchases/:id/approve`
 - `POST /purchases/:id/receive`
 - `POST /purchases/:id/cancel`
 - `GET /inventory/balances`
