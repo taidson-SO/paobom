@@ -1,9 +1,17 @@
-import { CashEntry, CashFlowSummary, CashRegister } from "@paobom/domain";
+import {
+  CashEntry,
+  CashFlowSummary,
+  CashReconciliation,
+  CashRegister,
+  CashRegisterMovement,
+} from "@paobom/domain";
 
 import {
   CashEntryDTO,
   CashFlowSummaryDTO,
+  CashReconciliationDTO,
   CashRegisterDTO,
+  CashRegisterMovementDTO,
 } from "@/features/finance/data/dto/FinanceDTO";
 
 export const FinanceMapper = {
@@ -83,6 +91,58 @@ export const FinanceMapper = {
       openingAmount: dto.opening_amount,
       status: dto.status,
       updatedAt: new Date(dto.updated_at),
+    });
+  },
+
+  movementToDTO(movement: CashRegisterMovement): CashRegisterMovementDTO {
+    return {
+      actor: movement.actor,
+      amount: movement.amount,
+      cash_register_id: movement.cashRegisterId,
+      id: movement.id,
+      occurred_at: movement.occurredAt.toISOString(),
+      reason: movement.reason,
+      type: movement.type,
+    };
+  },
+
+  movementToEntity(dto: CashRegisterMovementDTO): CashRegisterMovement {
+    return new CashRegisterMovement({
+      actor: dto.actor,
+      amount: dto.amount,
+      cashRegisterId: dto.cash_register_id,
+      id: dto.id,
+      occurredAt: new Date(dto.occurred_at),
+      reason: dto.reason,
+      type: dto.type,
+    });
+  },
+
+  reconciliationToDTO(reconciliation: CashReconciliation): CashReconciliationDTO {
+    return {
+      cash_register_id: reconciliation.cashRegisterId,
+      counted_amount: reconciliation.countedAmount,
+      difference_amount: reconciliation.differenceAmount,
+      expected_amount: reconciliation.expectedAmount,
+      id: reconciliation.id,
+      method: reconciliation.method,
+      notes: reconciliation.notes,
+      reconciled_at: reconciliation.reconciledAt.toISOString(),
+      reconciled_by: reconciliation.reconciledBy,
+    };
+  },
+
+  reconciliationToEntity(dto: CashReconciliationDTO): CashReconciliation {
+    return new CashReconciliation({
+      cashRegisterId: dto.cash_register_id,
+      countedAmount: dto.counted_amount,
+      differenceAmount: dto.difference_amount,
+      expectedAmount: dto.expected_amount,
+      id: dto.id,
+      method: dto.method,
+      notes: dto.notes,
+      reconciledAt: new Date(dto.reconciled_at),
+      reconciledBy: dto.reconciled_by,
     });
   },
 };

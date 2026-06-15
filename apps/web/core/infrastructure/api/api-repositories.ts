@@ -4,7 +4,9 @@ import {
   AuditLogRepository,
   CashEntry,
   CashFlowRepository,
+  CashReconciliation,
   CashRegister,
+  CashRegisterMovement,
   CashRegisterRepository,
   CloseCashRegisterRepositoryInput,
   CreateCustomerInput,
@@ -33,9 +35,11 @@ import {
   RecipeRepository,
   RegisterAuditLogInput,
   RegisterCashEntryInput,
+  RegisterCashRegisterMovementInput,
   RegisterCustomerInteractionInput,
   RegisterPhysicalInventoryCountInput,
   RegisterStockMovementInput,
+  ReconcileCashRegisterInput,
   Sale,
   SaleFinanceGateway,
   SaleInventoryGateway,
@@ -363,6 +367,13 @@ export class ApiSaleRepository implements SaleRepository {
         oversellApprovedBy: sale.oversellApprovedBy,
         oversellJustification: sale.oversellJustification,
         paymentMethod: sale.paymentMethod,
+        payments: sale.payments.map((payment) => ({
+          amount: payment.amount,
+          cardBrand: payment.cardBrand,
+          installments: payment.installments,
+          method: payment.method,
+          referenceCode: payment.referenceCode,
+        })),
       }),
     );
 
@@ -433,12 +444,55 @@ export class ApiCashFlowRepository
     return registers.map(toCashRegister);
   }
 
+  async findMovements() {
+    const movements = await this.api.get<ApiRecord[]>("/cash/registers/movements");
+
+    return movements.map(toCashRegisterMovement);
+  }
+
+  async findReconciliations() {
+    const reconciliations = await this.api.get<ApiRecord[]>(
+      "/cash/registers/reconciliations",
+    );
+
+    return reconciliations.map(toCashReconciliation);
+  }
+
   async open(input: Parameters<CashRegisterRepository["open"]>[0]) {
     return toCashRegister(await this.api.post<ApiRecord>("/cash/registers/open", input));
   }
 
+  async reconcile(input: ReconcileCashRegisterInput) {
+    return toCashReconciliation(
+      await this.api.post<ApiRecord>(
+        `/cash/registers/${input.cashRegisterId}/reconcile`,
+        {
+          countedAmount: input.countedAmount,
+          expectedAmount: input.expectedAmount,
+          method: input.method,
+          notes: input.notes,
+          reconciledBy: input.reconciledBy,
+        },
+      ),
+    );
+  }
+
   async register(input: RegisterCashEntryInput) {
     return toCashEntry(await this.api.post<ApiRecord>("/cash/entries", input));
+  }
+
+  async registerMovement(input: RegisterCashRegisterMovementInput) {
+    return toCashRegisterMovement(
+      await this.api.post<ApiRecord>(
+        `/cash/registers/${input.cashRegisterId}/movements`,
+        {
+          actor: input.actor,
+          amount: input.amount,
+          reason: input.reason,
+          type: input.type,
+        },
+      ),
+    );
   }
 
   async settle(id: string) {
@@ -727,6 +781,14 @@ function toSale(record: ApiRecord) {
     oversellJustification: nullableString(record.oversellJustification),
     paidAt: nullableDate(record.paidAt),
     paymentMethod: stringValue(record.paymentMethod) as never,
+    payments: getArray(record.payments).map((payment) => ({
+      amount: numberValue(payment.amount),
+      cardBrand: nullableString(payment.cardBrand),
+      id: stringValue(payment.id),
+      installments: numberValue(payment.installments),
+      method: stringValue(payment.method) as never,
+      referenceCode: nullableString(payment.referenceCode),
+    })),
     status: stringValue(record.status) as never,
     updatedAt: dateValue(record.updatedAt),
   });
@@ -763,6 +825,32 @@ function toCashRegister(record: ApiRecord) {
     openingAmount: numberValue(record.openingAmount),
     status: stringValue(record.status) as never,
     updatedAt: dateValue(record.updatedAt),
+  });
+}
+
+function toCashRegisterMovement(record: ApiRecord) {
+  return new CashRegisterMovement({
+    actor: stringValue(record.actor),
+    amount: numberValue(record.amount),
+    cashRegisterId: stringValue(record.cashRegisterId),
+    id: stringValue(record.id),
+    occurredAt: dateValue(record.occurredAt),
+    reason: stringValue(record.reason),
+    type: stringValue(record.type) as never,
+  });
+}
+
+function toCashReconciliation(record: ApiRecord) {
+  return new CashReconciliation({
+    cashRegisterId: stringValue(record.cashRegisterId),
+    countedAmount: numberValue(record.countedAmount),
+    differenceAmount: numberValue(record.differenceAmount),
+    expectedAmount: numberValue(record.expectedAmount),
+    id: stringValue(record.id),
+    method: stringValue(record.method),
+    notes: nullableString(record.notes),
+    reconciledAt: dateValue(record.reconciledAt),
+    reconciledBy: stringValue(record.reconciledBy),
   });
 }
 

@@ -1,17 +1,23 @@
 import {
   CashEntry,
   CashFlowRepository,
+  CashReconciliation,
   CashRegister,
+  CashRegisterMovement,
   CashRegisterRepository,
   CloseCashRegisterRepositoryInput,
   OpenCashRegisterInput,
   RegisterCashEntryInput,
+  RegisterCashRegisterMovementInput,
+  ReconcileCashRegisterInput,
 } from "@paobom/domain";
 
 import { AppEvents, EventBus } from "@/core/infrastructure/events/event-bus";
 import {
   CashEntryDTO,
+  CashReconciliationDTO,
   CashRegisterDTO,
+  CashRegisterMovementDTO,
 } from "@/features/finance/data/dto/FinanceDTO";
 import { FinanceMapper } from "@/features/finance/data/mappers/FinanceMapper";
 
@@ -52,6 +58,8 @@ let entries: CashEntryDTO[] = [
 ];
 
 let registers: CashRegisterDTO[] = [];
+let movements: CashRegisterMovementDTO[] = [];
+let reconciliations: CashReconciliationDTO[] = [];
 
 let subscribed = false;
 
@@ -103,6 +111,18 @@ export class MockCashFlowRepository
     return current ? FinanceMapper.registerToEntity(current) : null;
   }
 
+  async findMovements() {
+    return movements
+      .map(FinanceMapper.movementToEntity)
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+  }
+
+  async findReconciliations() {
+    return reconciliations
+      .map(FinanceMapper.reconciliationToEntity)
+      .sort((a, b) => b.reconciledAt.getTime() - a.reconciledAt.getTime());
+  }
+
   async findRegisters() {
     return registers
       .map(FinanceMapper.registerToEntity)
@@ -131,6 +151,28 @@ export class MockCashFlowRepository
     return register;
   }
 
+  async reconcile(input: ReconcileCashRegisterInput) {
+    await this.requireRegisterById(input.cashRegisterId);
+    const reconciliation = new CashReconciliation({
+      cashRegisterId: input.cashRegisterId,
+      countedAmount: input.countedAmount,
+      differenceAmount: input.countedAmount - input.expectedAmount,
+      expectedAmount: input.expectedAmount,
+      id: crypto.randomUUID(),
+      method: input.method,
+      notes: input.notes ?? null,
+      reconciledAt: new Date(),
+      reconciledBy: input.reconciledBy,
+    });
+
+    reconciliations = [
+      FinanceMapper.reconciliationToDTO(reconciliation),
+      ...reconciliations,
+    ];
+
+    return reconciliation;
+  }
+
   async register(input: RegisterCashEntryInput) {
     const current = input.referenceId
       ? entries.find((entry) => entry.reference_id === input.referenceId)
@@ -155,6 +197,23 @@ export class MockCashFlowRepository
       : [dto, ...entries];
 
     return entry;
+  }
+
+  async registerMovement(input: RegisterCashRegisterMovementInput) {
+    await this.requireRegisterById(input.cashRegisterId);
+    const movement = new CashRegisterMovement({
+      actor: input.actor,
+      amount: input.amount,
+      cashRegisterId: input.cashRegisterId,
+      id: crypto.randomUUID(),
+      occurredAt: new Date(),
+      reason: input.reason,
+      type: input.type,
+    });
+
+    movements = [FinanceMapper.movementToDTO(movement), ...movements];
+
+    return movement;
   }
 
   async settle(id: string) {

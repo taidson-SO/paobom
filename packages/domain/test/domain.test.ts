@@ -4,7 +4,9 @@ import {
   ApprovePurchaseUseCase,
   AuditLog,
   CashEntry,
+  CashReconciliation,
   CashRegister,
+  CashRegisterMovement,
   CloseCashRegisterUseCase,
   CreateProductionOrderUseCase,
   CreatePurchaseUseCase,
@@ -29,7 +31,9 @@ import {
   Recipe,
   type RecipeRepository,
   ReceivePurchaseUseCase,
+  ReconcileCashRegisterUseCase,
   RegisterInventoryAdjustmentUseCase,
+  RegisterCashRegisterMovementUseCase,
   RegisterLossUseCase,
   RegisterPhysicalInventoryCountUseCase,
   Sale,
@@ -494,6 +498,9 @@ class MemoryCashFlowRepository implements CashFlowRepository {
 }
 
 class MemoryCashRegisterRepository implements CashRegisterRepository {
+  private readonly movements: CashRegisterMovement[] = [];
+  private readonly reconciliations: CashReconciliation[] = [];
+
   constructor(private readonly registers: CashRegister[]) {}
 
   async close(input: Parameters<CashRegisterRepository["close"]>[0]) {
@@ -505,6 +512,14 @@ class MemoryCashRegisterRepository implements CashRegisterRepository {
 
   async findCurrentOpen() {
     return this.registers.find((item) => item.status === "open") ?? null;
+  }
+
+  async findMovements() {
+    return this.movements;
+  }
+
+  async findReconciliations() {
+    return this.reconciliations;
   }
 
   async findRegisters() {
@@ -530,6 +545,42 @@ class MemoryCashRegisterRepository implements CashRegisterRepository {
     this.registers.push(cashRegister);
 
     return cashRegister;
+  }
+
+  async reconcile(input: Parameters<CashRegisterRepository["reconcile"]>[0]) {
+    const reconciliation = new CashReconciliation({
+      cashRegisterId: input.cashRegisterId,
+      countedAmount: input.countedAmount,
+      differenceAmount: input.countedAmount - input.expectedAmount,
+      expectedAmount: input.expectedAmount,
+      id: `cash-reconciliation-${this.reconciliations.length + 1}`,
+      method: input.method,
+      notes: input.notes ?? null,
+      reconciledAt: fixedDate,
+      reconciledBy: input.reconciledBy,
+    });
+
+    this.reconciliations.push(reconciliation);
+
+    return reconciliation;
+  }
+
+  async registerMovement(
+    input: Parameters<CashRegisterRepository["registerMovement"]>[0],
+  ) {
+    const movement = new CashRegisterMovement({
+      actor: input.actor,
+      amount: input.amount,
+      cashRegisterId: input.cashRegisterId,
+      id: `cash-movement-${this.movements.length + 1}`,
+      occurredAt: fixedDate,
+      reason: input.reason,
+      type: input.type,
+    });
+
+    this.movements.push(movement);
+
+    return movement;
   }
 }
 
@@ -1001,8 +1052,26 @@ describe("Caixa e lucratividade", () => {
       updatedAt: fixedDate,
     });
 
+    const cashRegisters = new MemoryCashRegisterRepository([register]);
+
+    await cashRegisters.registerMovement({
+      actor: "caixa-1",
+      amount: 10,
+      cashRegisterId: "cash-register-1",
+      reason: "Reforco de troco",
+      type: "supply",
+    });
+
+    await cashRegisters.registerMovement({
+      actor: "caixa-1",
+      amount: 5,
+      cashRegisterId: "cash-register-1",
+      reason: "Sangria preventiva",
+      type: "withdrawal",
+    });
+
     const closed = await new CloseCashRegisterUseCase(
-      new MemoryCashRegisterRepository([register]),
+      cashRegisters,
       new MemoryCashFlowRepository([
         cashEntry({ amount: 100, type: "income" }),
         cashEntry({ amount: 20, id: "cash-entry-2", type: "expense" }),
@@ -1010,12 +1079,51 @@ describe("Caixa e lucratividade", () => {
     ).execute({
       cashRegisterId: "cash-register-1",
       closedBy: "gerente-1",
-      countedAmount: 130,
+      countedAmount: 135,
     });
 
     assert.equal(closed.status, "closed");
-    assert.equal(closed.expectedAmount, 130);
+    assert.equal(closed.expectedAmount, 135);
     assert.equal(closed.differenceAmount, 0);
+  });
+
+  it("registra movimentacao e conciliacao de caixa", async () => {
+    const repository = new MemoryCashRegisterRepository([
+      new CashRegister({
+        closedAt: null,
+        closedBy: null,
+        closingNote: null,
+        countedAmount: null,
+        createdAt: fixedDate,
+        differenceAmount: null,
+        expectedAmount: null,
+        id: "cash-register-1",
+        openedAt: fixedDate,
+        openedBy: "caixa-1",
+        openingAmount: 50,
+        status: "open",
+        updatedAt: fixedDate,
+      }),
+    ]);
+
+    const movement = await new RegisterCashRegisterMovementUseCase(repository).execute({
+      actor: "caixa-1",
+      amount: 25,
+      cashRegisterId: "cash-register-1",
+      reason: "Troco",
+      type: "supply",
+    });
+    const reconciliation = await new ReconcileCashRegisterUseCase(repository).execute({
+      cashRegisterId: "cash-register-1",
+      countedAmount: 95,
+      expectedAmount: 100,
+      method: "cash",
+      notes: "Falta apurada",
+      reconciledBy: "gerente-1",
+    });
+
+    assert.equal(movement.signedAmount, 25);
+    assert.equal(reconciliation.differenceAmount, -5);
   });
 
   it("calcula margem bruta da venda", () => {
@@ -1024,6 +1132,25 @@ describe("Caixa e lucratividade", () => {
     assert.equal(profitableSale.total, 6);
     assert.equal(profitableSale.totalCost, 3);
     assert.equal(profitableSale.grossMargin, 3);
+  });
+
+  it("exige que pagamentos detalhados fechem o total da venda", () => {
+    assert.throws(
+      () =>
+        sale({
+          payments: [
+            {
+              amount: 5,
+              cardBrand: null,
+              id: "payment-1",
+              installments: 1,
+              method: "pix",
+              referenceCode: null,
+            },
+          ],
+        }),
+      /Pagamentos da venda devem fechar o total/,
+    );
   });
 });
 

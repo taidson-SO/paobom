@@ -4,6 +4,8 @@ import {
   GetCashFlowSummaryUseCase,
   GetCurrentCashRegisterUseCase,
   ListCashEntriesUseCase,
+  ListCashReconciliationsUseCase,
+  ListCashRegisterMovementsUseCase,
   ListCashRegistersUseCase,
 } from "@paobom/domain";
 import { useQuery } from "@tanstack/react-query";
@@ -54,5 +56,27 @@ export function useCashRegistersQuery() {
   return useQuery({
     queryFn: () => useCase.execute(),
     queryKey: financeQueryKeys.cashRegisters,
+  });
+}
+
+export function useCashRegisterMovementsQuery() {
+  const useCase = container.get<ListCashRegisterMovementsUseCase>(
+    TOKENS.listCashRegisterMovementsUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: financeQueryKeys.cashRegisterMovements,
+  });
+}
+
+export function useCashReconciliationsQuery() {
+  const useCase = container.get<ListCashReconciliationsUseCase>(
+    TOKENS.listCashReconciliationsUseCase,
+  );
+
+  return useQuery({
+    queryFn: () => useCase.execute(),
+    queryKey: financeQueryKeys.cashReconciliations,
   });
 }

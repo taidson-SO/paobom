@@ -39,6 +39,8 @@ export const TOKENS = {
   listCustomersUseCase: Symbol("listCustomersUseCase"),
   listAuditLogsUseCase: Symbol("listAuditLogsUseCase"),
   listCashEntriesUseCase: Symbol("listCashEntriesUseCase"),
+  listCashReconciliationsUseCase: Symbol("listCashReconciliationsUseCase"),
+  listCashRegisterMovementsUseCase: Symbol("listCashRegisterMovementsUseCase"),
   listCashRegistersUseCase: Symbol("listCashRegistersUseCase"),
   listCustomerInteractionsUseCase: Symbol("listCustomerInteractionsUseCase"),
   listInventoryBalancesUseCase: Symbol("listInventoryBalancesUseCase"),
@@ -61,6 +63,9 @@ export const TOKENS = {
   receivePurchaseUseCase: Symbol("receivePurchaseUseCase"),
   recipeRepository: Symbol("recipeRepository"),
   registerCashEntryUseCase: Symbol("registerCashEntryUseCase"),
+  registerCashRegisterMovementUseCase: Symbol(
+    "registerCashRegisterMovementUseCase",
+  ),
   registerAuditLogUseCase: Symbol("registerAuditLogUseCase"),
   registerCustomerInteractionUseCase: Symbol(
     "registerCustomerInteractionUseCase",
@@ -70,6 +75,7 @@ export const TOKENS = {
     "registerPhysicalInventoryCountUseCase",
   ),
   registerLossUseCase: Symbol("registerLossUseCase"),
+  reconcileCashRegisterUseCase: Symbol("reconcileCashRegisterUseCase"),
   settleCashEntryUseCase: Symbol("settleCashEntryUseCase"),
   finishProductionOrderUseCase: Symbol("finishProductionOrderUseCase"),
   openCashRegisterUseCase: Symbol("openCashRegisterUseCase"),

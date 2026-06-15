@@ -27,6 +27,8 @@ import {
   GetCustomerRelationshipSummaryUseCase,
   ListAuditLogsUseCase,
   ListCashEntriesUseCase,
+  ListCashReconciliationsUseCase,
+  ListCashRegisterMovementsUseCase,
   ListCashRegistersUseCase,
   ListCustomerInteractionsUseCase,
   ListCustomersUseCase,
@@ -46,10 +48,12 @@ import {
   ReceivePurchaseUseCase,
   RegisterAuditLogUseCase,
   RegisterCashEntryUseCase,
+  RegisterCashRegisterMovementUseCase,
   RegisterCustomerInteractionUseCase,
   RegisterInventoryAdjustmentUseCase,
   RegisterPhysicalInventoryCountUseCase,
   RegisterLossUseCase,
+  ReconcileCashRegisterUseCase,
   SettleCashEntryUseCase,
   StartProductionOrderUseCase,
   UpdateCustomerUseCase,
@@ -503,6 +507,20 @@ function registerUseCases() {
     () => new ListCashRegistersUseCase(container.get(TOKENS.cashRegisterRepository)),
   );
   container.register(
+    TOKENS.listCashRegisterMovementsUseCase,
+    () =>
+      new ListCashRegisterMovementsUseCase(
+        container.get(TOKENS.cashRegisterRepository),
+      ),
+  );
+  container.register(
+    TOKENS.listCashReconciliationsUseCase,
+    () =>
+      new ListCashReconciliationsUseCase(
+        container.get(TOKENS.cashRegisterRepository),
+      ),
+  );
+  container.register(
     TOKENS.getCurrentCashRegisterUseCase,
     () =>
       new GetCurrentCashRegisterUseCase(
@@ -519,6 +537,20 @@ function registerUseCases() {
       new CloseCashRegisterUseCase(
         container.get(TOKENS.cashRegisterRepository),
         container.get(TOKENS.cashFlowRepository),
+      ),
+  );
+  container.register(
+    TOKENS.registerCashRegisterMovementUseCase,
+    () =>
+      new RegisterCashRegisterMovementUseCase(
+        container.get(TOKENS.cashRegisterRepository),
+      ),
+  );
+  container.register(
+    TOKENS.reconcileCashRegisterUseCase,
+    () =>
+      new ReconcileCashRegisterUseCase(
+        container.get(TOKENS.cashRegisterRepository),
       ),
   );
 }

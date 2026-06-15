@@ -8,6 +8,8 @@ import { useFinanceMutations } from "../react-query/useFinanceMutations";
 import {
   useCashEntriesQuery,
   useCashFlowSummaryQuery,
+  useCashReconciliationsQuery,
+  useCashRegisterMovementsQuery,
   useCashRegistersQuery,
   useCurrentCashRegisterQuery,
 } from "../react-query/useFinanceQueries";
@@ -17,6 +19,8 @@ export function useFinance() {
   const summaryQuery = useCashFlowSummaryQuery();
   const currentCashRegisterQuery = useCurrentCashRegisterQuery();
   const cashRegistersQuery = useCashRegistersQuery();
+  const cashRegisterMovementsQuery = useCashRegisterMovementsQuery();
+  const cashReconciliationsQuery = useCashReconciliationsQuery();
   const mutations = useFinanceMutations();
   const { selectedStatus, setSelectedStatus } = useFinanceUIStore();
   const entries = useMemo(() => entriesQuery.data ?? [], [entriesQuery.data]);
@@ -30,6 +34,8 @@ export function useFinance() {
 
   return {
     ...mutations,
+    cashReconciliations: cashReconciliationsQuery.data ?? [],
+    cashRegisterMovements: cashRegisterMovementsQuery.data ?? [],
     cashRegisters: cashRegistersQuery.data ?? [],
     currentCashRegister: currentCashRegisterQuery.data ?? null,
     entries,

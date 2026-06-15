@@ -157,8 +157,12 @@ const routes: Route[] = [
   route("POST", "/cash/entries", createCashEntry),
   route("POST", "/cash/entries/:id/settle", settleCashEntry),
   route("POST", "/cash/entries/:id/cancel", cancelCashEntry),
+  route("GET", "/cash/registers/movements", listCashRegisterMovements),
+  route("GET", "/cash/registers/reconciliations", listCashReconciliations),
   route("GET", "/cash/registers", listCashRegisters),
   route("POST", "/cash/registers/open", openCashRegister),
+  route("POST", "/cash/registers/:id/movements", registerCashRegisterMovement),
+  route("POST", "/cash/registers/:id/reconcile", reconcileCashRegister),
   route("POST", "/cash/registers/:id/close", closeCashRegister),
 
   route("GET", "/reports", getReports),
@@ -525,12 +529,24 @@ function getRequiredPermissions(route: Route): Permission[] | null {
     return ["finance:cancel"];
   }
 
-  if (route.pattern === "/cash/registers") {
+  if (
+    route.pattern === "/cash/registers" ||
+    route.pattern === "/cash/registers/movements" ||
+    route.pattern === "/cash/registers/reconciliations"
+  ) {
     return ["finance:view"];
   }
 
   if (route.pattern.includes("/cash/registers/open")) {
     return ["finance:open-register"];
+  }
+
+  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/movements")) {
+    return ["finance:register-entry"];
+  }
+
+  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/reconcile")) {
+    return ["finance:close-register"];
   }
 
   if (route.pattern.includes("/cash/registers") && route.pattern.includes("/close")) {
@@ -1089,6 +1105,62 @@ function requireArray(value: unknown, field: string) {
   }
 
   return value as Record<string, unknown>[];
+}
+
+function optionalArray(value: unknown) {
+  if (value === undefined || value === null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, "Campo deve ser uma lista");
+  }
+
+  return value as Record<string, unknown>[];
+}
+
+function normalizeSalePayments(
+  input: Record<string, unknown>,
+  defaultMethod: Prisma.SaleCreateInput["paymentMethod"],
+  total: number,
+) {
+  const rawPayments = optionalArray(input.payments);
+  const payments =
+    rawPayments.length > 0
+      ? rawPayments.map((payment) => ({
+          amount: numberField(payment, "amount"),
+          cardBrand: optionalStringField(payment, "cardBrand"),
+          installments: Math.trunc(optionalNumberField(payment, "installments", 1)),
+          method: stringField(payment, "method") as Prisma.SaleCreateInput["paymentMethod"],
+          referenceCode: optionalStringField(payment, "referenceCode"),
+        }))
+      : [
+          {
+            amount: total,
+            cardBrand: null,
+            installments: 1,
+            method: defaultMethod,
+            referenceCode: null,
+          },
+        ];
+
+  for (const payment of payments) {
+    if (payment.amount <= 0) {
+      throw new HttpError(400, "Valor do pagamento deve ser maior que zero");
+    }
+
+    if (payment.installments <= 0) {
+      throw new HttpError(400, "Parcelas do pagamento devem ser maiores que zero");
+    }
+  }
+
+  const paidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
+  if (Math.abs(paidAmount - total) > 0.01) {
+    throw new HttpError(400, "Pagamentos da venda devem fechar o total");
+  }
+
+  return payments;
 }
 
 function isInboundMovement(type: string) {
@@ -2028,7 +2100,11 @@ async function cancelProductionOrder({ params }: Context) {
 
 async function listSales() {
   return prisma.sale.findMany({
-    include: { customer: true, items: { include: { product: true } } },
+    include: {
+      customer: true,
+      items: { include: { product: true } },
+      payments: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -2087,6 +2163,8 @@ async function createSale({ body, currentUser }: Context) {
 
     const paymentMethod = stringField(input, "paymentMethod") as Prisma.SaleCreateInput["paymentMethod"];
     const isPaidNow = paymentMethod !== "invoice";
+    const total = Math.max(0, subtotal - discountAmount);
+    const payments = normalizeSalePayments(input, paymentMethod, total);
     const sale = await tx.sale.create({
       data: {
         customer:
@@ -2112,9 +2190,18 @@ async function createSale({ body, currentUser }: Context) {
         oversellJustification: optionalStringField(input, "oversellJustification"),
         paidAt: isPaidNow ? new Date() : null,
         paymentMethod,
+        payments: {
+          create: payments.map((payment) => ({
+            amount: payment.amount,
+            cardBrand: payment.cardBrand,
+            installments: payment.installments,
+            method: payment.method,
+            referenceCode: payment.referenceCode,
+          })),
+        },
         status: isPaidNow ? "paid" : "open",
       },
-      include: { items: true },
+      include: { items: true, payments: true },
     });
 
     for (const item of preparedItems) {
@@ -2130,18 +2217,33 @@ async function createSale({ body, currentUser }: Context) {
       });
     }
 
-    await tx.cashEntry.create({
-      data: {
-        amount: Math.max(0, subtotal - discountAmount),
-        category: "Vendas",
-        description: `Venda ${sale.id}`,
-        dueDate: new Date(),
-        referenceId: sale.id,
-        settledAt: isPaidNow ? new Date() : null,
-        status: isPaidNow ? "settled" : "pending",
-        type: "income",
-      },
-    });
+    if (isPaidNow) {
+      await tx.cashEntry.createMany({
+        data: payments.map((payment) => ({
+          amount: payment.amount,
+          category: "Vendas",
+          description: `Venda ${sale.id} - ${payment.method}`,
+          dueDate: new Date(),
+          referenceId: sale.id,
+          settledAt: new Date(),
+          status: "settled",
+          type: "income",
+        })),
+      });
+    } else {
+      await tx.cashEntry.create({
+        data: {
+          amount: total,
+          category: "Vendas a prazo",
+          description: `Venda ${sale.id}`,
+          dueDate: new Date(),
+          referenceId: sale.id,
+          settledAt: null,
+          status: "pending",
+          type: "income",
+        },
+      });
+    }
 
     return sale;
   });
@@ -2149,28 +2251,47 @@ async function createSale({ body, currentUser }: Context) {
 
 async function paySale({ params }: Context) {
   return prisma.$transaction(async (tx) => {
-    const sale = await tx.sale.update({
-      data: { paidAt: new Date(), status: "paid" },
-      include: { items: true },
+    const existing = await tx.sale.findUnique({
+      include: { items: true, payments: true },
       where: { id: params.id },
     });
+
+    if (!existing) {
+      throw new HttpError(404, "Venda nao encontrada");
+    }
+
     const total =
-      sale.items.reduce(
+      existing.items.reduce(
         (sum, item) => sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitPrice),
         0,
-      ) - decimalToNumber(sale.discountAmount);
+      ) - decimalToNumber(existing.discountAmount);
+    if (existing.payments.length === 0) {
+      await tx.salePayment.create({
+        data: {
+          amount: Math.max(0, total),
+          method: existing.paymentMethod,
+          saleId: existing.id,
+        },
+      });
+    }
 
-    await tx.cashEntry.create({
-      data: {
-        amount: Math.max(0, total),
+    const sale = await tx.sale.update({
+      data: { paidAt: new Date(), status: "paid" },
+      include: { items: true, payments: true },
+      where: { id: params.id },
+    });
+
+    await tx.cashEntry.createMany({
+      data: sale.payments.map((payment) => ({
+        amount: decimalToNumber(payment.amount),
         category: "Vendas",
-        description: `Pagamento da venda ${sale.id}`,
+        description: `Pagamento da venda ${sale.id} - ${payment.method}`,
         dueDate: new Date(),
         referenceId: sale.id,
         settledAt: new Date(),
         status: "settled",
         type: "income",
-      },
+      })),
     });
 
     return sale;
@@ -2208,7 +2329,7 @@ async function cancelSale({ params }: Context) {
 
     return tx.sale.update({
       data: { status: "cancelled" },
-      include: { items: true },
+      include: { items: true, payments: true },
       where: { id: sale.id },
     });
   });
@@ -2256,6 +2377,18 @@ async function listCashRegisters() {
   return prisma.cashRegister.findMany({ orderBy: { openedAt: "desc" } });
 }
 
+async function listCashRegisterMovements() {
+  return prisma.cashRegisterMovement.findMany({
+    orderBy: { occurredAt: "desc" },
+  });
+}
+
+async function listCashReconciliations() {
+  return prisma.cashReconciliation.findMany({
+    orderBy: { reconciledAt: "desc" },
+  });
+}
+
 async function openCashRegister({ body }: Context) {
   const input = bodyAsRecord(body);
   const current = await prisma.cashRegister.findFirst({ where: { status: "open" } });
@@ -2274,6 +2407,63 @@ async function openCashRegister({ body }: Context) {
   });
 }
 
+async function registerCashRegisterMovement({ body, params }: Context) {
+  const input = bodyAsRecord(body);
+  const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
+
+  if (!register || register.status !== "open") {
+    throw new HttpError(409, "Caixa aberto deve ser informado");
+  }
+
+  const type = stringField(input, "type");
+
+  if (type !== "supply" && type !== "withdrawal") {
+    throw new HttpError(400, "Tipo de movimentacao deve ser supply ou withdrawal");
+  }
+
+  return prisma.cashRegisterMovement.create({
+    data: {
+      amount: numberField(input, "amount"),
+      actor: stringField(input, "actor"),
+      cashRegisterId: params.id,
+      occurredAt: new Date(),
+      reason: stringField(input, "reason"),
+      type,
+    },
+  });
+}
+
+async function reconcileCashRegister({ body, params }: Context) {
+  const input = bodyAsRecord(body);
+  const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
+
+  if (!register || register.status !== "open") {
+    throw new HttpError(409, "Caixa aberto deve ser informado");
+  }
+
+  const expectedAmount = numberField(input, "expectedAmount");
+  const countedAmount = numberField(input, "countedAmount");
+  const differenceAmount = countedAmount - expectedAmount;
+  const notes = optionalStringField(input, "notes");
+
+  if (differenceAmount !== 0 && !notes) {
+    throw new HttpError(400, "Conciliacao com divergencia exige observacao");
+  }
+
+  return prisma.cashReconciliation.create({
+    data: {
+      cashRegisterId: params.id,
+      countedAmount,
+      differenceAmount,
+      expectedAmount,
+      method: stringField(input, "method"),
+      notes,
+      reconciledAt: new Date(),
+      reconciledBy: stringField(input, "reconciledBy"),
+    },
+  });
+}
+
 async function closeCashRegister({ body, params }: Context) {
   const input = bodyAsRecord(body);
   const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
@@ -2288,13 +2478,24 @@ async function closeCashRegister({ body, params }: Context) {
       status: "settled",
     },
   });
+  const movements = await prisma.cashRegisterMovement.findMany({
+    where: {
+      cashRegisterId: register.id,
+      occurredAt: { gte: register.openedAt },
+    },
+  });
   const expectedAmount = entries.reduce((sum, entry) => {
     const signed = entry.type === "income" ? 1 : -1;
 
     return sum + signed * decimalToNumber(entry.amount);
   }, decimalToNumber(register.openingAmount));
+  const expectedWithMovements = movements.reduce((sum, movement) => {
+    const signed = movement.type === "supply" ? 1 : -1;
+
+    return sum + signed * decimalToNumber(movement.amount);
+  }, expectedAmount);
   const countedAmount = numberField(input, "countedAmount");
-  const differenceAmount = countedAmount - expectedAmount;
+  const differenceAmount = countedAmount - expectedWithMovements;
 
   if (differenceAmount !== 0 && !optionalStringField(input, "closingNote")) {
     throw new HttpError(400, "Fechamento com divergencia exige justificativa");
@@ -2307,7 +2508,7 @@ async function closeCashRegister({ body, params }: Context) {
       closingNote: optionalStringField(input, "closingNote"),
       countedAmount,
       differenceAmount,
-      expectedAmount,
+      expectedAmount: expectedWithMovements,
       status: "closed",
     },
     where: { id: params.id },

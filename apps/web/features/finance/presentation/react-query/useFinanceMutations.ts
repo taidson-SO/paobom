@@ -8,6 +8,10 @@ import {
   OpenCashRegisterUseCase,
   RegisterCashEntryInput,
   RegisterCashEntryUseCase,
+  RegisterCashRegisterMovementInput,
+  RegisterCashRegisterMovementUseCase,
+  ReconcileCashRegisterInput,
+  ReconcileCashRegisterUseCase,
   SettleCashEntryUseCase,
 } from "@paobom/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +34,13 @@ export function useFinanceMutations() {
   );
   const closeCashRegisterUseCase = container.get<CloseCashRegisterUseCase>(
     TOKENS.closeCashRegisterUseCase,
+  );
+  const registerCashRegisterMovementUseCase =
+    container.get<RegisterCashRegisterMovementUseCase>(
+      TOKENS.registerCashRegisterMovementUseCase,
+    );
+  const reconcileCashRegisterUseCase = container.get<ReconcileCashRegisterUseCase>(
+    TOKENS.reconcileCashRegisterUseCase,
   );
   const settleUseCase = container.get<SettleCashEntryUseCase>(
     TOKENS.settleCashEntryUseCase,
@@ -58,6 +69,16 @@ export function useFinanceMutations() {
     closeCashRegister: useMutation({
       mutationFn: (input: CloseCashRegisterInput) =>
         closeCashRegisterUseCase.execute(input),
+      onSuccess,
+    }),
+    registerCashRegisterMovement: useMutation({
+      mutationFn: (input: RegisterCashRegisterMovementInput) =>
+        registerCashRegisterMovementUseCase.execute(input),
+      onSuccess,
+    }),
+    reconcileCashRegister: useMutation({
+      mutationFn: (input: ReconcileCashRegisterInput) =>
+        reconcileCashRegisterUseCase.execute(input),
       onSuccess,
     }),
     settleCashEntry: useMutation({

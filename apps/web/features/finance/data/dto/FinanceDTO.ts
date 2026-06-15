@@ -1,4 +1,5 @@
 import {
+  CashRegisterMovementType,
   CashEntryStatus,
   CashEntryType,
   CashRegisterStatus,
@@ -41,4 +42,26 @@ export type CashRegisterDTO = {
   opening_amount: number;
   status: CashRegisterStatus;
   updated_at: string;
+};
+
+export type CashRegisterMovementDTO = {
+  actor: string;
+  amount: number;
+  cash_register_id: string;
+  id: string;
+  occurred_at: string;
+  reason: string;
+  type: CashRegisterMovementType;
+};
+
+export type CashReconciliationDTO = {
+  cash_register_id: string;
+  counted_amount: number;
+  difference_amount: number;
+  expected_amount: number;
+  id: string;
+  method: string;
+  notes: string | null;
+  reconciled_at: string;
+  reconciled_by: string;
 };

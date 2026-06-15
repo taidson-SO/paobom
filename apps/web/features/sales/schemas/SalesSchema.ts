@@ -18,6 +18,17 @@ export const SaleSchema = z.object({
   oversellApprovedBy: z.string().optional().nullable(),
   oversellJustification: z.string().optional().nullable(),
   paymentMethod: z.enum(["cash", "card", "pix", "invoice"]),
+  payments: z
+    .array(
+      z.object({
+        amount: z.coerce.number().positive("Valor do pagamento deve ser maior que zero"),
+        cardBrand: z.string().optional().nullable(),
+        installments: z.coerce.number().int().positive().default(1),
+        method: z.enum(["cash", "card", "pix", "invoice"]),
+        referenceCode: z.string().optional().nullable(),
+      }),
+    )
+    .optional(),
 }).superRefine((sale, context) => {
   const subtotal = sale.items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
@@ -46,6 +57,22 @@ export const SaleSchema = z.object({
         code: "custom",
         message: "Desconto acima do limite exige justificativa",
         path: ["discountReason"],
+      });
+    }
+  }
+
+  if (sale.payments?.length) {
+    const total = subtotal - sale.discountAmount;
+    const paidAmount = sale.payments.reduce(
+      (sum, payment) => sum + payment.amount,
+      0,
+    );
+
+    if (Math.abs(paidAmount - total) > 0.01) {
+      context.addIssue({
+        code: "custom",
+        message: "Pagamentos devem fechar o total da venda",
+        path: ["payments"],
       });
     }
   }

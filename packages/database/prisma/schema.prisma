@@ -417,12 +417,29 @@ model Sale {
   updatedAt             DateTime      @updatedAt
   paidAt                DateTime?
   items                 SaleItem[]
+  payments              SalePayment[]
 
   @@index([customerId])
   @@index([status])
   @@index([paymentMethod])
   @@index([createdAt])
   @@map("sales")
+}
+
+model SalePayment {
+  id            String        @id @default(uuid())
+  saleId        String
+  sale          Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(12, 2)
+  referenceCode String?
+  cardBrand     String?
+  installments  Int           @default(1)
+  createdAt     DateTime      @default(now())
+
+  @@index([saleId])
+  @@index([method])
+  @@map("sale_payments")
 }
 
 model SaleItem {
@@ -475,10 +492,46 @@ model CashRegister {
   closingNote      String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  movements        CashRegisterMovement[]
+  reconciliations  CashReconciliation[]
 
   @@index([status])
   @@index([openedAt])
   @@map("cash_registers")
+}
+
+model CashRegisterMovement {
+  id             String       @id @default(uuid())
+  cashRegisterId String
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  type           String
+  amount         Decimal      @db.Decimal(12, 2)
+  reason         String
+  actor          String
+  occurredAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([cashRegisterId, occurredAt])
+  @@index([type])
+  @@map("cash_register_movements")
+}
+
+model CashReconciliation {
+  id               String       @id @default(uuid())
+  cashRegisterId   String
+  cashRegister     CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  method           String
+  expectedAmount   Decimal      @db.Decimal(12, 2)
+  countedAmount    Decimal      @db.Decimal(12, 2)
+  differenceAmount Decimal      @db.Decimal(12, 2)
+  reconciledBy     String
+  notes            String?
+  reconciledAt     DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+
+  @@index([cashRegisterId, reconciledAt])
+  @@index([method])
+  @@map("cash_reconciliations")
 }
 
 model User {

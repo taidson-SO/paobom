@@ -1,6 +1,10 @@
 "use client";
 
-import { CashEntryStatus, CashEntryType } from "@paobom/domain";
+import {
+  CashEntryStatus,
+  CashEntryType,
+  CashRegisterMovementType,
+} from "@paobom/domain";
 import { FormEvent, useState } from "react";
 
 import { useAuditRecorder } from "@/core/audit/useAuditRecorder";
@@ -9,6 +13,8 @@ import { usePermissionSession } from "@/core/permissions/permission-session";
 import { useFinance } from "@/features/finance/presentation/hooks/useFinance";
 import {
   CashEntrySchema,
+  CashReconciliationSchema,
+  CashRegisterMovementSchema,
   CloseCashRegisterSchema,
   OpenCashRegisterSchema,
 } from "@/features/finance/schemas/FinanceSchema";
@@ -32,6 +38,21 @@ type CloseRegisterForm = {
   countedAmount: number;
 };
 
+type RegisterMovementForm = {
+  actor: string;
+  amount: number;
+  reason: string;
+  type: CashRegisterMovementType;
+};
+
+type ReconciliationForm = {
+  countedAmount: number;
+  expectedAmount: number;
+  method: string;
+  notes: string;
+  reconciledBy: string;
+};
+
 const initialForm: FinanceForm = {
   amount: 0,
   category: "Vendas",
@@ -51,14 +72,33 @@ const initialCloseRegisterForm: CloseRegisterForm = {
   countedAmount: 0,
 };
 
+const initialMovementForm: RegisterMovementForm = {
+  actor: "",
+  amount: 0,
+  reason: "",
+  type: "supply",
+};
+
+const initialReconciliationForm: ReconciliationForm = {
+  countedAmount: 0,
+  expectedAmount: 0,
+  method: "cash",
+  notes: "",
+  reconciledBy: "",
+};
+
 export function FinanceSection() {
   const {
     cancelCashEntry,
+    cashReconciliations,
+    cashRegisterMovements,
     cashRegisters,
     closeCashRegister,
     currentCashRegister,
     filteredEntries,
     openCashRegister,
+    reconcileCashRegister,
+    registerCashRegisterMovement,
     registerCashEntry,
     selectedStatus,
     setSelectedStatus,
@@ -78,6 +118,10 @@ export function FinanceSection() {
   );
   const [closeRegisterForm, setCloseRegisterForm] =
     useState<CloseRegisterForm>(initialCloseRegisterForm);
+  const [movementForm, setMovementForm] =
+    useState<RegisterMovementForm>(initialMovementForm);
+  const [reconciliationForm, setReconciliationForm] =
+    useState<ReconciliationForm>(initialReconciliationForm);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -179,6 +223,82 @@ export function FinanceSection() {
     }
   }
 
+  async function handleRegisterMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canRegisterEntry) {
+      setError("Seu perfil nao pode registrar movimentacoes de caixa.");
+      return;
+    }
+
+    if (!currentCashRegister) {
+      setError("Nenhum caixa aberto");
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const input = CashRegisterMovementSchema.parse({
+        ...movementForm,
+        cashRegisterId: currentCashRegister.id,
+      });
+      const movement = await registerCashRegisterMovement.mutateAsync(input);
+
+      recordAudit({
+        action: `cash_register.${movement.type}`,
+        description: `Movimentacao de caixa ${movement.reason}`,
+        entity: "cash_register",
+        entityId: movement.cashRegisterId,
+        metadata: {
+          amount: movement.amount,
+          movementId: movement.id,
+          type: movement.type,
+        },
+      });
+      setMovementForm(initialMovementForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Movimentacao invalida");
+    }
+  }
+
+  async function handleReconcileRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canCloseRegister) {
+      setError("Seu perfil nao pode conciliar caixa.");
+      return;
+    }
+
+    if (!currentCashRegister) {
+      setError("Nenhum caixa aberto");
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const input = CashReconciliationSchema.parse({
+        ...reconciliationForm,
+        cashRegisterId: currentCashRegister.id,
+        notes: reconciliationForm.notes || null,
+      });
+      const reconciliation = await reconcileCashRegister.mutateAsync(input);
+
+      recordAudit({
+        action: "cash_register.reconcile",
+        description: `Conciliacao ${reconciliation.method}`,
+        entity: "cash_register",
+        entityId: reconciliation.cashRegisterId,
+        metadata: {
+          differenceAmount: reconciliation.differenceAmount,
+          reconciliationId: reconciliation.id,
+        },
+      });
+      setReconciliationForm(initialReconciliationForm);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Conciliacao invalida");
+    }
+  }
+
   return (
     <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
       <div className="space-y-4">
@@ -271,6 +391,133 @@ export function FinanceSection() {
             </form>
           )}
         </div>
+
+        {currentCashRegister ? (
+          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
+            <h3 className="text-sm font-bold text-zinc-800">
+              Movimentacao de gaveta
+            </h3>
+            <form className="space-y-3" onSubmit={handleRegisterMovement}>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-sm font-medium text-zinc-700">
+                  Tipo
+                  <select
+                    className="rounded-md border border-zinc-300 px-3 py-2"
+                    value={movementForm.type}
+                    onChange={(event) =>
+                      setMovementForm((state) => ({
+                        ...state,
+                        type: event.target.value as CashRegisterMovementType,
+                      }))
+                    }
+                  >
+                    <option value="supply">Suprimento</option>
+                    <option value="withdrawal">Sangria</option>
+                  </select>
+                </label>
+                <NumberField
+                  label="Valor"
+                  value={movementForm.amount}
+                  onChange={(amount) =>
+                    setMovementForm((state) => ({ ...state, amount }))
+                  }
+                />
+              </div>
+              <TextField
+                label="Motivo"
+                value={movementForm.reason}
+                onChange={(reason) =>
+                  setMovementForm((state) => ({ ...state, reason }))
+                }
+              />
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <TextField
+                    label="Responsavel"
+                    value={movementForm.actor}
+                    onChange={(actor) =>
+                      setMovementForm((state) => ({ ...state, actor }))
+                    }
+                  />
+                </div>
+                <button
+                  className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                  disabled={!canRegisterEntry}
+                >
+                  Registrar
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {currentCashRegister ? (
+          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
+            <h3 className="text-sm font-bold text-zinc-800">Conciliacao</h3>
+            <form className="space-y-3" onSubmit={handleReconcileRegister}>
+              <label className="grid gap-1 text-sm font-medium text-zinc-700">
+                Forma
+                <select
+                  className="rounded-md border border-zinc-300 px-3 py-2"
+                  value={reconciliationForm.method}
+                  onChange={(event) =>
+                    setReconciliationForm((state) => ({
+                      ...state,
+                      method: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="cash">Dinheiro</option>
+                  <option value="pix">Pix</option>
+                  <option value="card">Cartao</option>
+                  <option value="invoice">A prazo</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField
+                  label="Esperado"
+                  value={reconciliationForm.expectedAmount}
+                  onChange={(expectedAmount) =>
+                    setReconciliationForm((state) => ({
+                      ...state,
+                      expectedAmount,
+                    }))
+                  }
+                />
+                <NumberField
+                  label="Contado"
+                  value={reconciliationForm.countedAmount}
+                  onChange={(countedAmount) =>
+                    setReconciliationForm((state) => ({
+                      ...state,
+                      countedAmount,
+                    }))
+                  }
+                />
+              </div>
+              <TextField
+                label="Responsavel"
+                value={reconciliationForm.reconciledBy}
+                onChange={(reconciledBy) =>
+                  setReconciliationForm((state) => ({ ...state, reconciledBy }))
+                }
+              />
+              <TextField
+                label="Observacao se houver divergencia"
+                value={reconciliationForm.notes}
+                onChange={(notes) =>
+                  setReconciliationForm((state) => ({ ...state, notes }))
+                }
+              />
+              <button
+                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                disabled={!canCloseRegister}
+              >
+                Conciliar
+              </button>
+            </form>
+          </div>
+        ) : null}
 
         <form className="space-y-3" onSubmit={handleSubmit}>
         {!canRegisterEntry ? (
@@ -446,6 +693,71 @@ export function FinanceSection() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          <div className="overflow-hidden rounded-md border border-zinc-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">Movimento</th>
+                  <th className="px-3 py-2">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashRegisterMovements.slice(0, 6).map((movement) => (
+                  <tr className="border-t border-zinc-100" key={movement.id}>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-zinc-950">
+                        {movement.type === "supply" ? "Suprimento" : "Sangria"}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {movement.reason} · {movement.actor}
+                      </p>
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-zinc-800">
+                      {movement.type === "supply" ? "+" : "-"} R${" "}
+                      {movement.amount.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="overflow-hidden rounded-md border border-zinc-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">Conciliacao</th>
+                  <th className="px-3 py-2">Diferenca</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashReconciliations.slice(0, 6).map((reconciliation) => (
+                  <tr className="border-t border-zinc-100" key={reconciliation.id}>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold text-zinc-950">
+                        {reconciliation.method}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        R$ {reconciliation.expectedAmount.toFixed(2)} esperado ·{" "}
+                        {reconciliation.reconciledBy}
+                      </p>
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-zinc-800">
+                      R$ {reconciliation.differenceAmount.toFixed(2)}
+                      {reconciliation.notes ? (
+                        <p className="text-xs font-medium text-zinc-500">
+                          {reconciliation.notes}
+                        </p>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-md border border-zinc-200">

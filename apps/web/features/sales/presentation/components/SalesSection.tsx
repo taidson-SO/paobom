@@ -30,7 +30,10 @@ type SaleForm = {
   notes: string;
   oversellApprovedBy: string;
   oversellJustification: string;
+  paymentCardBrand: string;
+  paymentInstallments: number;
   paymentMethod: PaymentMethod;
+  paymentReferenceCode: string;
 };
 
 const initialForm: SaleForm = {
@@ -42,7 +45,10 @@ const initialForm: SaleForm = {
   notes: "",
   oversellApprovedBy: "",
   oversellJustification: "",
+  paymentCardBrand: "",
+  paymentInstallments: 1,
   paymentMethod: "pix",
+  paymentReferenceCode: "",
 };
 
 export function SalesSection({
@@ -131,6 +137,15 @@ export function SalesSection({
         discountReason: form.discountReason || null,
         oversellApprovedBy: form.oversellApprovedBy || null,
         oversellJustification: form.oversellJustification || null,
+        payments: [
+          {
+            amount: total,
+            cardBrand: form.paymentCardBrand || null,
+            installments: form.paymentInstallments,
+            method: form.paymentMethod,
+            referenceCode: form.paymentReferenceCode || null,
+          },
+        ],
       });
 
       const sale = await createSale.mutateAsync(input);
@@ -213,6 +228,10 @@ export function SalesSection({
               setForm((state) => ({
                 ...state,
                 paymentMethod: event.target.value as PaymentMethod,
+                paymentCardBrand:
+                  event.target.value === "card" ? state.paymentCardBrand : "",
+                paymentInstallments:
+                  event.target.value === "card" ? state.paymentInstallments : 1,
               }))
             }
           >
@@ -222,6 +241,35 @@ export function SalesSection({
             <option value="invoice">A prazo</option>
           </select>
         </label>
+
+        {form.paymentMethod !== "cash" ? (
+          <Field
+            label="Referencia do pagamento"
+            value={form.paymentReferenceCode}
+            onChange={(paymentReferenceCode) =>
+              setForm((state) => ({ ...state, paymentReferenceCode }))
+            }
+          />
+        ) : null}
+
+        {form.paymentMethod === "card" ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Bandeira"
+              value={form.paymentCardBrand}
+              onChange={(paymentCardBrand) =>
+                setForm((state) => ({ ...state, paymentCardBrand }))
+              }
+            />
+            <NumberField
+              label="Parcelas"
+              value={form.paymentInstallments}
+              onChange={(paymentInstallments) =>
+                setForm((state) => ({ ...state, paymentInstallments }))
+              }
+            />
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           {form.items.map((item, index) => (
@@ -423,6 +471,15 @@ export function SalesSection({
                       {getPaymentLabel(sale.paymentMethod)} ·{" "}
                       {sale.createdAt.toLocaleDateString()}
                     </p>
+                    {sale.payments.length > 0 ? (
+                      <p className="text-xs text-zinc-500">
+                        {sale.payments
+                          .map((payment) =>
+                            formatPaymentDetail(payment.method, payment.amount),
+                          )
+                          .join(" / ")}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-zinc-700">
                     {sale.items.map((item) => (
@@ -575,4 +632,8 @@ function getPaymentLabel(paymentMethod: PaymentMethod) {
   };
 
   return labels[paymentMethod];
+}
+
+function formatPaymentDetail(paymentMethod: PaymentMethod, amount: number) {
+  return `${getPaymentLabel(paymentMethod)} R$ ${amount.toFixed(2)}`;
 }

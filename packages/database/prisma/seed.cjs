@@ -15,8 +15,11 @@ async function main() {
   await prisma.$transaction(async (tx) => {
     await tx.auditLog.deleteMany();
     await tx.authSession.deleteMany();
+    await tx.cashReconciliation.deleteMany();
+    await tx.cashRegisterMovement.deleteMany();
     await tx.cashRegister.deleteMany();
     await tx.cashEntry.deleteMany();
+    await tx.salePayment.deleteMany();
     await tx.saleItem.deleteMany();
     await tx.sale.deleteMany();
     await tx.productionConsumption.deleteMany();
@@ -431,6 +434,17 @@ async function main() {
             },
           ],
         },
+        payments: {
+          create: [
+            {
+              id: "sale-payment-balcao-001",
+              method: "pix",
+              amount: "25.00",
+              referenceCode: "PIX-SEED-001",
+              installments: 1,
+            },
+          ],
+        },
       },
     });
 
@@ -467,6 +481,34 @@ async function main() {
         openingAmount: "100.00",
         openedAt: new Date("2026-06-14T07:00:00.000Z"),
         openedBy: "user-cashier",
+      },
+    });
+
+    await tx.cashRegisterMovement.createMany({
+      data: [
+        {
+          id: "cash-movement-supply-001",
+          cashRegisterId: "cash-register-001",
+          type: "supply",
+          amount: "50.00",
+          reason: "Reforco de troco",
+          actor: "user-cashier",
+          occurredAt: new Date("2026-06-14T08:00:00.000Z"),
+        },
+      ],
+    });
+
+    await tx.cashReconciliation.create({
+      data: {
+        id: "cash-reconciliation-pix-001",
+        cashRegisterId: "cash-register-001",
+        method: "pix",
+        expectedAmount: "25.00",
+        countedAmount: "25.00",
+        differenceAmount: "0.00",
+        reconciledBy: "user-cashier",
+        notes: "Conciliacao inicial pix",
+        reconciledAt: new Date("2026-06-14T14:00:00.000Z"),
       },
     });
 

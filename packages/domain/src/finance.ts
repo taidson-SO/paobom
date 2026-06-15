@@ -3,6 +3,7 @@ export type CashEntryType = "income" | "expense";
 export type CashEntryStatus = "pending" | "settled" | "cancelled";
 
 export type CashRegisterStatus = "open" | "closed";
+export type CashRegisterMovementType = "supply" | "withdrawal";
 
 export type CashEntryProps = {
   id: string;
@@ -54,9 +55,48 @@ export type CashRegisterProps = {
   updatedAt: Date;
 };
 
+export type CashRegisterMovementProps = {
+  id: string;
+  cashRegisterId: string;
+  type: CashRegisterMovementType;
+  amount: number;
+  reason: string;
+  actor: string;
+  occurredAt: Date;
+};
+
+export type CashReconciliationProps = {
+  id: string;
+  cashRegisterId: string;
+  method: string;
+  expectedAmount: number;
+  countedAmount: number;
+  differenceAmount: number;
+  reconciledBy: string;
+  notes: string | null;
+  reconciledAt: Date;
+};
+
 export type OpenCashRegisterInput = {
   openingAmount: number;
   openedBy: string;
+};
+
+export type RegisterCashRegisterMovementInput = {
+  cashRegisterId: string;
+  type: CashRegisterMovementType;
+  amount: number;
+  reason: string;
+  actor: string;
+};
+
+export type ReconcileCashRegisterInput = {
+  cashRegisterId: string;
+  method: string;
+  expectedAmount: number;
+  countedAmount: number;
+  reconciledBy: string;
+  notes?: string | null;
 };
 
 export type CloseCashRegisterInput = {
@@ -271,6 +311,118 @@ export class CashRegister {
   }
 }
 
+export class CashRegisterMovement {
+  constructor(private readonly props: CashRegisterMovementProps) {
+    if (!props.cashRegisterId) {
+      throw new Error("Caixa deve ser informado");
+    }
+
+    if (props.amount <= 0) {
+      throw new Error("Valor da movimentacao deve ser maior que zero");
+    }
+
+    if (!props.reason.trim()) {
+      throw new Error("Motivo da movimentacao deve ser informado");
+    }
+
+    if (!props.actor.trim()) {
+      throw new Error("Responsavel da movimentacao deve ser informado");
+    }
+  }
+
+  get id() {
+    return this.props.id;
+  }
+
+  get cashRegisterId() {
+    return this.props.cashRegisterId;
+  }
+
+  get type() {
+    return this.props.type;
+  }
+
+  get amount() {
+    return this.props.amount;
+  }
+
+  get reason() {
+    return this.props.reason;
+  }
+
+  get actor() {
+    return this.props.actor;
+  }
+
+  get occurredAt() {
+    return this.props.occurredAt;
+  }
+
+  get signedAmount() {
+    return this.props.type === "supply" ? this.props.amount : -this.props.amount;
+  }
+
+  toJSON(): CashRegisterMovementProps {
+    return { ...this.props };
+  }
+}
+
+export class CashReconciliation {
+  constructor(private readonly props: CashReconciliationProps) {
+    if (!props.cashRegisterId) {
+      throw new Error("Caixa deve ser informado");
+    }
+
+    if (!props.method.trim()) {
+      throw new Error("Forma de pagamento deve ser informada");
+    }
+
+    if (!props.reconciledBy.trim()) {
+      throw new Error("Responsavel pela conciliacao deve ser informado");
+    }
+  }
+
+  get id() {
+    return this.props.id;
+  }
+
+  get cashRegisterId() {
+    return this.props.cashRegisterId;
+  }
+
+  get method() {
+    return this.props.method;
+  }
+
+  get expectedAmount() {
+    return this.props.expectedAmount;
+  }
+
+  get countedAmount() {
+    return this.props.countedAmount;
+  }
+
+  get differenceAmount() {
+    return this.props.differenceAmount;
+  }
+
+  get reconciledBy() {
+    return this.props.reconciledBy;
+  }
+
+  get notes() {
+    return this.props.notes;
+  }
+
+  get reconciledAt() {
+    return this.props.reconciledAt;
+  }
+
+  toJSON(): CashReconciliationProps {
+    return { ...this.props };
+  }
+}
+
 export interface CashFlowRepository {
   cancel(id: string): Promise<CashEntry>;
   findAll(): Promise<CashEntry[]>;
@@ -281,8 +433,14 @@ export interface CashFlowRepository {
 export interface CashRegisterRepository {
   close(input: CloseCashRegisterRepositoryInput): Promise<CashRegister>;
   findCurrentOpen(): Promise<CashRegister | null>;
+  findMovements(): Promise<CashRegisterMovement[]>;
+  findReconciliations(): Promise<CashReconciliation[]>;
   findRegisters(): Promise<CashRegister[]>;
   open(input: OpenCashRegisterInput): Promise<CashRegister>;
+  reconcile(input: ReconcileCashRegisterInput): Promise<CashReconciliation>;
+  registerMovement(
+    input: RegisterCashRegisterMovementInput,
+  ): Promise<CashRegisterMovement>;
 }
 
 export class ListCashEntriesUseCase {
@@ -393,6 +551,22 @@ export class GetCurrentCashRegisterUseCase {
   }
 }
 
+export class ListCashRegisterMovementsUseCase {
+  constructor(private readonly repository: CashRegisterRepository) {}
+
+  execute() {
+    return this.repository.findMovements();
+  }
+}
+
+export class ListCashReconciliationsUseCase {
+  constructor(private readonly repository: CashRegisterRepository) {}
+
+  execute() {
+    return this.repository.findReconciliations();
+  }
+}
+
 export class OpenCashRegisterUseCase {
   constructor(private readonly repository: CashRegisterRepository) {}
 
@@ -426,7 +600,8 @@ export class CloseCashRegisterUseCase {
     }
 
     const entries = await this.cashFlow.findAll();
-    const expectedAmount = entries.reduce((sum, entry) => {
+    const movements = await this.cashRegisters.findMovements();
+    const entriesAmount = entries.reduce((sum, entry) => {
       if (
         entry.status !== "settled" ||
         !entry.settledAt ||
@@ -436,11 +611,38 @@ export class CloseCashRegisterUseCase {
       }
 
       return sum + (entry.type === "income" ? entry.amount : -entry.amount);
-    }, cashRegister.openingAmount);
+    }, 0);
+    const movementsAmount = movements.reduce((sum, movement) => {
+      if (
+        movement.cashRegisterId !== cashRegister.id ||
+        movement.occurredAt < cashRegister.openedAt
+      ) {
+        return sum;
+      }
+
+      return sum + movement.signedAmount;
+    }, 0);
+    const expectedAmount = cashRegister.openingAmount + entriesAmount + movementsAmount;
 
     return this.cashRegisters.close({
       ...input,
       expectedAmount,
     });
+  }
+}
+
+export class RegisterCashRegisterMovementUseCase {
+  constructor(private readonly repository: CashRegisterRepository) {}
+
+  execute(input: RegisterCashRegisterMovementInput) {
+    return this.repository.registerMovement(input);
+  }
+}
+
+export class ReconcileCashRegisterUseCase {
+  constructor(private readonly repository: CashRegisterRepository) {}
+
+  execute(input: ReconcileCashRegisterInput) {
+    return this.repository.reconcile(input);
   }
 }

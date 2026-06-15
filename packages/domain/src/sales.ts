@@ -6,6 +6,15 @@ export type SaleStatus = "open" | "paid" | "cancelled";
 
 export type PaymentMethod = "cash" | "card" | "pix" | "invoice";
 
+export type SalePaymentProps = {
+  id: string;
+  method: PaymentMethod;
+  amount: number;
+  referenceCode: string | null;
+  cardBrand: string | null;
+  installments: number;
+};
+
 export type SaleItemProps = {
   id: string;
   productId: string;
@@ -19,6 +28,7 @@ export type SaleProps = {
   customerId: string | null;
   status: SaleStatus;
   paymentMethod: PaymentMethod;
+  payments?: SalePaymentProps[];
   items: SaleItemProps[];
   discountAmount: number;
   discountAuthorizedBy: string | null;
@@ -43,6 +53,13 @@ export type CreateSaleInput = {
   discountAuthorizedBy?: string | null;
   discountReason?: string | null;
   paymentMethod: PaymentMethod;
+  payments?: Array<{
+    amount: number;
+    cardBrand?: string | null;
+    installments?: number;
+    method: PaymentMethod;
+    referenceCode?: string | null;
+  }>;
   items: CreateSaleItemInput[];
   notes: string;
   oversellApprovedBy?: string | null;
@@ -68,6 +85,10 @@ export class Sale {
 
   get paymentMethod() {
     return this.props.paymentMethod;
+  }
+
+  get payments() {
+    return [...(this.props.payments ?? [])];
   }
 
   get items() {
@@ -121,6 +142,10 @@ export class Sale {
     return Math.max(0, this.subtotal - this.props.discountAmount);
   }
 
+  get paidAmount() {
+    return this.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  }
+
   get discountRate() {
     return this.subtotal > 0 ? this.props.discountAmount / this.subtotal : 0;
   }
@@ -169,6 +194,7 @@ export class Sale {
     return {
       ...this.props,
       items: this.items,
+      payments: this.payments,
     };
   }
 
@@ -207,6 +233,20 @@ export class Sale {
       if (!this.props.discountReason?.trim()) {
         throw new Error("Desconto acima do limite exige justificativa");
       }
+    }
+
+    this.payments.forEach((payment) => {
+      if (payment.amount <= 0) {
+        throw new Error("Valor do pagamento deve ser maior que zero");
+      }
+
+      if (payment.installments <= 0) {
+        throw new Error("Parcelas do pagamento devem ser maiores que zero");
+      }
+    });
+
+    if (this.payments.length > 0 && Math.abs(this.paidAmount - this.total) > 0.01) {
+      throw new Error("Pagamentos da venda devem fechar o total");
     }
   }
 }
@@ -292,6 +332,14 @@ export class CreateSaleUseCase {
       oversellJustification: input.oversellJustification ?? null,
       paidAt: null,
       paymentMethod: input.paymentMethod,
+      payments: input.payments?.map((payment) => ({
+        amount: payment.amount,
+        cardBrand: payment.cardBrand ?? null,
+        id: crypto.randomUUID(),
+        installments: payment.installments ?? 1,
+        method: payment.method,
+        referenceCode: payment.referenceCode ?? null,
+      })),
       status: "open",
       updatedAt: new Date(),
     });
