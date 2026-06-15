@@ -65,6 +65,12 @@ Rodar web:
 pnpm dev-web
 ```
 
+Rodar API:
+
+```bash
+pnpm dev-api
+```
+
 Rodar mobile:
 
 ```bash
@@ -123,6 +129,21 @@ Aplicar migrations e popular dados locais:
 docker compose up -d postgres
 pnpm db:deploy
 pnpm db:seed
+```
+
+## Backend/API Real
+
+A Fase 16 adiciona `apps/api`, uma API HTTP real sobre PostgreSQL/Prisma. A documentacao detalhada fica em [docs/api-real.md](docs/api-real.md).
+
+Fluxo local basico:
+
+```bash
+docker compose up -d postgres
+pnpm db:deploy
+pnpm db:seed
+pnpm db:generate
+pnpm build
+pnpm --filter api start
 ```
 
 ## Validacao do MVP Mock
