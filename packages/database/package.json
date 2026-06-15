@@ -1,0 +1,24 @@
+{
+  "name": "@paobom/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "db:deploy": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma migrate deploy --schema prisma/schema.prisma",
+    "db:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma migrate dev --schema prisma/schema.prisma",
+    "db:seed": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} node prisma/seed.cjs",
+    "db:studio": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma studio --schema prisma/schema.prisma",
+    "db:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://paobom:paobom@localhost:5432/paobom?schema=public} prisma validate --schema prisma/schema.prisma",
+    "typecheck": "tsc --noEmit"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@prisma/client": "^6.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "prisma": "^6.19.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -106,6 +106,25 @@ Encerrar os servicos:
 docker compose down
 ```
 
+## Banco Persistente
+
+A Fase 15 adiciona o pacote `@paobom/database` com PostgreSQL + Prisma, migration inicial e seed local. A documentacao detalhada fica em [docs/banco-persistente.md](docs/banco-persistente.md).
+
+Validar schema e gerar client:
+
+```bash
+pnpm db:validate
+pnpm db:generate
+```
+
+Aplicar migrations e popular dados locais:
+
+```bash
+docker compose up -d postgres
+pnpm db:deploy
+pnpm db:seed
+```
+
 ## Validacao do MVP Mock
 
 Na estabilizacao da fase 12, estes comandos passam:
