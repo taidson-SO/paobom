@@ -1429,9 +1429,19 @@ function getLotStatus(quantity: number, expirationDate: Date | null) {
 }
 
 function periodFilter(query: URLSearchParams) {
+  const startDate = optionalDateQuery(query, "startDate");
+  const endDate = optionalDateQuery(query, "endDate");
+
+  startDate?.setHours(0, 0, 0, 0);
+  endDate?.setHours(23, 59, 59, 999);
+
+  if (startDate && endDate && startDate > endDate) {
+    throw new HttpError(400, "Data inicial deve ser menor ou igual a data final");
+  }
+
   return {
-    endDate: optionalDateQuery(query, "endDate"),
-    startDate: optionalDateQuery(query, "startDate"),
+    endDate,
+    startDate,
   };
 }
 
@@ -2519,21 +2529,68 @@ async function getReports({ query }: Context) {
   const period = periodFilter(query);
   const [sales, cashEntries, balances, movements, purchases, productions] =
     await Promise.all([
-      prisma.sale.findMany({ include: { items: true } }),
+      prisma.sale.findMany({ include: { items: true, payments: true } }),
       prisma.cashEntry.findMany(),
       prisma.inventoryBalance.findMany(),
       prisma.stockMovement.findMany(),
       prisma.purchase.findMany({ include: { items: true } }),
       prisma.productionOrder.findMany({ include: { ingredientConsumptions: true } }),
     ]);
-  const paidSales = sales.filter(
-    (sale) => sale.status === "paid" && isWithinPeriod(sale.paidAt ?? sale.createdAt, period),
+  const periodSales = sales.filter((sale) =>
+    isWithinPeriod(sale.paidAt ?? sale.createdAt, period),
+  );
+  const paidSales = periodSales.filter((sale) => sale.status === "paid");
+  const periodCash = cashEntries.filter((entry) =>
+    isWithinPeriod(entry.settledAt ?? entry.dueDate, period),
+  );
+  const activeCash = periodCash.filter((entry) => entry.status !== "cancelled");
+  const periodMovements = movements.filter((movement) =>
+    isWithinPeriod(movement.occurredAt, period),
+  );
+  const periodPurchases = purchases.filter((purchase) =>
+    isWithinPeriod(purchase.receivedAt ?? purchase.expectedDate, period),
+  );
+  const periodProductions = productions.filter((production) =>
+    isWithinPeriod(production.completedAt ?? production.startedAt ?? production.createdAt, period),
   );
   const revenue = paidSales.reduce((sum, sale) => sum + saleTotal(sale), 0);
   const totalCost = paidSales.reduce((sum, sale) => sum + saleCost(sale), 0);
-  const activeCash = cashEntries.filter((entry) => entry.status !== "cancelled");
-
-  return {
+  const grossMargin = revenue - totalCost;
+  const operatingExpenses = activeCash.reduce(
+    (sum, entry) =>
+      entry.status === "settled" && entry.type === "expense"
+        ? sum + decimalToNumber(entry.amount)
+        : sum,
+    0,
+  );
+  const inventoryLossCost = periodMovements.reduce(
+    (sum, movement) =>
+      movement.type === "loss"
+        ? sum + decimalToNumber(movement.quantity) * decimalToNumber(movement.unitCost)
+        : sum,
+    0,
+  );
+  const netResult = grossMargin - operatingExpenses - inventoryLossCost;
+  const projectedBalance = activeCash.reduce(
+    (sum, entry) =>
+      sum + (entry.type === "income" ? 1 : -1) * decimalToNumber(entry.amount),
+    0,
+  );
+  const pendingIncome = activeCash.reduce(
+    (sum, entry) =>
+      entry.status === "pending" && entry.type === "income"
+        ? sum + decimalToNumber(entry.amount)
+        : sum,
+    0,
+  );
+  const pendingExpense = activeCash.reduce(
+    (sum, entry) =>
+      entry.status === "pending" && entry.type === "expense"
+        ? sum + decimalToNumber(entry.amount)
+        : sum,
+    0,
+  );
+  const report = {
     cashFlow: {
       balance: activeCash.reduce(
         (sum, entry) =>
@@ -2542,89 +2599,168 @@ async function getReports({ query }: Context) {
             : sum,
         0,
       ),
-      projectedBalance: activeCash.reduce(
-        (sum, entry) => sum + (entry.type === "income" ? 1 : -1) * decimalToNumber(entry.amount),
-        0,
-      ),
+      byStatus: summarizeRecords(periodCash, "status", {
+        cancelled: "Cancelado",
+        pending: "Pendente",
+        settled: "Baixado",
+      }),
+      byType: summarizeRecords(activeCash, "type", {
+        expense: "Saidas",
+        income: "Entradas",
+      }),
+      pendingExpense,
+      pendingIncome,
+      projectedBalance,
+    },
+    financial: {
+      inventoryLossCost,
+      netResult,
+      netResultRate: revenue > 0 ? netResult / revenue : 0,
+      operatingExpenses,
+      validations: buildApiReportValidations({
+        grossMarginRate: revenue > 0 ? grossMargin / revenue : 0,
+        netResult,
+        netResultRate: revenue > 0 ? netResult / revenue : 0,
+        pendingExpense,
+        pendingIncome,
+        projectedBalance,
+        revenue,
+      }),
     },
     generatedAt: new Date(),
     inventory: {
-      belowMinimum: balances.filter(
-        (balance) => decimalToNumber(balance.quantity) < decimalToNumber(balance.minimumStock),
-      ).length,
+      belowMinimum: balances
+        .filter(
+          (balance) => decimalToNumber(balance.quantity) < decimalToNumber(balance.minimumStock),
+        )
+        .map((balance) => ({
+          amount: decimalToNumber(balance.quantity) * decimalToNumber(balance.averageCost),
+          label: balance.productId,
+          quantity: decimalToNumber(balance.quantity),
+        })),
       estimatedValue: balances.reduce(
         (sum, balance) =>
           sum + decimalToNumber(balance.quantity) * decimalToNumber(balance.averageCost),
         0,
       ),
-      movements: movements.length,
+      movementsByType: summarizeRecords(periodMovements, "type", stockMovementLabels),
     },
     period,
     production: {
-      orders: productions.length,
-      totalCost: productions.reduce((sum, order) => sum + productionCost(order), 0),
-      totalProduced: productions.reduce(
+      averageUnitCost: getAverageApiProductionUnitCost(periodProductions),
+      ordersByStatus: summarizeRecords(periodProductions, "status", {
+        cancelled: "Cancelada",
+        finished: "Finalizada",
+        planned: "Planejada",
+        started: "Iniciada",
+      }, productionCost),
+      totalCost: periodProductions.reduce((sum, order) => sum + productionCost(order), 0),
+      totalProduced: periodProductions.reduce(
         (sum, order) => sum + decimalToNumber(order.quantityProduced),
         0,
       ),
     },
     purchases: {
-      totalPurchased: purchases.reduce((sum, purchase) => {
+      byStatus: summarizeRecords(periodPurchases, "status", purchaseStatusLabels, purchaseTotal),
+      totalPurchased: periodPurchases.reduce((sum, purchase) => {
         if (purchase.status === "cancelled") return sum;
-        return (
-          sum +
-          purchase.items.reduce(
-            (itemSum, item) =>
-              itemSum + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
-            0,
-          )
-        );
+        return sum + purchaseTotal(purchase);
       }, 0),
     },
     sales: {
-      grossMargin: revenue - totalCost,
-      grossMarginRate: revenue > 0 ? (revenue - totalCost) / revenue : 0,
+      byPaymentMethod: summarizeApiSalesByPayment(paidSales),
+      byStatus: summarizeRecords(periodSales, "status", {
+        cancelled: "Cancelada",
+        open: "Aberta",
+        paid: "Paga",
+      }, saleTotal),
+      grossMargin,
+      grossMarginRate: revenue > 0 ? grossMargin / revenue : 0,
+      lowMarginProducts: summarizeApiLowMarginProducts(paidSales),
       totalCost,
       totalRevenue: revenue,
     },
   };
+
+  return report;
 }
 
 async function getDashboard({ query }: Context) {
   const reports = await getReports({ query } as Context);
   const data = reports as Awaited<ReturnType<typeof getReports>>;
+  const score = calculateExecutiveHealthScore({
+    grossMarginRate: data.sales.grossMarginRate,
+    inventoryLossCost: data.financial.inventoryLossCost,
+    netResultRate: data.financial.netResultRate,
+    productsBelowMinimum: data.inventory.belowMinimum.length,
+    projectedBalance: data.cashFlow.projectedBalance,
+    revenue: data.sales.totalRevenue,
+  });
 
   return {
+    alerts: buildApiDashboardAlerts(data),
+    cash: {
+      balance: data.cashFlow.balance,
+      pendingExpense: data.cashFlow.pendingExpense,
+      pendingIncome: data.cashFlow.pendingIncome,
+      projectedBalance: data.cashFlow.projectedBalance,
+    },
+    executive: {
+      healthScore: score,
+      inventoryLossCost: data.financial.inventoryLossCost,
+      netResult: data.financial.netResult,
+      netResultRate: data.financial.netResultRate,
+      operatingExpenses: data.financial.operatingExpenses,
+      productionCompletionRate: ratioFromRows(data.production.ordersByStatus, "Finalizada"),
+      purchaseReceivingRate: ratioFromRows(data.purchases.byStatus, "Recebida"),
+      status: score < 55 ? "critical" : score < 75 ? "attention" : "healthy",
+    },
+    focusAreas: data.financial.validations
+      .filter((validation) => validation.level !== "ok")
+      .slice(0, 4)
+      .map((validation) => ({
+        description: validation.message,
+        id: validation.id,
+        metric: validation.level === "critical" ? "Critico" : "Atencao",
+        priority: validation.level === "critical" ? "high" : "medium",
+        title: validation.label,
+      })),
     generatedAt: data.generatedAt,
-    health: {
-      score: calculateHealthScore(data.sales.grossMarginRate, data.cashFlow.projectedBalance),
-      status:
-        calculateHealthScore(data.sales.grossMarginRate, data.cashFlow.projectedBalance) >= 70
-          ? "healthy"
-          : "attention",
+    inventory: {
+      estimatedValue: data.inventory.estimatedValue,
+      lossCost: data.financial.inventoryLossCost,
+      lossMovements: data.inventory.movementsByType.find((row) => row.label === "Perdas")?.quantity ?? 0,
+      productsBelowMinimum: data.inventory.belowMinimum.length,
+      totalMovements: data.inventory.movementsByType.reduce((sum, row) => sum + row.quantity, 0),
     },
-    indicators: {
-      inventoryEstimatedValue: data.inventory.estimatedValue,
-      netCashProjection: data.cashFlow.projectedBalance,
-      productsBelowMinimum: data.inventory.belowMinimum,
-      totalRevenue: data.sales.totalRevenue,
+    operations: {
+      cancelledProductions: data.production.ordersByStatus.find((row) => row.label === "Cancelada")?.quantity ?? 0,
+      completedProductions: data.production.ordersByStatus.find((row) => row.label === "Finalizada")?.quantity ?? 0,
+      openPurchases: data.purchases.byStatus.find((row) => row.label === "Pedido")?.quantity ?? 0,
+      productionOrders: data.production.ordersByStatus.reduce((sum, row) => sum + row.quantity, 0),
+      receivedPurchases: data.purchases.byStatus.find((row) => row.label === "Recebida")?.quantity ?? 0,
     },
-    reports: data,
+    period: data.period,
+    sales: {
+      averageTicket:
+        data.sales.byStatus.find((row) => row.label === "Paga")?.quantity
+          ? data.sales.totalRevenue /
+            (data.sales.byStatus.find((row) => row.label === "Paga")?.quantity ?? 1)
+          : 0,
+      cancelledSales: data.sales.byStatus.find((row) => row.label === "Cancelada")?.quantity ?? 0,
+      discountTotal: 0,
+      grossMargin: data.sales.grossMargin,
+      grossMarginRate: data.sales.grossMarginRate,
+      openSales: data.sales.byStatus.find((row) => row.label === "Aberta")?.quantity ?? 0,
+      paidSales: data.sales.byStatus.find((row) => row.label === "Paga")?.quantity ?? 0,
+      revenue: data.sales.totalRevenue,
+    },
   };
 }
 
-function calculateHealthScore(grossMarginRate: number, projectedBalance: number) {
-  let score = 60;
-
-  if (grossMarginRate >= 0.45) score += 25;
-  else if (grossMarginRate >= 0.25) score += 15;
-
-  if (projectedBalance >= 0) score += 15;
-
-  return Math.max(0, Math.min(100, score));
-}
-
-function saleTotal(sale: Prisma.SaleGetPayload<{ include: { items: true } }>) {
+function saleTotal(
+  sale: Prisma.SaleGetPayload<{ include: { items: true; payments?: true } }>,
+) {
   const subtotal = sale.items.reduce(
     (sum, item) => sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitPrice),
     0,
@@ -2633,7 +2769,9 @@ function saleTotal(sale: Prisma.SaleGetPayload<{ include: { items: true } }>) {
   return Math.max(0, subtotal - decimalToNumber(sale.discountAmount));
 }
 
-function saleCost(sale: Prisma.SaleGetPayload<{ include: { items: true } }>) {
+function saleCost(
+  sale: Prisma.SaleGetPayload<{ include: { items: true; payments?: true } }>,
+) {
   return sale.items.reduce(
     (sum, item) => sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
     0,
@@ -2647,6 +2785,269 @@ function productionCost(
     (sum, item) => sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
     0,
   );
+}
+
+const stockMovementLabels = {
+  adjustment: "Ajustes",
+  loss: "Perdas",
+  production_in: "Entrada producao",
+  production_out: "Consumo producao",
+  production_reversal: "Estorno producao",
+  purchase_in: "Entrada compra",
+  purchase_reversal: "Estorno compra",
+  sale_out: "Saida venda",
+  sale_reversal: "Estorno venda",
+};
+
+const purchaseStatusLabels = {
+  approved: "Aprovada",
+  cancelled: "Cancelada",
+  draft: "Rascunho",
+  ordered: "Pedido",
+  partially_received: "Parcial",
+  pending_approval: "Aguardando aprovacao",
+  received: "Recebida",
+};
+
+function purchaseTotal(
+  purchase: Prisma.PurchaseGetPayload<{ include: { items: true } }>,
+) {
+  return purchase.items.reduce(
+    (sum, item) =>
+      sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
+    0,
+  );
+}
+
+function getAverageApiProductionUnitCost(
+  productions: Prisma.ProductionOrderGetPayload<{
+    include: { ingredientConsumptions: true };
+  }>[],
+) {
+  const finished = productions.filter((production) => production.status === "finished");
+  const totalProduced = finished.reduce(
+    (sum, production) => sum + decimalToNumber(production.quantityProduced),
+    0,
+  );
+  const totalCost = finished.reduce(
+    (sum, production) => sum + productionCost(production),
+    0,
+  );
+
+  return totalProduced > 0 ? totalCost / totalProduced : 0;
+}
+
+function summarizeRecords<TItem, TKey extends string>(
+  items: TItem[],
+  field: keyof TItem,
+  labels: Record<TKey, string>,
+  getAmount: (item: TItem) => number = getApiDefaultAmount,
+) {
+  const summary = new Map<TKey, { amount: number; label: string; quantity: number }>();
+
+  items.forEach((item) => {
+    const key = String(item[field]) as TKey;
+    const current = summary.get(key) ?? {
+      amount: 0,
+      label: labels[key] ?? key,
+      quantity: 0,
+    };
+
+    summary.set(key, {
+      ...current,
+      amount: current.amount + getAmount(item),
+      quantity: current.quantity + 1,
+    });
+  });
+
+  return Object.keys(labels).map((key) => {
+    const typedKey = key as TKey;
+
+    return (
+      summary.get(typedKey) ?? {
+        amount: 0,
+        label: labels[typedKey],
+        quantity: 0,
+      }
+    );
+  });
+}
+
+function getApiDefaultAmount<TItem>(item: TItem) {
+  const record = item as Record<string, unknown>;
+
+  if (Prisma.Decimal.isDecimal(record.amount)) {
+    return record.amount.toNumber();
+  }
+
+  if (typeof record.amount === "number") {
+    return record.amount;
+  }
+
+  return 0;
+}
+
+function summarizeApiSalesByPayment(
+  sales: Prisma.SaleGetPayload<{ include: { items: true; payments: true } }>[],
+) {
+  const labels = {
+    card: "Cartao",
+    cash: "Dinheiro",
+    invoice: "A prazo",
+    pix: "Pix",
+  };
+  const summary = new Map<string, { amount: number; label: string; quantity: number }>();
+
+  sales.forEach((sale) => {
+    const payments = sale.payments.length
+      ? sale.payments
+      : [{ amount: new Prisma.Decimal(saleTotal(sale)), method: sale.paymentMethod }];
+
+    payments.forEach((payment) => {
+      const current = summary.get(payment.method) ?? {
+        amount: 0,
+        label: labels[payment.method],
+        quantity: 0,
+      };
+
+      summary.set(payment.method, {
+        ...current,
+        amount: current.amount + decimalToNumber(payment.amount),
+        quantity: current.quantity + 1,
+      });
+    });
+  });
+
+  return Object.keys(labels).map((method) => ({
+    amount: summary.get(method)?.amount ?? 0,
+    label: labels[method as keyof typeof labels],
+    quantity: summary.get(method)?.quantity ?? 0,
+  }));
+}
+
+function summarizeApiLowMarginProducts(
+  sales: Prisma.SaleGetPayload<{ include: { items: true; payments: true } }>[],
+) {
+  const rows = new Map<string, { cost: number; quantity: number; revenue: number }>();
+
+  sales.forEach((sale) => {
+    sale.items.forEach((item) => {
+      const current = rows.get(item.productId) ?? { cost: 0, quantity: 0, revenue: 0 };
+
+      rows.set(item.productId, {
+        cost: current.cost + decimalToNumber(item.quantity) * decimalToNumber(item.unitCost),
+        quantity: current.quantity + decimalToNumber(item.quantity),
+        revenue: current.revenue + decimalToNumber(item.quantity) * decimalToNumber(item.unitPrice),
+      });
+    });
+  });
+
+  return Array.from(rows.entries())
+    .map(([productId, row]) => {
+      const margin = row.revenue - row.cost;
+      const marginRate = row.revenue > 0 ? margin / row.revenue : 0;
+
+      return {
+        amount: margin,
+        label: `${productId} (${(marginRate * 100).toFixed(1)}%)`,
+        marginRate,
+        quantity: row.quantity,
+      };
+    })
+    .filter((row) => row.marginRate < 0.2)
+    .map(({ amount, label, quantity }) => ({ amount, label, quantity }));
+}
+
+function buildApiReportValidations(input: {
+  grossMarginRate: number;
+  netResult: number;
+  netResultRate: number;
+  pendingExpense: number;
+  pendingIncome: number;
+  projectedBalance: number;
+  revenue: number;
+}) {
+  return [
+    {
+      id: "net-result",
+      label: "Resultado liquido",
+      level:
+        input.netResult < 0
+          ? "critical"
+          : input.netResultRate < 0.1
+            ? "warning"
+            : "ok",
+      message:
+        input.netResult < 0
+          ? "Resultado negativo apos custo vendido, despesas baixadas e perdas."
+          : `Resultado liquido em ${(input.netResultRate * 100).toFixed(1)}% da receita.`,
+    },
+    {
+      id: "cash-projection",
+      label: "Caixa projetado",
+      level: input.projectedBalance < 0 ? "critical" : "ok",
+      message:
+        input.projectedBalance < 0
+          ? "Saldo projetado negativo considerando entradas e saidas pendentes."
+          : "Saldo projetado permanece positivo no periodo.",
+    },
+    {
+      id: "pending-balance",
+      label: "Pendencias financeiras",
+      level: input.pendingExpense > input.pendingIncome ? "warning" : "ok",
+      message: `Entradas pendentes R$ ${input.pendingIncome.toFixed(2)} e saidas pendentes R$ ${input.pendingExpense.toFixed(2)}.`,
+    },
+    {
+      id: "gross-margin",
+      label: "Margem bruta",
+      level: input.revenue > 0 && input.grossMarginRate < 0.2 ? "warning" : "ok",
+      message:
+        input.revenue > 0
+          ? `Margem bruta em ${(input.grossMarginRate * 100).toFixed(1)}%.`
+          : "Sem receita realizada no periodo.",
+    },
+  ];
+}
+
+function calculateExecutiveHealthScore(input: {
+  grossMarginRate: number;
+  inventoryLossCost: number;
+  netResultRate: number;
+  productsBelowMinimum: number;
+  projectedBalance: number;
+  revenue: number;
+}) {
+  let score = 100;
+
+  if (input.revenue === 0) score -= 15;
+  if (input.netResultRate < 0) score -= 25;
+  else if (input.netResultRate < 0.1) score -= 12;
+  if (input.grossMarginRate < 0.2 && input.revenue > 0) score -= 15;
+  if (input.projectedBalance < 0) score -= 20;
+  if (input.productsBelowMinimum > 0) {
+    score -= Math.min(15, input.productsBelowMinimum * 3);
+  }
+  if (input.inventoryLossCost > 0) score -= 8;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function ratioFromRows(rows: { label: string; quantity: number }[], label: string) {
+  const total = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const matched = rows.find((row) => row.label === label)?.quantity ?? 0;
+
+  return total > 0 ? matched / total : 1;
+}
+
+function buildApiDashboardAlerts(data: Awaited<ReturnType<typeof getReports>>) {
+  return data.financial.validations
+    .filter((validation) => validation.level !== "ok")
+    .map((validation) => ({
+      description: validation.message,
+      id: validation.id,
+      level: validation.level === "critical" ? "critical" : "warning",
+      title: validation.label,
+    }));
 }
 
 async function listAuditLogs({ query }: Context) {

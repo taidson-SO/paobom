@@ -9,7 +9,16 @@ export const ReportsMapper = {
         balance: reports.cashFlow.balance,
         by_status: reports.cashFlow.byStatus,
         by_type: reports.cashFlow.byType,
+        pending_expense: reports.cashFlow.pendingExpense,
+        pending_income: reports.cashFlow.pendingIncome,
         projected_balance: reports.cashFlow.projectedBalance,
+      },
+      financial: {
+        inventory_loss_cost: reports.financial.inventoryLossCost,
+        net_result: reports.financial.netResult,
+        net_result_rate: reports.financial.netResultRate,
+        operating_expenses: reports.financial.operatingExpenses,
+        validations: reports.financial.validations,
       },
       generated_at: reports.generatedAt.toISOString(),
       period: {

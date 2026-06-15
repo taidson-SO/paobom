@@ -15,6 +15,15 @@ export type ReportTableRow = {
   amount: number;
 };
 
+export type ReportValidationLevel = "ok" | "warning" | "critical";
+
+export type ReportValidation = {
+  id: string;
+  level: ReportValidationLevel;
+  label: string;
+  message: string;
+};
+
 export type ReportsPeriodInput = {
   startDate?: Date | null;
   endDate?: Date | null;
@@ -40,8 +49,17 @@ export type BusinessReports = {
   cashFlow: {
     balance: number;
     projectedBalance: number;
+    pendingIncome: number;
+    pendingExpense: number;
     byType: ReportTableRow[];
     byStatus: ReportTableRow[];
+  };
+  financial: {
+    operatingExpenses: number;
+    inventoryLossCost: number;
+    netResult: number;
+    netResultRate: number;
+    validations: ReportValidation[];
   };
   inventory: {
     estimatedValue: number;
@@ -102,7 +120,46 @@ export class GetBusinessReportsUseCase {
       ),
     );
 
-    return {
+    const salesRevenue = periodSales.reduce(
+      (sum, sale) => (sale.status === "paid" ? sum + sale.total : sum),
+      0,
+    );
+    const salesCost = periodSales.reduce(
+      (sum, sale) => (sale.status === "paid" ? sum + sale.totalCost : sum),
+      0,
+    );
+    const salesGrossMargin = salesRevenue - salesCost;
+    const operatingExpenses = activeCashEntries.reduce(
+      (sum, entry) =>
+        entry.status === "settled" && entry.type === "expense"
+          ? sum + entry.amount
+          : sum,
+      0,
+    );
+    const inventoryLossCost = periodMovements.reduce(
+      (sum, movement) =>
+        movement.type === "loss"
+          ? sum + movement.quantity * movement.unitCost
+          : sum,
+      0,
+    );
+    const netResult = salesGrossMargin - operatingExpenses - inventoryLossCost;
+    const netResultRate = salesRevenue > 0 ? netResult / salesRevenue : 0;
+    const pendingIncome = activeCashEntries.reduce(
+      (sum, entry) =>
+        entry.status === "pending" && entry.type === "income"
+          ? sum + entry.amount
+          : sum,
+      0,
+    );
+    const pendingExpense = activeCashEntries.reduce(
+      (sum, entry) =>
+        entry.status === "pending" && entry.type === "expense"
+          ? sum + entry.amount
+          : sum,
+      0,
+    );
+    const reportWithoutValidations = {
       cashFlow: {
         balance: activeCashEntries.reduce((sum, entry) => {
           if (entry.status !== "settled") {
@@ -113,10 +170,19 @@ export class GetBusinessReportsUseCase {
         }, 0),
         byStatus: summarizeCashStatus(periodCashEntries),
         byType: summarizeCashType(activeCashEntries),
+        pendingExpense,
+        pendingIncome,
         projectedBalance: activeCashEntries.reduce(
           (sum, entry) => sum + signedCashAmount(entry.type, entry.amount),
           0,
         ),
+      },
+      financial: {
+        inventoryLossCost,
+        netResult,
+        netResultRate,
+        operatingExpenses,
+        validations: [],
       },
       generatedAt: new Date(),
       inventory: {
@@ -156,19 +222,18 @@ export class GetBusinessReportsUseCase {
         byPaymentMethod: summarizeSalesByPayment(periodSales),
         byStatus: summarizeSalesByStatus(periodSales),
         grossMarginRate: getGrossMarginRate(periodSales),
-        grossMargin: periodSales.reduce(
-          (sum, sale) => (sale.status === "paid" ? sum + sale.grossMargin : sum),
-          0,
-        ),
+        grossMargin: salesGrossMargin,
         lowMarginProducts: summarizeLowMarginProducts(periodSales),
-        totalCost: periodSales.reduce(
-          (sum, sale) => (sale.status === "paid" ? sum + sale.totalCost : sum),
-          0,
-        ),
-        totalRevenue: periodSales.reduce(
-          (sum, sale) => (sale.status === "paid" ? sum + sale.total : sum),
-          0,
-        ),
+        totalCost: salesCost,
+        totalRevenue: salesRevenue,
+      },
+    };
+
+    return {
+      ...reportWithoutValidations,
+      financial: {
+        ...reportWithoutValidations.financial,
+        validations: buildFinancialValidations(reportWithoutValidations),
       },
     };
   }
@@ -379,7 +444,47 @@ function summarizeSalesByPayment(
     pix: "Pix",
   };
 
-  return summarizeBy(sales, (sale) => sale.paymentMethod, labels);
+  const summary = new Map<PaymentMethod, ReportTableRow>();
+
+  sales
+    .filter((sale) => sale.status === "paid")
+    .forEach((sale) => {
+      const payments = sale.payments.length
+        ? sale.payments
+        : [
+            {
+              amount: sale.total,
+              method: sale.paymentMethod,
+            },
+          ];
+
+      payments.forEach((payment) => {
+        const method = payment.method;
+        const current = summary.get(method) ?? {
+          amount: 0,
+          label: labels[method],
+          quantity: 0,
+        };
+
+        summary.set(method, {
+          ...current,
+          amount: current.amount + payment.amount,
+          quantity: current.quantity + 1,
+        });
+      });
+    });
+
+  return Object.keys(labels).map((key) => {
+    const method = key as PaymentMethod;
+
+    return (
+      summary.get(method) ?? {
+        amount: 0,
+        label: labels[method],
+        quantity: 0,
+      }
+    );
+  });
 }
 
 function summarizeSalesByStatus(
@@ -442,4 +547,62 @@ function getDefaultAmount<TItem>(item: TItem) {
   }
 
   return 0;
+}
+
+function buildFinancialValidations(
+  reports: Omit<BusinessReports, "financial"> & {
+    financial: Omit<BusinessReports["financial"], "validations">;
+  },
+): ReportValidation[] {
+  const validations: ReportValidation[] = [];
+
+  validations.push({
+    id: "net-result",
+    label: "Resultado liquido",
+    level:
+      reports.financial.netResult < 0
+        ? "critical"
+        : reports.financial.netResultRate < 0.1
+          ? "warning"
+          : "ok",
+    message:
+      reports.financial.netResult < 0
+        ? "Resultado negativo apos custo vendido, despesas baixadas e perdas."
+        : `Resultado liquido em ${(reports.financial.netResultRate * 100).toFixed(1)}% da receita.`,
+  });
+
+  validations.push({
+    id: "cash-projection",
+    label: "Caixa projetado",
+    level: reports.cashFlow.projectedBalance < 0 ? "critical" : "ok",
+    message:
+      reports.cashFlow.projectedBalance < 0
+        ? "Saldo projetado negativo considerando entradas e saidas pendentes."
+        : "Saldo projetado permanece positivo no periodo.",
+  });
+
+  validations.push({
+    id: "pending-balance",
+    label: "Pendencias financeiras",
+    level:
+      reports.cashFlow.pendingExpense > reports.cashFlow.pendingIncome
+        ? "warning"
+        : "ok",
+    message: `Entradas pendentes R$ ${reports.cashFlow.pendingIncome.toFixed(2)} e saidas pendentes R$ ${reports.cashFlow.pendingExpense.toFixed(2)}.`,
+  });
+
+  validations.push({
+    id: "gross-margin",
+    label: "Margem bruta",
+    level:
+      reports.sales.totalRevenue > 0 && reports.sales.grossMarginRate < 0.2
+        ? "warning"
+        : "ok",
+    message:
+      reports.sales.totalRevenue > 0
+        ? `Margem bruta em ${(reports.sales.grossMarginRate * 100).toFixed(1)}%.`
+        : "Sem receita realizada no periodo.",
+  });
+
+  return validations;
 }

@@ -4,12 +4,28 @@ export type ReportTableRowDTO = {
   quantity: number;
 };
 
+export type ReportValidationDTO = {
+  id: string;
+  label: string;
+  level: "ok" | "warning" | "critical";
+  message: string;
+};
+
 export type BusinessReportsDTO = {
   cash_flow: {
     balance: number;
     by_status: ReportTableRowDTO[];
     by_type: ReportTableRowDTO[];
+    pending_expense: number;
+    pending_income: number;
     projected_balance: number;
+  };
+  financial: {
+    inventory_loss_cost: number;
+    net_result: number;
+    net_result_rate: number;
+    operating_expenses: number;
+    validations: ReportValidationDTO[];
   };
   generated_at: string;
   period: {

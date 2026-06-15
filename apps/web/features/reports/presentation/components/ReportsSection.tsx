@@ -52,6 +52,7 @@ export function ReportsSection() {
             periodForm={periodForm}
             setPeriodForm={setPeriodForm}
           />
+          <ExportControls reports={reports} />
           <p className="text-xs font-semibold text-zinc-500">
             Gerado {reports.generatedAt.toLocaleString()}
           </p>
@@ -79,6 +80,51 @@ export function ReportsSection() {
           label="Estoque"
           value={`R$ ${reports.inventory.estimatedValue.toFixed(2)}`}
         />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <SummaryCard
+          label="Resultado liquido"
+          value={`R$ ${reports.financial.netResult.toFixed(2)}`}
+        />
+        <SummaryCard
+          label="Desp. operacionais"
+          value={`R$ ${reports.financial.operatingExpenses.toFixed(2)}`}
+        />
+        <SummaryCard
+          label="Entradas pendentes"
+          value={`R$ ${reports.cashFlow.pendingIncome.toFixed(2)}`}
+        />
+        <SummaryCard
+          label="Saidas pendentes"
+          value={`R$ ${reports.cashFlow.pendingExpense.toFixed(2)}`}
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+          <h3 className="text-sm font-bold text-zinc-800">
+            Validacao contabil basica
+          </h3>
+        </div>
+        <div className="divide-y divide-zinc-100">
+          {reports.financial.validations.map((validation) => (
+            <div
+              className="grid gap-2 px-3 py-3 md:grid-cols-[120px_180px_1fr]"
+              key={validation.id}
+            >
+              <span
+                className={`text-xs font-bold uppercase ${getValidationTone(validation.level)}`}
+              >
+                {getValidationLabel(validation.level)}
+              </span>
+              <p className="text-sm font-bold text-zinc-900">
+                {validation.label}
+              </p>
+              <p className="text-sm text-zinc-600">{validation.message}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -194,6 +240,31 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ExportControls({
+  reports,
+}: {
+  reports: NonNullable<ReturnType<typeof useReports>["reports"]>;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        onClick={() => downloadText("paobom-relatorio.json", JSON.stringify(reports, null, 2))}
+        type="button"
+      >
+        JSON
+      </button>
+      <button
+        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        onClick={() => downloadText("paobom-relatorio.csv", buildReportsCsv(reports))}
+        type="button"
+      >
+        CSV
+      </button>
+    </div>
+  );
+}
+
 function getCurrentMonthPeriod(): PeriodForm {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -244,6 +315,84 @@ function formatPeriodLabel(period: {
   }
 
   return `Ate ${period.endDate?.toLocaleDateString()}`;
+}
+
+function getValidationLabel(level: "critical" | "ok" | "warning") {
+  const labels = {
+    critical: "Critico",
+    ok: "OK",
+    warning: "Atencao",
+  };
+
+  return labels[level];
+}
+
+function getValidationTone(level: "critical" | "ok" | "warning") {
+  const tones = {
+    critical: "text-red-700",
+    ok: "text-green-700",
+    warning: "text-amber-700",
+  };
+
+  return tones[level];
+}
+
+function buildReportsCsv(
+  reports: NonNullable<ReturnType<typeof useReports>["reports"]>,
+) {
+  const rows = [
+    ["secao", "indicador", "quantidade", "valor"],
+    ["vendas", "receita", "", reports.sales.totalRevenue.toFixed(2)],
+    ["vendas", "custo", "", reports.sales.totalCost.toFixed(2)],
+    ["vendas", "margem", "", reports.sales.grossMargin.toFixed(2)],
+    ["financeiro", "resultado_liquido", "", reports.financial.netResult.toFixed(2)],
+    [
+      "financeiro",
+      "despesas_operacionais",
+      "",
+      reports.financial.operatingExpenses.toFixed(2),
+    ],
+    [
+      "financeiro",
+      "perdas_estoque",
+      "",
+      reports.financial.inventoryLossCost.toFixed(2),
+    ],
+    ["caixa", "saldo_realizado", "", reports.cashFlow.balance.toFixed(2)],
+    ["caixa", "saldo_projetado", "", reports.cashFlow.projectedBalance.toFixed(2)],
+    ...tableRows("vendas_por_status", reports.sales.byStatus),
+    ...tableRows("vendas_por_pagamento", reports.sales.byPaymentMethod),
+    ...tableRows("caixa_por_tipo", reports.cashFlow.byType),
+    ...tableRows("compras_por_status", reports.purchases.byStatus),
+    ...tableRows("producao_por_status", reports.production.ordersByStatus),
+    ...tableRows("estoque_movimentos", reports.inventory.movementsByType),
+  ];
+
+  return rows.map((row) => row.map(escapeCsv).join(",")).join("\n");
+}
+
+function tableRows(section: string, rows: ReportTableRow[]) {
+  return rows.map((row) => [
+    section,
+    row.label,
+    row.quantity.toString(),
+    row.amount.toFixed(2),
+  ]);
+}
+
+function escapeCsv(value: string) {
+  return `"${value.replaceAll("\"", "\"\"")}"`;
+}
+
+function downloadText(fileName: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function ReportTable({
