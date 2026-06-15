@@ -178,6 +178,23 @@ Paobom@123
 
 Em ambientes reais, troque `SEED_USER_PASSWORD` e `AUTH_TOKEN_SECRET`.
 
+## Auditoria persistente
+
+A Fase 19 registra auditoria no banco para rotas mutaveis da API:
+
+- `POST`, `PATCH` e `DELETE` operacionais gravam logs automaticamente.
+- Falhas de autorizacao, validacao e execucao tambem sao registradas quando ha contexto suficiente.
+- Login bem-sucedido, logout e falha de login sao auditados.
+- Metadados sensiveis como `password`, `token`, `authorization` e `secret` sao mascarados.
+- Logs incluem usuario, papel, entidade, acao, resultado, data/hora, entidade afetada e metadados da request.
+
+Consultar auditoria:
+
+```bash
+curl http://localhost:3333/audit-logs \
+  -H "Authorization: Bearer <token>"
+```
+
 ## Limites desta fase
 
 - A API nao substitui os repositories mock da UI nesta fase.

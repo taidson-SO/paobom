@@ -133,7 +133,7 @@ pnpm db:seed
 
 ## Backend/API Real
 
-A Fase 16 adiciona `apps/api`, uma API HTTP real sobre PostgreSQL/Prisma. A Fase 17 adiciona autenticacao por sessao, usuarios, papeis e permissoes validadas no backend. A documentacao detalhada fica em [docs/api-real.md](docs/api-real.md).
+A Fase 16 adiciona `apps/api`, uma API HTTP real sobre PostgreSQL/Prisma. A Fase 17 adiciona autenticacao por sessao, usuarios, papeis e permissoes validadas no backend. A Fase 19 registra auditoria persistente das acoes mutaveis da API. A documentacao detalhada fica em [docs/api-real.md](docs/api-real.md).
 
 Fluxo local basico:
 

@@ -86,6 +86,14 @@ type AuthenticatedUser = {
   sessionId: string;
 };
 
+type AuditMetadata =
+  | string
+  | number
+  | boolean
+  | null
+  | AuditMetadata[]
+  | { [key: string]: AuditMetadata };
+
 class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -168,17 +176,23 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  let body: unknown;
+  let currentUser: AuthenticatedUser | null = null;
+  let match: ReturnType<typeof matchRoute> = null;
+  let method: HttpMethod | null = null;
+  let requestUrl: URL | null = null;
+
   try {
-    const method = normalizeMethod(req.method);
-    const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-    const match = matchRoute(method, requestUrl.pathname);
+    method = normalizeMethod(req.method);
+    requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    match = matchRoute(method, requestUrl.pathname);
 
     if (!match) {
       throw new HttpError(404, "Rota nao encontrada");
     }
 
-    const body = method === "GET" ? undefined : await readJsonBody(req);
-    const currentUser = await authorize(req, match.route);
+    body = method === "GET" ? undefined : await readJsonBody(req);
+    currentUser = await authorize(req, match.route);
     const result = await match.route.handler({
       body,
       currentUser,
@@ -189,11 +203,35 @@ const server = createServer(async (req, res) => {
       res,
     });
 
+    await recordRouteAudit({
+      body,
+      currentUser,
+      error: null,
+      method,
+      params: match.params,
+      pathname: requestUrl.pathname,
+      query: requestUrl.searchParams,
+      result,
+      route: match.route,
+    });
+
     sendJson(res, 200, { data: serialize(result) });
   } catch (error) {
     const statusCode = error instanceof HttpError ? error.statusCode : 500;
     const message =
       error instanceof Error ? error.message : "Erro interno do servidor";
+
+    await recordRouteAudit({
+      body,
+      currentUser,
+      error,
+      method,
+      params: match?.params ?? {},
+      pathname: requestUrl?.pathname ?? req.url ?? "/",
+      query: requestUrl?.searchParams ?? new URLSearchParams(),
+      result: null,
+      route: match?.route ?? null,
+    });
 
     sendJson(res, statusCode, { error: { message, statusCode } });
   }
@@ -351,10 +389,43 @@ async function authorize(req: IncomingMessage, route: Route) {
   );
 
   if (!allowed) {
+    await recordAuthorizationFailure(route, user, requiredPermissions);
     throw new HttpError(403, "Usuario sem permissao para executar esta acao");
   }
 
   return user;
+}
+
+async function recordAuthorizationFailure(
+  route: Route,
+  user: AuthenticatedUser,
+  requiredPermissions: Permission[],
+) {
+  try {
+    const entity = getAuditEntity(route.pattern);
+
+    await prisma.auditLog.create({
+      data: {
+        action: `${entity}.authorize`,
+        description: "Falha de autorizacao no backend",
+        entity,
+        entityId: null,
+        metadata: {
+          method: route.method,
+          requiredPermissions,
+          route: route.pattern,
+          userPermissions: user.permissions,
+        },
+        occurredAt: new Date(),
+        result: "failure",
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+      },
+    });
+  } catch (auditError) {
+    console.error("Falha ao registrar auditoria de autorizacao", auditError);
+  }
 }
 
 function getRequiredPermissions(route: Route): Permission[] | null {
@@ -512,6 +583,213 @@ function verifyPassword(password: string, storedHash: string) {
   const expected = Buffer.from(hash, "hex");
 
   return expected.length === computed.length && timingSafeEqual(expected, computed);
+}
+
+type RouteAuditInput = {
+  body: unknown;
+  currentUser: AuthenticatedUser | null;
+  error: unknown;
+  method: HttpMethod | null;
+  params: Record<string, string>;
+  pathname: string;
+  query: URLSearchParams;
+  result: unknown;
+  route: Route | null;
+};
+
+async function recordRouteAudit(input: RouteAuditInput) {
+  const auditEvent = getAuditEvent(input);
+
+  if (!auditEvent) {
+    return;
+  }
+
+  try {
+    await prisma.auditLog.create({
+      data: {
+        action: auditEvent.action,
+        description: auditEvent.description,
+        entity: auditEvent.entity,
+        entityId: auditEvent.entityId,
+        metadata: auditEvent.metadata as Prisma.InputJsonValue,
+        occurredAt: new Date(),
+        result: input.error ? "failure" : "success",
+        userId: input.currentUser?.id ?? "anonymous",
+        userName: input.currentUser?.name ?? "Nao autenticado",
+        userRole: input.currentUser?.role ?? "anonymous",
+      },
+    });
+  } catch (auditError) {
+    console.error("Falha ao registrar auditoria", auditError);
+  }
+}
+
+function getAuditEvent(input: RouteAuditInput) {
+  if (!input.method) {
+    return null;
+  }
+
+  if (input.route?.pattern === "/auth/logout") {
+    return null;
+  }
+
+  if (input.route?.pattern === "/audit-logs" && input.method === "POST") {
+    return null;
+  }
+
+  if (input.route?.pattern === "/auth/login") {
+    if (!input.error) {
+      return null;
+    }
+
+    const body = isRecord(input.body) ? input.body : {};
+
+    return {
+      action: "auth.login",
+      description: input.error
+        ? "Falha de login na API"
+        : "Login realizado na API",
+      entity: "auth_session",
+      entityId: extractEntityId(input.result),
+      metadata: sanitizeMetadata({
+        email: typeof body.email === "string" ? body.email : null,
+        path: input.pathname,
+        status: input.error ? getErrorStatus(input.error) : 200,
+      }),
+    };
+  }
+
+  if (input.method === "GET") {
+    return null;
+  }
+
+  const entity = getAuditEntity(input.route?.pattern ?? input.pathname);
+  const operation = getAuditOperation(input.method, input.route?.pattern ?? "");
+  const action = `${entity}.${operation}`;
+
+  return {
+    action,
+    description: input.error
+      ? `Falha ao executar ${action}`
+      : `Acao ${action} executada com sucesso`,
+    entity,
+    entityId: input.params.id ?? extractEntityId(input.result),
+    metadata: sanitizeMetadata({
+      body: input.body,
+      error: input.error instanceof Error ? input.error.message : null,
+      method: input.method,
+      params: input.params,
+      path: input.pathname,
+      query: Object.fromEntries(input.query.entries()),
+      route: input.route?.pattern ?? null,
+      status: input.error ? getErrorStatus(input.error) : 200,
+    }),
+  };
+}
+
+function getAuditEntity(pattern: string) {
+  if (pattern.startsWith("/products")) return "product";
+  if (pattern.startsWith("/suppliers")) return "supplier";
+  if (pattern.includes("/interactions")) return "customer_interaction";
+  if (pattern.startsWith("/customers")) return "customer";
+  if (pattern.startsWith("/purchases")) return "purchase";
+  if (pattern.startsWith("/inventory")) return "inventory";
+  if (pattern.startsWith("/production/recipes")) return "recipe";
+  if (pattern.startsWith("/production/orders")) return "production_order";
+  if (pattern.startsWith("/sales")) return "sale";
+  if (pattern.startsWith("/cash/entries")) return "cash_entry";
+  if (pattern.startsWith("/cash/registers")) return "cash_register";
+  if (pattern.startsWith("/users")) return "user";
+  if (pattern.startsWith("/auth")) return "auth_session";
+
+  return "api";
+}
+
+function getAuditOperation(method: HttpMethod, pattern: string) {
+  if (pattern.includes("/receive")) return "receive";
+  if (pattern.includes("/start")) return "start";
+  if (pattern.includes("/finish")) return "finish";
+  if (pattern.includes("/pay")) return "pay";
+  if (pattern.includes("/settle")) return "settle";
+  if (pattern.includes("/open")) return "open";
+  if (pattern.includes("/close")) return "close";
+  if (pattern.includes("/cancel")) return "cancel";
+  if (method === "POST") return "create";
+  if (method === "PATCH") return "update";
+  if (method === "DELETE") return "deactivate";
+
+  return method.toLowerCase();
+}
+
+function extractEntityId(value: unknown): string | null {
+  if (isRecord(value) && typeof value.id === "string") {
+    return value.id;
+  }
+
+  if (isRecord(value) && isRecord(value.user) && typeof value.user.id === "string") {
+    return value.user.id;
+  }
+
+  return null;
+}
+
+function getErrorStatus(error: unknown) {
+  return error instanceof HttpError ? error.statusCode : 500;
+}
+
+function sanitizeMetadata(value: unknown): AuditMetadata {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Prisma.Decimal.isDecimal(value)) {
+    return value.toNumber();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeMetadata);
+  }
+
+  if (isRecord(value)) {
+    const sanitized: Record<string, AuditMetadata> = {};
+
+    for (const [key, entry] of Object.entries(value)) {
+      sanitized[key] = isSensitiveMetadataKey(key)
+        ? "[redacted]"
+        : sanitizeMetadata(entry);
+    }
+
+    return sanitized;
+  }
+
+  return String(value);
+}
+
+function isSensitiveMetadataKey(key: string) {
+  const normalized = key.toLowerCase();
+
+  return (
+    normalized.includes("password") ||
+    normalized.includes("token") ||
+    normalized.includes("authorization") ||
+    normalized.includes("secret")
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeMethod(method?: string): HttpMethod {
