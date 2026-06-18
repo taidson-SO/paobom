@@ -6,7 +6,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json && node dist/server.js",
     "start": "node dist/server.js",
-    "test": "echo \"No API tests configured yet\"",
+    "test": "echo \"API E2E suite available through pnpm test:e2e\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

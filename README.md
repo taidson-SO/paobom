@@ -211,6 +211,15 @@ Executar somente os testes de dominio:
 pnpm --filter @paobom/domain test
 ```
 
+Executar o fluxo E2E completo com PostgreSQL e API isolados:
+
+```bash
+pnpm test:e2e:local
+```
+
+O cenário cobre compra, estoque, produção, venda, caixa, relatório e auditoria.
+Detalhes e proteção de banco estão em `docs/e2e.md`.
+
 ## Perfis de Permissao
 
 O backend aplica permissoes aos perfis operacionais:
@@ -244,7 +253,7 @@ Esta versao ainda nao esta pronta para producao real. O projeto ja possui banco,
 
 - Sessao mobile ainda nao possui persistencia segura entre reinicios
 - Web ainda usa credenciais padrao via env, sem tela de login real
-- Testes de API/web/mobile ainda sao placeholders parciais
+- Web e mobile ainda nao possuem testes automatizados de interface
 - CRM persistente ainda usa modelo reduzido para interacoes
 - Staging ainda e local/assistido, sem hospedagem HTTPS
 - Sem backup, restore ou plano de rollback automatizado
@@ -259,7 +268,7 @@ v0.1.0-mock-mvp
 
 Objetivo da tag: congelar uma versao demonstravel do ERP PaoBom antes da entrada em DevOps minimo, testes reais, banco persistente e API.
 
-## Proximas Fases
+## Fases Consolidadas
 
 1. Testes reais de dominio
 2. Banco de dados persistente
@@ -269,4 +278,10 @@ Objetivo da tag: congelar uma versao demonstravel do ERP PaoBom antes da entrada
 6. Auditoria persistente
 7. Estoque avancado, compras, vendas e caixa robustos
 8. Mobile transacional
-9. Staging, E2E, piloto interno e producao assistida
+9. Ambiente staging
+10. Testes E2E do fluxo completo
+
+## Proximas Fases
+
+1. Piloto interno assistido
+2. Producao assistida

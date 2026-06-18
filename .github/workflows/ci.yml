@@ -46,3 +46,42 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: Complete ERP flow E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: paobom_e2e
+          POSTGRES_USER: paobom_e2e
+          POSTGRES_PASSWORD: paobom_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U paobom_e2e -d paobom_e2e"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run complete flow E2E
+        env:
+          E2E_DATABASE_URL: postgresql://paobom_e2e:paobom_e2e@localhost:5432/paobom_e2e?schema=public
+        run: pnpm test:e2e
