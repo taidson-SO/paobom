@@ -102,6 +102,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "dashboard:view",
     "reports:view",
     "audit:view",
+    "product:view",
     "customer:view",
     "customer:manage",
     "sales:view",
@@ -121,6 +122,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
   owner: allPermissions,
   sales: [
     "dashboard:view",
+    "product:view",
     "customer:view",
     "customer:manage",
     "crm:view",

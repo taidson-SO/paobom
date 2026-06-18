@@ -37,7 +37,9 @@ services:
     volumes:
       - .:/workspace
     command: >
-      sh -c "corepack enable &&
+      sh -c "mkdir -p /tmp/corepack &&
+      corepack enable --install-directory /tmp/corepack &&
+      export PATH=/tmp/corepack:$$PATH &&
       pnpm db:generate &&
       pnpm db:deploy &&
       pnpm db:seed:staging"
@@ -66,7 +68,9 @@ services:
     volumes:
       - .:/workspace
     command: >
-      sh -c "corepack enable &&
+      sh -c "mkdir -p /tmp/corepack &&
+      corepack enable --install-directory /tmp/corepack &&
+      export PATH=/tmp/corepack:$$PATH &&
       pnpm db:generate &&
       pnpm db:deploy &&
       pnpm --filter api build &&
@@ -93,7 +97,9 @@ services:
     volumes:
       - .:/workspace
     command: >
-      sh -c "corepack enable &&
+      sh -c "mkdir -p /tmp/corepack &&
+      corepack enable --install-directory /tmp/corepack &&
+      export PATH=/tmp/corepack:$$PATH &&
       pnpm --filter web build &&
       pnpm --filter web start"
 

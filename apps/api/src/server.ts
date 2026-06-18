@@ -138,6 +138,7 @@ const routes: Route[] = [
   route("GET", "/inventory/movements", listStockMovements),
   route("GET", "/inventory/counts", listPhysicalInventoryCounts),
   route("POST", "/inventory/counts", registerPhysicalInventoryCount),
+  route("POST", "/inventory/losses", registerInventoryLoss),
   route("POST", "/inventory/movements", registerStockMovement),
 
   route("GET", "/production/recipes", listRecipes),
@@ -314,6 +315,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "dashboard:view",
     "reports:view",
     "audit:view",
+    "product:view",
     "customer:view",
     "customer:manage",
     "sales:view",
@@ -333,6 +335,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
   owner: allPermissions,
   sales: [
     "dashboard:view",
+    "product:view",
     "customer:view",
     "customer:manage",
     "crm:view",
@@ -486,6 +489,10 @@ function getRequiredPermissions(route: Route): Permission[] | null {
   }
 
   if (route.pattern.startsWith("/inventory")) {
+    if (route.pattern === "/inventory/losses") {
+      return ["inventory:register-loss"];
+    }
+
     return route.method === "GET" ? ["inventory:view"] : ["inventory:adjust"];
   }
 
@@ -1927,6 +1934,32 @@ async function registerStockMovement({ body }: Context) {
       referenceId: optionalStringField(input, "referenceId"),
       type: stringField(input, "type") as Prisma.StockMovementCreateInput["type"],
       unitCost: numberField(input, "unitCost"),
+    }),
+  );
+}
+
+async function registerInventoryLoss({ body }: Context) {
+  const input = bodyAsRecord(body);
+  const productId = stringField(input, "productId");
+  const product = await findOr404(
+    prisma.product.findUnique({ where: { id: productId } }),
+    "Produto",
+  );
+
+  if (!product.active) {
+    throw new HttpError(400, "Produto ativo deve ser informado para registrar perda");
+  }
+
+  return prisma.$transaction((tx) =>
+    applyStockMovement(tx, {
+      origin: "loss",
+      lotId: optionalStringField(input, "lotId"),
+      productId,
+      quantity: numberField(input, "quantity"),
+      reason: stringField(input, "reason"),
+      referenceId: null,
+      type: "loss",
+      unitCost: decimalToNumber(product.purchasePrice),
     }),
   );
 }

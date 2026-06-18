@@ -43,6 +43,17 @@ URLs padrao:
 - PostgreSQL: `localhost:55432`
 - pgAdmin opcional: `docker compose --env-file .env.staging -f docker-compose.staging.yml --profile tools up -d pgadmin`
 
+Para usar o mobile com staging, configure `apps/mobile/.env.local`:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3335
+EXPO_PUBLIC_API_DEFAULT_EMAIL=vendas@paobom.local
+EXPO_PUBLIC_API_DEFAULT_PASSWORD=Paobom@123
+```
+
+Em dispositivo fisico, substitua `10.0.2.2` pelo IP da maquina que executa o
+Docker.
+
 Encerrar:
 
 ```bash
@@ -72,7 +83,7 @@ O seed staging executa o seed base e adiciona:
 - produtos de confeitaria e insumos frios;
 - estoque abaixo do minimo para testar alertas;
 - compra parcialmente recebida com contas a pagar;
-- producao finalizada de bolo;
+- producao finalizada e ordem planejada de bolo para operacao mobile;
 - venda por cartao, venda em dinheiro e venda a prazo;
 - caixa aberto, caixa fechado anterior, conciliacoes e divergencia pequena;
 - perda de estoque e contagem fisica com justificativa;
@@ -101,6 +112,7 @@ Fluxos que devem aparecer com dados reais:
 - Vendas por forma de pagamento e venda a prazo pendente.
 - Caixa com abertura, fechamento, suprimento, conciliacao e divergencias.
 - Auditoria com login, seed e eventos da API.
+- Mobile registrando perda, avancando producao e concluindo venda simples.
 
 ## Observacoes
 

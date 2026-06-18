@@ -13,7 +13,9 @@ export function bootstrapCoreContainer() {
     return;
   }
 
-  container.register(TOKENS.apiClient, () => new ApiClient(appConfig.apiBaseUrl));
+  const apiClient = new ApiClient(appConfig.apiBaseUrl);
+
+  container.register(TOKENS.apiClient, () => apiClient);
   container.register(TOKENS.eventBus, () => eventBus);
   container.register(TOKENS.storage, () => new MemoryStorage());
 

@@ -330,6 +330,42 @@ async function main() {
       },
     });
 
+    await tx.productionOrder.create({
+      data: {
+        id: "production-cake-planned-001",
+        recipeId: "recipe-cake-v1",
+        recipeSnapshot: {
+          recipeId: "recipe-cake-v1",
+          recipeName: "Bolo de macaxeira",
+          recipeVersion: 1,
+          outputProductId: "prod-cake",
+          yieldQuantity: 10,
+          ingredients: [
+            { productId: "prod-flour", quantity: 2 },
+            { productId: "prod-cheese", quantity: 0.5 },
+          ],
+        },
+        outputProductId: "prod-cake",
+        quantityProduced: "5.000",
+        status: "planned",
+        notes: "Ordem planejada para validar operacao pelo mobile.",
+        ingredientConsumptions: {
+          create: [
+            {
+              productId: "prod-flour",
+              quantity: "1.000",
+              unitCost: "4.20",
+            },
+            {
+              productId: "prod-cheese",
+              quantity: "0.250",
+              unitCost: "32.00",
+            },
+          ],
+        },
+      },
+    });
+
     await tx.sale.createMany({
       data: [
         {

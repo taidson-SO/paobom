@@ -1159,6 +1159,9 @@ describe("Permissoes e auditoria", () => {
     assert.equal(hasPermission("owner", "permissions:manage"), true);
     assert.equal(hasPermission("manager", "permissions:manage"), false);
     assert.equal(hasEveryPermission("cashier", ["sales:create", "finance:close-register"]), true);
+    assert.equal(hasPermission("cashier", "product:view"), true);
+    assert.equal(hasPermission("sales", "product:view"), true);
+    assert.equal(hasPermission("baker", "inventory:register-loss"), true);
     assert.equal(hasPermission("viewer", "sales:create"), false);
   });
 

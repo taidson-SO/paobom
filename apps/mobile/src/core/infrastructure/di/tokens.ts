@@ -1,5 +1,6 @@
 export const TOKENS = {
   apiClient: Symbol("apiClient"),
+  authRepository: Symbol("authRepository"),
   auditLogRepository: Symbol("auditLogRepository"),
   cashFlowRepository: Symbol("cashFlowRepository"),
   eventBus: Symbol("eventBus"),
@@ -13,6 +14,7 @@ export const TOKENS = {
   listProductionOrdersUseCase: Symbol("listProductionOrdersUseCase"),
   listProductsUseCase: Symbol("listProductsUseCase"),
   listSalesUseCase: Symbol("listSalesUseCase"),
+  mobileOperationsRepository: Symbol("mobileOperationsRepository"),
   productRepository: Symbol("productRepository"),
   productionOrderRepository: Symbol("productionOrderRepository"),
   purchaseRepository: Symbol("purchaseRepository"),

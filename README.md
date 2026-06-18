@@ -84,6 +84,7 @@ pnpm dev-web
 Rodar mobile:
 
 ```bash
+cp apps/mobile/.env.example apps/mobile/.env.local
 pnpm dev-mobile
 ```
 
@@ -210,9 +211,9 @@ Executar somente os testes de dominio:
 pnpm --filter @paobom/domain test
 ```
 
-## Perfis de Permissao Mock
+## Perfis de Permissao
 
-A aplicacao web permite alternar entre perfis operacionais no cabecalho:
+O backend aplica permissoes aos perfis operacionais:
 
 - Dono
 - Gerente
@@ -222,26 +223,26 @@ A aplicacao web permite alternar entre perfis operacionais no cabecalho:
 - Atendimento
 - Consulta
 
-As permissoes filtram navegacao, secoes e acoes sensiveis. Nesta versao, elas sao client-side e mockadas.
+As permissoes validam rotas e acoes sensiveis na API. Web e mobile adaptam a navegacao ao perfil autenticado.
 
 ## Mobile
 
-O mobile entrega uma visao operacional compacta:
+O mobile transacional consome a API real e entrega:
 
-- Resumo executivo
-- Estoque
-- Vendas
-- Producao
-- Caixa
-- Auditoria
+- login com usuario, papel e permissoes do backend;
+- consulta de estoque e registro de perdas;
+- inicio e finalizacao de ordens de producao;
+- venda simples com carrinho;
+- pagamentos em dinheiro, cartao ou Pix;
+- sincronizacao dos dados apos cada operacao.
 
-Nesta versao, o mobile e voltado para acompanhamento. Acoes transacionais mobile ficam para uma fase posterior.
+O endereco da API e definido por `EXPO_PUBLIC_API_BASE_URL`. Consulte `apps/mobile/README.md` para enderecos de emulador, simulador e dispositivo fisico.
 
 ## Limitacoes Conhecidas
 
 Esta versao ainda nao esta pronta para producao real. O projeto ja possui banco, API, autorizacao backend, auditoria persistente e web consumindo `ApiRepository`, mas ainda restam pontos antes de piloto:
 
-- Mobile ainda em modo mock/operacional
+- Sessao mobile ainda nao possui persistencia segura entre reinicios
 - Web ainda usa credenciais padrao via env, sem tela de login real
 - Testes de API/web/mobile ainda sao placeholders parciais
 - CRM persistente ainda usa modelo reduzido para interacoes

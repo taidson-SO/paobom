@@ -1,9 +1,24 @@
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
+  auth?: boolean;
   body?: unknown;
 };
 
+type ApiEnvelope<TResponse> = {
+  data?: TResponse;
+  error?: {
+    message: string;
+    statusCode: number;
+  };
+};
+
 export class ApiClient {
+  private token: string | null = null;
+
   constructor(private readonly baseUrl: string) {}
+
+  setToken(token: string | null) {
+    this.token = token;
+  }
 
   async get<TResponse>(path: string, options?: ApiRequestOptions) {
     return this.request<TResponse>(path, {
@@ -28,19 +43,35 @@ export class ApiClient {
     path: string,
     options: ApiRequestOptions,
   ): Promise<TResponse> {
+    const headers = new Headers(options.headers);
+
+    headers.set("Content-Type", "application/json");
+
+    if (options.auth !== false) {
+      if (!this.token) {
+        throw new Error("Sessao nao autenticada");
+      }
+
+      headers.set("Authorization", `Bearer ${this.token}`);
+    }
+
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       body: options.body ? JSON.stringify(options.body) : undefined,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
+    const payload = (await response.json().catch(() => ({}))) as ApiEnvelope<TResponse>;
 
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+      if (response.status === 401) {
+        this.token = null;
+      }
+
+      throw new Error(
+        payload.error?.message ?? `Falha na requisicao (${response.status})`,
+      );
     }
 
-    return response.json() as Promise<TResponse>;
+    return payload.data as TResponse;
   }
 }

@@ -1,0 +1,759 @@
+commit 420001e022aff9f90d86558844c42277c51b68af
+Author: taidson <taidson2@gmail.com>
+Date:   Mon Jun 15 18:45:22 2026 -0300
+
+    Fase 25 implementada: ambiente staging local criado e documentado.
+    Entregas principais:
+    Adicionado docker-compose.staging.yml com postgres, api, web, staging-seed e pgadmin opcional.
+    Criado [.env.staging.example](/home/soulinux/Projetos/erp/paobom/.env.staging.example) com portas, credenciais e variáveis de staging.
+    Criado seed realista de staging em [seed-staging.cjs](/home/soulinux/Projetos/erp/paobom/packages/database/prisma/seed-staging.cjs), com usuários simulados, fornecedores, clientes, produtos, estoque, compras, produção, vendas, caixa, relatórios e auditoria.
+    Refatorado [seed.cjs](/home/soulinux/Projetos/erp/paobom/packages/database/prisma/seed.cjs) para reutilização segura pelo seed de staging.
+    Adicionados scripts staging:up, staging:seed, staging:down e db:seed:staging.
+    Criada documentação em [docs/staging.md](/home/soulinux/Projetos/erp/paobom/docs/staging.md).
+    Atualizado o [README.md](/home/soulinux/Projetos/erp/paobom/README.md) com uso do staging local.
+
+commit 40a2dcbfdeae9dbc338f56f33237829c054decad
+Author: taidson <taidson2@gmail.com>
+Date:   Mon Jun 15 18:22:04 2026 -0300
+
+    Implementada a Fase 23 - Relatórios e dashboard com dados reais.
+    O que entrou:
+    Relatórios agora consideram pagamentos reais por método via sale.payments.
+    Adicionados indicadores financeiros: despesas operacionais, perdas de estoque, resultado líquido, taxa de resultado, entradas e saídas pendentes.
+    Adicionada validação contábil básica no relatório: resultado líquido, caixa projetado, pendências e margem bruta.
+    Tela de relatórios ganhou exportação JSON e CSV.
+    API /reports e /dashboard agora retornam dados completos e coerentes com o domínio.
+    Filtro de período da API foi corrigido para usar início/fim do dia.
+
+commit c568182e9ad6b1a89e37c334ba51dfeb5ce373ec
+Author: taidson <taidson2@gmail.com>
+Date:   Mon Jun 15 08:30:57 2026 -0300
+
+    Implementada a Fase 22 - Vendas e caixa robustos.
+    Principais entregas:
+    Vendas agora suportam pagamentos detalhados por método, valor, referência, bandeira e parcelas.
+    API persiste sale_payments e cria lançamentos financeiros separados por forma de pagamento.
+    Caixa agora suporta suprimento, sangria, conciliação por forma de pagamento e fechamento considerando movimentos de gaveta.
+    UI web atualizada em vendas e financeiro para operar esses fluxos.
+    Seed e migration adicionadas para as novas tabelas.
+    Testes de domínio ampliados para pagamentos, movimentações, conciliação e fechamento.
+    Arquivos centrais alterados:
+    [sales.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/sales.ts)
+    [finance.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/finance.ts)
+    [server.ts](/home/soulinux/Projetos/erp/paobom/apps/api/src/server.ts)
+    [FinanceSection.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/features/finance/presentation/components/FinanceSection.tsx)
+    [SalesSection.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/features/sales/presentation/components/SalesSection.tsx)
+    [schema.prisma](/home/soulinux/Projetos/erp/paobom/packages/database/prisma/schema.prisma)
+
+commit f382edf9ba407a816fae28ede668b29e67737f67
+Author: taidson <taidson2@gmail.com>
+Date:   Mon Jun 15 08:07:03 2026 -0300
+
+    Fase 21 implementada: Compras reais.
+    Entregue:
+    Aprovação de compras antes do recebimento.
+    Status novos: pending_approval, approved, partially_received.
+    Recebimento parcial por item.
+    Divergência de recebimento com justificativa obrigatória.
+    Histórico operacional da compra.
+    Conta a pagar vinculada à compra e fornecedor.
+    API nova:GET /purchases/payables
+    POST /purchases/:id/approve
+    POST /purchases/:id/receive com itens recebidos.
+    
+    UI de compras atualizada com aprovação, recebimento parcial e campos por item.
+    Seed e migration adicionados: 20260615020000_real_purchases.
+
+commit a2631bca90f6bf38403fe5980797cc6118cf614d
+Author: taidson <taidson2@gmail.com>
+Date:   Mon Jun 15 07:55:51 2026 -0300
+
+    Fase 20 implementada: Estoque real avançado.
+    O que entrou:
+    Lotes de estoque com lotCode, validade, fornecedor, compra de origem, custo, status e saldo por lote.
+    Movimentos de estoque agora podem apontar para lotId.
+    Consumo FIFO simples para saídas quando nenhum lote é informado.
+    Recebimento de compra cria lote rastreável.
+    Produção finalizada cria lote do produto acabado.
+    Inventário físico com quantidade esperada, contada, divergência, responsável e justificativa obrigatória quando há divergência.
+    Novos endpoints:GET /inventory/lots
+    GET /inventory/counts
+    POST /inventory/counts
+    
+    Web atualizada com visão de lotes/validade e registro de contagem física.
+    Seed atualizado com lotes e uma contagem inicial.
+    Migration nova: 20260615010000_advanced_inventory.
+
+commit 8a547860d9d70d488ca7d1dabfc6730cb1f79753
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 23:43:39 2026 -0300
+
+    Fase 18 implementada.
+    Migrei a web de MockRepository para ApiRepository, mantendo os use cases e a UI no mesmo padrão arquitetural. Agora o container registra repositories HTTP para produtos, fornecedores, clientes, compras, estoque, receitas, produção, vendas, caixa, auditoria e health. O ApiClient autentica automaticamente usando as credenciais configuradas e mantém token em singleton para evitar múltiplas sessões desnecessárias.
+    Também atualizei:
+    [api-repositories.ts](/home/soulinux/Projetos/erp/paobom/apps/web/core/infrastructure/api/api-repositories.ts)
+    [api-client.ts](/home/soulinux/Projetos/erp/paobom/apps/web/core/infrastructure/api/api-client.ts)
+    [bootstrap-container.ts](/home/soulinux/Projetos/erp/paobom/apps/web/app/bootstrap-container.ts)
+    [.env.example](/home/soulinux/Projetos/erp/paobom/.env.example)
+    [README.md](/home/soulinux/Projetos/erp/paobom/README.md)
+    [api-real.md](/home/soulinux/Projetos/erp/paobom/docs/api-real.md)
+    Validações passaram:
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    Limite conhecido: CRM ainda tem persistência reduzida na API. A web lista e registra interações via API, mas concluir/cancelar interação ainda precisa de ampliação de schema/endpoints. Mobile permanece com repositories mock/operacionais até a fase de mobile transacional.
+
+commit 5d7151f78267968ae0b343f234112bbcea6bcec3
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 23:32:18 2026 -0300
+
+    Fase 19 implementada e validada.
+    A auditoria agora é persistente no backend/API: ações mutáveis (POST, PATCH, DELETE) registram logs automaticamente em audit_logs, incluindo sucesso e falha; login, logout, falha de login e falhas de autorização também ficam rastreados. Metadados sensíveis como password, token, authorization e secret são mascarados antes de persistir.
+    Atualizei:
+    [server.ts](/home/soulinux/Projetos/erp/paobom/apps/api/src/server.ts)
+    [api-real.md](/home/soulinux/Projetos/erp/paobom/docs/api-real.md)
+    [README.md](/home/soulinux/Projetos/erp/paobom/README.md)
+    Validação concluída com sucesso:
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    Também fiz smoke test com PostgreSQL real: login, falha de login, criação de produto e falha de permissão foram gravados em auditoria. O banco/API de teste foram encerrados ao final. Único ponto residual: os testes específicos da API ainda seguem como placeholder, então a cobertura automatizada dessa camada ainda deve entrar em uma fase posterior.
+
+commit d2237786912659946e49f486bf2fc2f92e496c29
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 23:21:31 2026 -0300
+
+    Fase 17 implementada.
+    Adicionei autenticação/autorização real no backend:
+    POST /auth/login
+    GET /auth/me
+    POST /auth/logout
+    sessões persistidas em auth_sessions
+    hash de senha com PBKDF2
+    token Bearer com hash persistido no banco
+    expiração e revogação de sessão
+    permissões validadas no backend por papel operacional
+    gestão de usuários: GET/POST/PATCH/DELETE /users
+    seed com usuários iniciais autenticáveis
+    Banco atualizado:
+    User.passwordHash
+    novo model/tabela AuthSession
+    migration 20260615000000_auth_sessions
+    seed atualizado com senha local padrão Paobom@123
+    Smoke test real executado com PostgreSQL local em 5433 e API em 3334:
+    rota protegida sem token retorna 401
+    login de dono@paobom.local funciona
+    /auth/me funciona com token
+    /products funciona com permissão
+    caixa@paobom.local recebe 403 em /users
+    logout revoga sessão e token passa a retornar 401
+
+commit fa64810371509ef1a2384e856966a019bc811556
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 23:07:30 2026 -0300
+
+    Fase 16 implementada.
+    Criei apps/api com uma API HTTP real em TypeScript usando Prisma/PostgreSQL, incluindo endpoints para produtos, fornecedores, clientes, compras, estoque, receitas/produção, vendas, caixa, relatórios, dashboard, auditoria e usuários.
+    Também atualizei:
+    package.json com dev-api
+    .env.example com API_PORT, PORT e CORS_ORIGIN
+    .gitignore para ignorar dist em pacotes
+    README.md
+    docs/api-real.md
+    pnpm-lock.yaml
+    Validações executadas com sucesso:
+    pnpm db:validate
+    pnpm db:generate
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    Smoke test real executado com PostgreSQL local em 5433 e API em 3334:
+    GET /health
+    GET /products
+    GET /purchases
+    GET /inventory/balances
+    GET /dashboard
+    GET /reports
+    GET /audit-logs
+    Observação: a API já persiste e executa efeitos transacionais básicos, mas web/mobile ainda seguem nos repositories mock. A migração para ApiRepository fica para a fase própria.
+
+commit da794a24561581d30ef9021e49cacd38a28dd809
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 22:49:06 2026 -0300
+
+    Fase 15 implementada: banco persistente preparado.
+    O que foi adicionado:
+    Novo pacote @paobom/database em packages/database.
+    Prisma + PostgreSQL com schema.prisma.
+    Migration inicial em packages/database/prisma/migrations/20260614000000_init/migration.sql.
+    Seed local em packages/database/prisma/seed.cjs.
+    Prisma Client compartilhado em packages/database/src/index.ts.
+    Scripts raiz: db:validate, db:generate, db:deploy, db:migrate, db:seed, db:studio.
+    CI atualizado para validar schema e gerar Prisma Client antes do typecheck.
+    Documentação em docs/banco-persistente.md e README atualizado.
+    Entidades modeladas:
+    produtos, fornecedores, clientes/CRM, compras, estoque, receitas, produção, vendas, caixa, usuários/perfis e auditoria.
+    Validações executadas com sucesso:
+    pnpm db:validate
+    pnpm db:generate
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    pnpm db:deploy em PostgreSQL local na porta 5433
+    pnpm db:seed no mesmo banco
+    Também confirmei o seed no banco: 5 produtos, 1 fornecedor, 1 cliente, 1 compra, 1 receita, 1 ordem de produção, 1 venda, 2 lançamentos de caixa e 1 log de auditoria.
+    Observação: a porta 5432 já estava ocupada na máquina, então validei com POSTGRES_PORT=5433. O container foi encerrado ao final; o volume Docker foi preservado.
+
+commit 134712d536111a678acb2e59c34a11d557530db4
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 18:52:23 2026 -0300
+
+    Fase 14 implementada.
+    Substituí o placeholder de testes do pacote @paobom/domain por uma suíte real com node:test, cobrindo 18 casos em 7 grupos:
+    Produtos/Insumos
+    Estoque rastreável
+    Compras com custo
+    Receitas versionadas e produção
+    Vendas com estoque, desconto e cancelamento
+    Caixa, fluxo financeiro e lucratividade
+    Permissões e auditoria
+    Também adicionei packages/domain/tsconfig.test.json, atualizei packages/domain/package.json, pnpm-lock.yaml, .gitignore e documentei a fase no README.md.
+    Validações executadas com sucesso:
+    pnpm --filter @paobom/domain test → 18 testes passando
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    Observação: web e mobile ainda mantêm placeholders de teste; agora o domínio já tem cobertura real para sustentar as próximas fases.
+
+commit ee37325de0b49b482eb4f3a0807e952adecde239
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 18:39:00 2026 -0300
+
+    Fase 13 implementada.
+    Foram adicionados:
+    .env.example com variáveis iniciais para API futura, PostgreSQL e pgAdmin.
+    docker-compose.yml com PostgreSQL local e pgAdmin opcional via profile tools.
+    .github/workflows/ci.yml com pipeline GitHub Actions para typecheck, lint, test e build.
+    .gitignore atualizado para ignorar .env.
+    README.md atualizado com os comandos de DevOps local.
+    Validações executadas com sucesso:
+    docker compose config
+    docker compose --profile tools config
+    pnpm typecheck
+    pnpm lint
+    pnpm test
+    pnpm build
+    Observação: não subi containers, apenas validei a configuração. Os testes ainda são placeholders, coerente com a próxima fase de testes reais de domínio.
+
+commit 693c4627f92b2853ae64a19abb01ecdbccea0450
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 18:32:03 2026 -0300
+
+    docs: estabiliza checkpoint mock mvp
+
+commit b6f18a96c6e05f546ac311d9b3974836f1a3c087
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 17:43:25 2026 -0300
+
+    Implementado Mobile.
+    Entreguei uma primeira experiência operacional Expo em apps/mobile:
+    Home mobile substituída por painel ERP operacional.
+    Dashboard compacto com score, receita, resultado, caixa e estoque.
+    Abas internas: Resumo, Estoque, Vendas, Producao, Caixa, Auditoria.
+    Repositórios mockados mobile usando o domínio compartilhado.
+    DI mobile ampliado com use cases de dashboard, produtos, estoque, vendas, caixa, produção e auditoria.
+    React Query para carregar o overview operacional.
+    Arquivos principais:
+    [index.tsx](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/app/index.tsx)
+    [bootstrap-container.ts](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/app/bootstrap-container.ts)
+    [MobileOperationsHome.tsx](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/features/operations/presentation/components/MobileOperationsHome.tsx)
+    Corrigi os erros do mobile:dev.
+    Ajustes feitos:
+    Removi referências a assets inexistentes em [app.json](/home/soulinux/Projetos/erp/paobom/apps/mobile/app.json).
+    Movi o bootstrap para fora da pasta de rotas do Expo:novo: [bootstrap-app-container.ts](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/core/bootstrap/bootstrap-app-container.ts)
+    removido: apps/mobile/src/app/bootstrap-container.ts
+    
+    Atualizei [_layout.tsx](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/app/_layout.tsx) para importar o bootstrap do core.
+    Corrigi o mock de venda mobile: o desconto agora fica abaixo do limite sem exigir autorização.
+    Corrigido o warning de SafeAreaView.
+    Troquei em [index.tsx](/home/soulinux/Projetos/erp/paobom/apps/mobile/src/app/index.tsx) o import depreciado de react-native para react-native-safe-area-context.
+    
+    ;
+
+commit 54479a6cb45dba1c458acdc3295310610fa89b1e
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 17:29:31 2026 -0300
+
+    Implementado Auditoria.
+    O que entrou:
+    Domínio de auditoria com AuditLog, repositório e use cases em [audit.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/audit.ts).
+    Evento global audit:record-requested no EventBus.
+    Repositório mockado de auditoria ouvindo o EventBus.
+    Nova feature audit com tela de consulta, filtros por período, entidade, usuário e ação.
+    Nova permissão audit:view.
+    Nova seção “Auditoria” na navegação.
+    Registro de eventos nos principais fluxos: produtos, fornecedores, clientes, compras, produção, estoque, vendas, caixa e CRM.
+
+commit 083ab3087b59d04909b21eacca130920ccd70cfe
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 17:07:44 2026 -0300
+
+    Implementado Permissões.
+    O que entrou:
+    Regras de papéis/permissões no domínio: [permissions.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/permissions.ts)
+    Sessão mockada e seletor de perfil operacional no topo da aplicação.
+    Guards reutilizáveis em core/permissions.
+    Navegação e seções filtradas por permissão.
+    Bloqueios por ação em cadastros, compras, produção, estoque, vendas, caixa e CRM.
+    Perfis iniciais: Dono, Gerente, Caixa, Producao, Estoque, Atendimento, Consulta.
+
+commit d541b9b3ec52f0db02ed243aa8d9d15771660baf
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 13:47:45 2026 -0300
+
+    Implementado Dashboard executivo.
+    Agora o dashboard tem:
+    filtro por período com padrão no mês atual;
+    score executivo de saúde do negócio;
+    resultado líquido, taxa de resultado, despesas operacionais e perdas;
+    indicadores de margem, caixa projetado, estoque e receita;
+    taxas de recebimento de compras e conclusão de produção;
+    focos executivos priorizados;
+    alertas enriquecidos para resultado negativo, perdas, estoque, margem, caixa e compras.
+    Arquivos principais alterados:
+    [dashboard.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/dashboard.ts)
+    [DashboardSection.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/features/dashboard/presentation/components/DashboardSection.tsx)
+    DTO, mapper, hook e React Query key da feature dashboard.
+
+commit 836c31a7a188958d0b672d0ac655ed46dab5258c
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 13:38:43 2026 -0300
+
+    Implementado Relatórios por período.
+    O que mudou:
+    [reports.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/reports.ts): GetBusinessReportsUseCase agora aceita ReportsPeriodInput, normaliza início/fim do dia e filtra vendas, caixa, compras, produção e movimentos de estoque por período.
+    [ReportsSection.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/features/reports/presentation/components/ReportsSection.tsx): adicionados filtros de Inicio e Fim, padrão no mês atual, botões Mes atual e Tudo, e indicação do período analisado.
+    DTO, mapper, hook e React Query key de relatórios foram alinhados para carregar/cachear relatórios por período.
+
+commit 0713bfa273bb69450b47c2ba8fdc76c40965bd3e
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 13:09:55 2026 -0300
+
+    Modernizei a navegação e a separação visual da aplicação.
+    O que mudou:
+    Home reorganizada em layout de área de trabalho com navegação lateral/sticky.
+    Módulos agrupados pelo fluxo operacional:Gestão: Dashboard, Relatórios
+    Operação: Compras, Produção, Estoque
+    Atendimento: Vendas, Caixa, CRM
+    Cadastros: Produtos, Fornecedores, Clientes
+    
+    Header agora destaca o fluxo comum da padaria:
+    Compra → Estoque → Receita → Produção → Venda → Caixa
+    Seções possuem âncoras navegáveis e separação visual mais clara.
+    Fundo global ajustado para uma leitura mais leve e scroll suave habilitado.
+
+commit d4e1ebb7ff85b05172ee5e605b343216ad574161
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 12:54:39 2026 -0300
+
+    Implementado Custos e lucratividade.
+    O que entrou:
+    Vendas agora usam o custo médio do estoque como unitCost quando há saldo registrado.
+    Produção agora expõe unitCost da ordem: totalCost / quantityProduced.
+    Dashboard mostra margem bruta percentual.
+    Dashboard gera alerta quando a margem bruta fica abaixo de 20%.
+    Relatórios agora incluem:custo total das vendas
+    margem bruta percentual
+    produtos com margem baixa
+    custo unitário médio da produção
+    
+    Tela de produção mostra custo unitário por ordem.
+    Tela de relatórios mostra custo de vendas, margem percentual, custo unitário de produção e tabela de produtos com margem baixa.
+
+commit 84b0bc22f6c54a43930a0c1eac36668e7c7a5a42
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 12:48:48 2026 -0300
+
+    Implementado Caixa com abertura/fechamento.
+    O que entrou:
+    Nova entidade de domínio CashRegister.
+    Abertura de caixa com:valor inicial
+    responsável
+    data/hora de abertura
+    
+    Apenas um caixa pode ficar aberto por vez.
+    Fechamento de caixa com:valor contado
+    responsável
+    saldo esperado calculado automaticamente
+    diferença entre contado e esperado
+    justificativa obrigatória quando houver divergência
+    
+    Saldo esperado considera:valor inicial do caixa
+    entradas baixadas desde a abertura
+    saídas baixadas desde a abertura
+    
+    Histórico de caixas abertos/fechados na UI financeira.
+    DTOs, mapper, schemas, React Query, hook e DI atualizados dentro da feature finance.
+
+commit 0f1664595c6be5a8c3de165ce30a8b338708b777
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 12:39:14 2026 -0300
+
+    Implementado Vendas com estoque/desconto/cancelamento.
+    O que entrou:
+    Venda agora valida estoque antes de registrar.
+    Venda acima do estoque é permitida apenas com:responsável
+    justificativa
+    
+    Estoque pode ficar negativo apenas por sale_out autorizado.
+    Desconto no total da venda.
+    Desconto acima de 10% exige:responsável
+    justificativa
+    
+    Preço unitário agora precisa ser maior que zero.
+    Venda cancelada devolve itens ao estoque via sale_reversal.
+    Cancelamento de venda paga agora estorna estoque e financeiro.
+    UI de vendas mostra saldo por produto, desconto, subtotal, autorização e justificativas quando necessárias.
+    Relatórios/estoque reconhecem sale_reversal.
+    A composição da home passa saldos de estoque para vendas sem criar import cruzado entre features.
+
+commit 6799a1a63e875f606141b07458e4aca16705ea08
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 12:32:28 2026 -0300
+
+    Implementado Produção com status real.
+    O que mudou:
+    Ordem de produção agora segue fluxo real:planned → started → finished
+    planned/started → cancelled
+    
+    Criar ordem agora apenas planeja a produção.
+    Iniciar produção:valida estoque suficiente dos insumos
+    baixa os insumos do estoque com movimento production_out
+    registra startedAt
+    
+    Finalizar produção:aumenta estoque do produto final com production_in
+    registra completedAt
+    
+    Cancelar produção iniciada:estorna o consumo dos insumos com production_reversal
+    
+    Produção finalizada não pode ser cancelada.
+    UI agora tem ações por status: Iniciar, Finalizar, Cancelar.
+    Relatórios e dashboard foram ajustados para considerar produção finished.
+    Estoque e relatórios reconhecem production_reversal.
+
+commit 7a62dab82e6adb44c64e18871c58edbb51d00523
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 12:09:43 2026 -0300
+
+    Implementado Compras com custo.
+    O que entrou:
+    Compra agora exige unitCost > 0 nos itens.
+    Ao selecionar produto na compra, o custo unitário é preenchido a partir do cadastro do produto.
+    Recebimento de compra continua gerando entrada rastreável no estoque com custo unitário da compra.
+    Estoque agora calcula custo médio ponderado nas entradas, em vez de simplesmente substituir pelo último custo.
+    Compra recebida agora pode ser cancelada com estorno de estoque.
+    Novo movimento de estoque: purchase_reversal.
+    Cancelamento de compra recebida:cancela o lançamento financeiro
+    gera movimento de estorno no estoque
+    mantém rastreabilidade por referenceId
+    
+    Relatórios e tela de estoque reconhecem “Estorno compra”.
+
+commit 6c287fa46307439fd44db96189e2a4f955a1193f
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 11:54:13 2026 -0300
+
+    Implementado Estoque rastreável.
+    O que entrou:
+    StockMovement agora tem origin explícita:opening_balance
+    purchase
+    production
+    sale
+    loss
+    manual_adjustment
+    return
+    
+    Movimentos de compra, produção e venda agora exigem referenceId.
+    Todo movimento exige justificativa.
+    Baixas que deixariam estoque negativo são bloqueadas no repositório mock.
+    Saldos iniciais agora são registrados como origem opening_balance.
+    UI de estoque mostra:tipo do produto: insumo, produto final, embalagem, revenda
+    origem do movimento
+    referência do movimento
+    motivo/justificativa
+    
+    DTOs e mappers atualizados para preservar a origem.
+
+commit a75b34c7c1f89f023413d8c618b405b970ed8ca5
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 09:49:02 2026 -0300
+
+    Implementado Receitas versionadas.
+    O que entrou:
+    Recipe agora possui version.
+    Cada nova ficha técnica para o mesmo produto fabricado cria uma nova versão.
+    A versão anterior fica histórica/inativa, preservando o registro.
+    ProductionOrder agora salva um recipeSnapshot com:id da ficha
+    nome
+    versão
+    produto produzido
+    rendimento
+    ingredientes e quantidades
+    
+    Ordens de produção passam a usar esse snapshot, então mudanças futuras na ficha não alteram produções antigas.
+    UI de produção agora mostra v1, v2, etc., e indica ficha ativa ou histórica.
+
+commit 953ef048261101a48bc38e30a6ecaee23a9caeb5
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 09:40:22 2026 -0300
+
+    Implementado Produtos/Insumos seguindo o padrão do projeto.
+    O que mudou:
+    Product agora possui kind: raw_material, finished_product, resale, packaging.
+    Adicionada unidade ml.
+    Regras de domínio reforçadas:produto vendável precisa ter preço de venda maior que zero
+    venda aceita apenas produtos vendáveis ativos
+    compra aceita apenas insumos, revenda ou embalagem ativos
+    receita produz apenas produto fabricado ativo
+    receita usa apenas insumo ou embalagem ativos
+    
+    Cadastro web de produtos agora permite escolher tipo do item e mostra tipo/unidade na tabela.
+    Seeds mock atualizadas: farinha como insumo, pão francês como produto fabricado.
+    Telas de compra, produção e venda filtram opções conforme o tipo correto do produto.
+
+commit 155d221f16889326ecf759664dc824c3826ef6c6
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 07:36:39 2026 -0300
+
+    Fase 11 implementada: Reports.
+    Foi adicionada a feature de relatórios seguindo o padrão arquitetural do projeto, com domínio isolado em packages/domain, camada de feature em apps/web/features/reports, DTOs/mappers, hook, React Query, DI via bootstrap-container e renderização na home.
+    Relatórios consolidados agora cobrem:
+    vendas por status e forma de pagamento
+    fluxo de caixa por tipo e status
+    movimentações e estoque crítico
+    compras por status
+    produção por status
+
+commit 538d0dd40c5de430ac6a94e5341a4ed0e3e6ce66
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 07:21:14 2026 -0300
+
+    Fase 10 implementada: Dashboard.
+    Adicionei um agregado de dashboard em packages/domain/src/dashboard.ts, calculando indicadores a partir dos repositórios de vendas, caixa, estoque, compras e produção. Também criei a feature web apps/web/features/dashboard com query, hook, DTO/mapper e componente visual.
+    O dashboard agora mostra:
+    receita realizada
+    margem bruta
+    ticket médio
+    caixa realizado e projetado
+    pendências de caixa
+    valor estimado em estoque
+    produtos abaixo do mínimo
+    compras abertas/recebidas
+    ordens de produção
+    alertas operacionais
+    Integrei o use case na DI da app e renderizei a seção Dashboard no topo da home.
+
+commit 9f7846a5d8c214865bfc16ec016aa1526a08a7ae
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 06:55:06 2026 -0300
+
+    Fase 9 implementada: Cash Flow consolidado após Sales.
+    Ajustei o financeiro para trabalhar corretamente com os fluxos de compra e venda por referenceId, evitando duplicidade e mantendo o ciclo dos lançamentos:
+    venda paga gera entrada realizada no caixa
+    venda a prazo gera recebível pendente
+    recebimento de venda a prazo atualiza o mesmo lançamento para realizado
+    cancelamento de venda cancela o recebível correspondente
+    cancelamento de compra cancela o pagar correspondente
+    eventos financeiros agora aceitam pending, settled e cancelled
+    Também atualizei o domínio financeiro para aceitar status e data de baixa no registro de lançamento, e ajustei os gateways de Sales/Purchase para refletirem corretamente o estado no caixa.
+
+commit 8d65884cd7a31a65d00a6666131a71e69db978d4
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 06:49:05 2026 -0300
+
+    Fase 8 implementada: Sales / Vendas.
+    Entreguei o módulo de vendas com:
+    domínio em packages/domain/src/sales.ts
+    feature web em apps/web/features/sales
+    DTO, mapper, repositório mock, schemas, React Query, Zustand e UI
+    criação de venda com cliente opcional, itens, forma de pagamento e margem bruta
+    status de venda: open, paid, cancelled
+    integração com estoque via EventBus usando sale_out
+    integração com caixa:venda paga entra como receita realizada
+    venda a prazo entra como receita pendente
+    
+    Também registrei Sales na DI da app e adicionei a seção Vendas na home, entre Estoque e Caixa.
+
+commit 50ccb005183ddfdee991db3d5debfff74a14a1ff
+Author: taidson <taidson2@gmail.com>
+Date:   Sun Jun 14 06:36:57 2026 -0300
+
+    Revisei e realinhei o projeto com o padrão de docs/arquitetura.md.
+    O ajuste principal foi separar melhor a composição de dependências:
+    core/infrastructure/di/bootstrap.ts agora registra só infraestrutura global: apiClient, eventBus, storage.
+    Criei app/bootstrap-container.ts no web e no mobile para registrar repositórios, gateways e use cases de features.
+    AppProviders virou genérico e recebe o bootstrap pela camada app.
+    Removi imports diretos entre features em mutations de purchase e production.
+    Confirmei que core não importa mais features.
+    Confirmei que features não importam outras features diretamente.
+    Arquivos principais ajustados:
+    apps/web/app/bootstrap-container.ts
+    apps/mobile/src/app/bootstrap-container.ts
+    apps/web/core/infrastructure/di/bootstrap.ts
+    apps/mobile/src/core/infrastructure/di/bootstrap.ts
+    apps/web/core/providers/AppProviders.tsx
+    apps/mobile/src/core/providers/AppProviders.tsx
+    apps/web/features/purchase/presentation/react-query/usePurchaseMutations.ts
+    apps/web/features/production/presentation/react-query/useProductionMutations.ts
+
+commit 3ebb50f716d7c70909b43a96f35db23441ee1e3a
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 20:27:59 2026 -0300
+
+    Fase 7 implementada: Relacionamento com Clientes / CRM.
+    Adicionei um domínio novo para interações com clientes, com histórico, tipos de contato, status open/done/cancelled, próximos retornos e resumo de relacionamento. Também criei a feature web completa em apps/web/features/customer-relationship, com DTO, mapper, repositório mock, schemas, React Query, Zustand e uma seção visual para registrar, concluir e cancelar interações.
+    Também atualizei o cadastro de clientes para permitir busca por ID no domínio, registrei os novos casos de uso na DI e inseri a seção CRM na home do ERP.
+
+commit 66f3d0c25a5b7100cd5135bd4457c984bb5d40dc
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 20:14:38 2026 -0300
+
+    Fase 6 implementada: Financeiro / Fluxo de Caixa.
+    Incluí o domínio financeiro em packages/domain/src/finance.ts com lançamentos de caixa, status pending/settled/cancelled, entradas/saídas, baixa, cancelamento e resumo financeiro. Também criei a feature web em apps/web/features/finance, com schema Zod, DTO/mapper, repositório mock, hooks React Query, store Zustand e a seção visual de fluxo de caixa.
+    Integrei compras ao financeiro: ao criar uma compra, o sistema agora emite um evento e gera automaticamente uma saída pendente no caixa como conta a pagar. A home do ERP também recebeu a nova seção Financeiro.
+
+commit 29b18beb6597d13485343f8c8258e4617dbbf1c3
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 20:02:15 2026 -0300
+
+    Fase 5 implementada.
+    Entreguei o módulo de Produção com:
+    domínio compartilhado em packages/domain/src/production.ts
+    fichas técnicas/receitas com ingredientes, rendimento e custo estimado
+    ordens de produção com status, custo total e consumo planejado
+    feature web em apps/web/features/production
+    UI integrada na home do ERP
+    integração com estoque via EventBus:production_out para consumo de insumos
+    production_in para entrada do produto produzido
+    
+    Também atualizei a DI, tokens, exports do domínio e o contrato de eventos do estoque para aceitar movimentos de produção.
+
+commit 53675abc5ab1a1ca8da3b17478f940fa06d881e7
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 19:45:27 2026 -0300
+
+    Fase 4 implementada: estoque e perdas.
+    O que entrou:
+    Novo domínio compartilhado em [inventory.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/inventory.ts):
+    InventoryBalance
+    StockMovement
+    tipos de movimento: purchase_in, production_out, production_in, sale_out, loss, adjustment
+    use cases para listar saldos, listar movimentações, registrar perda e registrar ajuste
+    
+    Nova feature web em [features/inventory](/home/soulinux/Projetos/erp/paobom/apps/web/features/inventory/presentation/components/InventorySection.tsx):
+    saldos por produto
+    valor estimado em estoque
+    alerta de estoque abaixo do mínimo
+    histórico de movimentações
+    registro de perdas
+    registro de ajustes
+    
+    Integração compra → estoque por EventBus:
+    ao receber uma compra, purchase emite uma solicitação de movimento purchase_in
+    inventory escuta o evento e registra a movimentação
+    sem import direto de inventory dentro de purchase
+    
+    Atualizei DI/tokens e invalidação de React Query para refletir recebimentos de compra no estoque.
+
+commit 41a09b618c334b23212ec577a10bae9192f9858a
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 19:35:42 2026 -0300
+
+    ase 3 implementada: fluxo de compras na web.
+    O que entrou:
+    Novo domínio compartilhado em [purchase.ts](/home/soulinux/Projetos/erp/paobom/packages/domain/src/purchase.ts):
+    Purchase
+    status draft | ordered | received | cancelled
+    itens da compra
+    total calculado
+    use cases: listar, criar, receber e cancelar
+    PurchaseInventoryGateway para preparar a integração com estoque na Fase 4
+    
+    Nova feature web em [features/purchase](/home/soulinux/Projetos/erp/paobom/apps/web/features/purchase/presentation/components/PurchaseSection.tsx):
+    DTO
+    mapper
+    repository mock
+    gateway mock de entrada de estoque
+    React Query
+    Zustand
+    schema Zod
+    tela para criar compra, adicionar itens, receber e cancelar
+    
+    Atualizei o DI em [bootstrap.ts](/home/soulinux/Projetos/erp/paobom/apps/web/core/infrastructure/di/bootstrap.ts) e tokens.
+    
+    A tela principal agora usa [ErpHome.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/app/components/ErpHome.tsx), compondo compras + cadastros base sem a feature purchase importar diretamente product ou supplier.
+    
+    Também corrigi os cadastros base para tratarem erros de validação sem gerar unhandled rejection.
+
+commit a33922f9c53520e242ac512e0fe506efb989057f
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 19:20:43 2026 -0300
+
+    Fase 2 implementada.
+    cadastros base de produtos, fornecedores e clientes na versão web, respeitando a arquitetura:
+    Domínio compartilhado em [packages/domain/src](/home/soulinux/Projetos/erp/paobom/packages/domain/src/index.ts):
+    Product, Supplier, Customer
+    contratos de repository
+    use cases de list, create, update, deactivate
+    
+    Features web em:
+    [product](/home/soulinux/Projetos/erp/paobom/apps/web/features/product/presentation/components/ProductSection.tsx)
+    [supplier](/home/soulinux/Projetos/erp/paobom/apps/web/features/supplier/presentation/components/SupplierSection.tsx)
+    [customer](/home/soulinux/Projetos/erp/paobom/apps/web/features/customer/presentation/components/CustomerSection.tsx)
+    
+    Cada feature web tem:
+    data/dto
+    data/mappers
+    data/repositories mockados
+    presentation/react-query
+    presentation/hooks
+    presentation/stores
+    schemas
+    
+    A tela inicial web agora é a tela operacional de Cadastros base, em [page.tsx](/home/soulinux/Projetos/erp/paobom/apps/web/app/page.tsx), com criar, editar e inativar.
+    
+    Conectei os novos use cases no DI em [bootstrap.ts](/home/soulinux/Projetos/erp/paobom/apps/web/core/infrastructure/di/bootstrap.ts) e atualizei os tokens.
+
+commit 4cf861b7f211eb9783f741f763cec11970e7d661
+Author: taidson <taidson2@gmail.com>
+Date:   Sat Jun 13 18:48:05 2026 -0300
+
+    fase 1: Fundação**
+    
+    Objetivo: preparar a base técnica e arquitetural.
+    
+    Entregas:
+    
+    1. Estrutura do monorepo
+    2. Estrutura base dos apps  e
+    3. Pastas principais:
+    
+    4. Configuração inicial de TypeScript, lint, paths e scripts
+    5. Setup de React Query
+    6. Setup de Zustand
+    7. Setup de DI
+    8. API client base
+    9. EventBus
+    10. Convenções de nomenclatura
+    11. Primeiro checklist de governança arquitetural
+    
+    Critério de pronto:
+    
+    - Projeto roda em web e mobile.
+    - Estrutura de pastas segue .
+    - Existe um exemplo mínimo de feature atravessando as camadas.
