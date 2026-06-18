@@ -1,0 +1,16 @@
+.env
+.env.*
+.git
+.github
+.next
+.runtime
+.turbo
+coverage
+dist
+node_modules
+playwright-report
+test-results
+**/.expo
+**/.next
+**/dist
+**/node_modules

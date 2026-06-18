@@ -50,6 +50,18 @@ export class ApiClient {
     return this.post("/auth/logout", {});
   }
 
+  reportClientError(error: unknown) {
+    const normalized = normalizeError(error);
+
+    return this.post(
+      "/observability/client-errors",
+      {
+        ...normalized,
+        source: "web",
+      },
+    );
+  }
+
   async get<TResponse>(path: string, options?: ApiRequestOptions) {
     return this.request<TResponse>(path, {
       ...options,
@@ -116,4 +128,19 @@ export class ApiClient {
 
     return payload.data as TResponse;
   }
+}
+
+function normalizeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    message: typeof error === "string" ? error : "Erro nao identificado",
+    name: "UnknownError",
+  };
 }

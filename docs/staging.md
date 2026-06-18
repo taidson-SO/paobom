@@ -114,4 +114,7 @@ Fluxos que devem aparecer com dados reais:
 
 ## Observacoes
 
-Este staging ainda e local/assistido: nao substitui ambiente hospedado, dominio HTTPS, backup automatizado, observabilidade centralizada ou rollback automatizado. Esses pontos ficam para producao assistida.
+Este compose continua sendo a opcao local/assistida. A infraestrutura para VPS,
+HTTPS, deploy e observabilidade esta em
+[staging-hosted.md](staging-hosted.md). Backup, restore e rollback automatizados
+continuam reservados para a fase seguinte.

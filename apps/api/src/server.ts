@@ -7,9 +7,18 @@ import {
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { Prisma, PrismaClient } from "@prisma/client";
+import {
+  beginRequest,
+  finishRequest,
+  getRequestId,
+  logEvent,
+  renderMetrics,
+  setDatabaseReady,
+} from "./observability.js";
 
 const prisma = new PrismaClient();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3333);
+const NO_RESPONSE = Symbol("NO_RESPONSE");
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
@@ -104,7 +113,11 @@ class HttpError extends Error {
 }
 
 const routes: Route[] = [
-  route("GET", "/health", async () => ({ status: "ok", service: "paobom-api" })),
+  route("GET", "/health", readiness),
+  route("GET", "/health/live", liveness),
+  route("GET", "/health/ready", readiness),
+  route("GET", "/metrics", metrics),
+  route("POST", "/observability/client-errors", reportClientError),
   route("POST", "/auth/login", login),
   route("GET", "/auth/me", me),
   route("POST", "/auth/logout", logout),
@@ -178,11 +191,30 @@ const routes: Route[] = [
 ];
 
 const server = createServer(async (req, res) => {
+  const startedAt = beginRequest();
+  const requestId = getRequestId(req);
+  let finalStatus = 500;
+  let finalError: unknown = null;
+
+  res.setHeader("X-Request-Id", requestId);
   setCorsHeaders(res);
 
   if (req.method === "OPTIONS") {
+    finalStatus = 204;
     res.writeHead(204);
     res.end();
+    const durationSeconds = finishRequest(startedAt, {
+      method: "OPTIONS",
+      route: req.url ?? "/",
+      status: finalStatus,
+    });
+    logEvent("info", "http.request", {
+      durationMs: Math.round(durationSeconds * 1000),
+      method: "OPTIONS",
+      requestId,
+      route: req.url ?? "/",
+      status: finalStatus,
+    });
     return;
   }
 
@@ -225,11 +257,17 @@ const server = createServer(async (req, res) => {
       route: match.route,
     });
 
-    sendJson(res, 200, { data: serialize(result) });
+    finalStatus = 200;
+
+    if (result !== NO_RESPONSE) {
+      sendJson(res, finalStatus, { data: serialize(result) });
+    }
   } catch (error) {
     const statusCode = error instanceof HttpError ? error.statusCode : 500;
     const message =
       error instanceof Error ? error.message : "Erro interno do servidor";
+    finalStatus = statusCode;
+    finalError = error;
 
     await recordRouteAudit({
       body,
@@ -244,19 +282,93 @@ const server = createServer(async (req, res) => {
     });
 
     sendJson(res, statusCode, { error: { message, statusCode } });
+  } finally {
+    const routeName = match?.route.pattern ?? requestUrl?.pathname ?? req.url ?? "/";
+    const durationSeconds = finishRequest(startedAt, {
+      method: method ?? req.method ?? "UNKNOWN",
+      route: routeName,
+      status: finalStatus,
+    });
+
+    logEvent(finalStatus >= 500 ? "error" : finalStatus >= 400 ? "warn" : "info", "http.request", {
+      durationMs: Math.round(durationSeconds * 1000),
+      error: finalError instanceof Error ? finalError.message : undefined,
+      method: method ?? req.method ?? "UNKNOWN",
+      requestId,
+      route: routeName,
+      status: finalStatus,
+      userId: currentUser?.id,
+    });
   }
 });
 
 server.listen(port, () => {
-  console.log(`PaoBom API listening on http://localhost:${port}`);
+  logEvent("info", "service.started", { port });
 });
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 async function shutdown() {
+  logEvent("info", "service.stopping");
   await prisma.$disconnect();
   server.close(() => process.exit(0));
+}
+
+function liveness() {
+  return {
+    status: "ok",
+    service: "paobom-api",
+    uptimeSeconds: Math.round(process.uptime()),
+  };
+}
+
+async function readiness() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    setDatabaseReady(true);
+
+    return {
+      status: "ok",
+      service: "paobom-api",
+      checks: { database: "ok" },
+    };
+  } catch {
+    setDatabaseReady(false);
+    throw new HttpError(503, "Banco de dados indisponivel");
+  }
+}
+
+function metrics({ res }: Context) {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+  });
+  res.end(renderMetrics());
+  return NO_RESPONSE;
+}
+
+function reportClientError({ body, currentUser, req }: Context) {
+  const input = bodyAsRecord(body);
+  const message = optionalStringField(input, "message")?.slice(0, 500);
+  const source = optionalStringField(input, "source")?.slice(0, 40);
+
+  if (!message || !source || !["web", "mobile"].includes(source)) {
+    throw new HttpError(400, "Erro de cliente invalido");
+  }
+
+  logEvent("error", "client.error", {
+    clientRequestId:
+      typeof req.headers["x-client-request-id"] === "string"
+        ? req.headers["x-client-request-id"].slice(0, 128)
+        : undefined,
+    message,
+    name: optionalStringField(input, "name")?.slice(0, 120),
+    source,
+    stack: optionalStringField(input, "stack")?.slice(0, 2_000),
+    userId: currentUser?.id,
+  });
+
+  return { accepted: true };
 }
 
 function route(method: HttpMethod, pattern: string, handler: Handler): Route {
@@ -443,12 +555,19 @@ async function recordAuthorizationFailure(
 function getRequiredPermissions(route: Route): Permission[] | null {
   if (
     route.pattern === "/health" ||
+    route.pattern === "/health/live" ||
+    route.pattern === "/health/ready" ||
+    route.pattern === "/metrics" ||
     route.pattern === "/auth/login"
   ) {
     return null;
   }
 
-  if (route.pattern === "/auth/me" || route.pattern === "/auth/logout") {
+  if (
+    route.pattern === "/auth/me" ||
+    route.pattern === "/auth/logout" ||
+    route.pattern === "/observability/client-errors"
+  ) {
     return [];
   }
 
@@ -720,6 +839,10 @@ function getAuditEvent(input: RouteAuditInput) {
   }
 
   if (input.route?.pattern === "/audit-logs" && input.method === "POST") {
+    return null;
+  }
+
+  if (input.route?.pattern === "/observability/client-errors") {
     return null;
   }
 

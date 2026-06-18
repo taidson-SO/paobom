@@ -1,0 +1,46 @@
+groups:
+  - name: paobom-staging
+    rules:
+      - alert: PaoBomEndpointUnavailable
+        expr: probe_success{job="paobom-https"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Endpoint de staging indisponivel"
+          description: "{{ $labels.instance }} falhou por mais de 2 minutos."
+
+      - alert: PaoBomDatabaseUnavailable
+        expr: paobom_database_ready == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL indisponivel para a API"
+          description: "A prontidao do banco permaneceu em zero por 1 minuto."
+
+      - alert: PaoBomHighErrorRate
+        expr: |
+          sum(rate(paobom_http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(paobom_http_requests_total[5m])), 0.001)
+          > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taxa elevada de erros HTTP 5xx"
+          description: "A taxa de erro da API superou 1% durante 5 minutos."
+
+      - alert: PaoBomHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(paobom_http_request_duration_seconds_bucket[5m]))
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia p95 elevada"
+          description: "A latencia p95 da API superou 800 ms durante 10 minutos."

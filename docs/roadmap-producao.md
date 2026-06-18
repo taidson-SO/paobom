@@ -28,7 +28,7 @@ O roadmap parte do estado atual:
 | --- | --- | --- | --- |
 | 27 | Sessoes seguras Web e Mobile | Concluida | Estado atual |
 | 28 | Testes automatizados de interface | Concluida | Fase 27 |
-| 29 | Staging hospedado e observabilidade | 2 sprints | Fase 27 |
+| 29 | Staging hospedado e observabilidade | Infraestrutura concluida | Fase 27 |
 | 30 | Backup, restore e rollback | 1 a 2 sprints | Fase 29 |
 | 31 | Validacao contabil e fiscal | 2 a 4 sprints, em paralelo | Inicia na Fase 27 |
 | 32 | Piloto interno assistido | 2 sprints | Fases 28 a 31 |
@@ -159,6 +159,22 @@ monitorado continuamente.
 - Disponibilidade de staging superior a 99%
 - API p95 inferior a 800 ms nos fluxos operacionais
 - Taxa de erro HTTP 5xx inferior a 1%
+
+### Estado implementado
+
+- Imagens imutaveis para API e Web
+- Compose hospedado com PostgreSQL interno e Caddy na borda HTTPS
+- Pipeline de publicacao no GHCR, migrations controladas e deploy por SSH
+- Health checks de processo, banco, Web e API
+- Logs JSON correlacionados por `X-Request-Id`
+- Erros Web e Mobile enviados para coleta centralizada autenticada
+- Prometheus, Blackbox Exporter, Grafana, Loki, Vector e Alertmanager
+- Dashboard e alertas provisionados como codigo
+
+A ativacao externa ainda depende da VPS, dos registros DNS, dos secrets do
+ambiente GitHub e de um webhook operacional. A fase so deve ser considerada
+operacionalmente aceita apos o primeiro deploy HTTPS e o teste de entrega dos
+alertas.
 
 ## Fase 30 - Backup, restore e rollback
 

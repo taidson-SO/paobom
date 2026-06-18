@@ -23,8 +23,10 @@ dist
 # misc
 .DS_Store
 .env
+.env.hosted
 .env.local
 .env*.local
+/.runtime
 
 # next.js
 .next

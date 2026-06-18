@@ -97,6 +97,16 @@ Limitacao conhecida: interacoes de CRM ainda usam um modelo reduzido na API pers
 Saude:
 
 - `GET /health`
+- `GET /health/live`
+- `GET /health/ready`
+
+Observabilidade:
+
+- `GET /metrics`
+- `POST /observability/client-errors`
+
+As respostas incluem `X-Request-Id`. No staging hospedado, `/metrics` fica
+restrito a rede interna pelo Caddy.
 
 Autenticacao:
 
@@ -182,7 +192,8 @@ Gestao:
 
 ## Autenticacao e autorizacao
 
-Todas as rotas, exceto `GET /health` e `POST /auth/login`, exigem header:
+As rotas de saude, metricas e `POST /auth/login` sao publicas. As demais exigem
+sessao; erros de cliente so sao aceitos de usuario autenticado.
 
 ```txt
 Authorization: Bearer <token>

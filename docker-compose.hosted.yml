@@ -1,0 +1,240 @@
+name: paobom-hosted-staging
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-file: "5"
+    max-size: "20m"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+    networks:
+      - backend
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  migrate:
+    image: ${STAGING_API_IMAGE:?STAGING_API_IMAGE is required}
+    profiles: ["migration"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    command:
+      [
+        "/workspace/packages/database/node_modules/.bin/prisma",
+        "migrate",
+        "deploy",
+        "--schema",
+        "packages/database/prisma/schema.prisma",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  seed:
+    image: ${STAGING_API_IMAGE:?STAGING_API_IMAGE is required}
+    profiles: ["seed"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:?SEED_USER_PASSWORD is required}
+    command: ["node", "packages/database/prisma/seed-staging.cjs"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  api:
+    image: ${STAGING_API_IMAGE:?STAGING_API_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      APP_ENV: staging
+      NODE_ENV: production
+      API_PORT: 3333
+      CORS_ORIGIN: https://${STAGING_WEB_DOMAIN:?STAGING_WEB_DOMAIN is required}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?AUTH_TOKEN_SECRET is required}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      SESSION_MAX_ACTIVE: ${SESSION_MAX_ACTIVE:-5}
+      SESSION_COOKIE_SECURE: "true"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3333/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - backend
+      - edge
+
+  web:
+    image: ${STAGING_WEB_IMAGE:?STAGING_WEB_IMAGE is required}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    logging: *default-logging
+    networks:
+      - edge
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      STAGING_API_DOMAIN: ${STAGING_API_DOMAIN:?STAGING_API_DOMAIN is required}
+      STAGING_GRAFANA_DOMAIN: ${STAGING_GRAFANA_DOMAIN:?STAGING_GRAFANA_DOMAIN is required}
+      STAGING_WEB_DOMAIN: ${STAGING_WEB_DOMAIN:?STAGING_WEB_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      grafana:
+        condition: service_started
+    logging: *default-logging
+    networks:
+      - edge
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    depends_on:
+      - alertmanager
+      - blackbox
+    logging: *default-logging
+    networks:
+      - backend
+      - observability
+    volumes:
+      - ./.runtime/staging/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    logging: *default-logging
+    networks:
+      - observability
+    volumes:
+      - ./.runtime/staging/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    logging: *default-logging
+    networks:
+      - observability
+    volumes:
+      - ./deploy/blackbox/config.yml:/etc/blackbox_exporter/config.yml:ro
+
+  loki:
+    image: grafana/loki:3.5.3
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yml"]
+    logging: *default-logging
+    networks:
+      - observability
+    volumes:
+      - ./deploy/loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+
+  vector:
+    image: timberio/vector:0.49.0-debian
+    restart: unless-stopped
+    command: ["--config", "/etc/vector/vector.yml"]
+    depends_on:
+      - loki
+    logging: *default-logging
+    networks:
+      - observability
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deploy/vector/vector.yml:/etc/vector/vector.yml:ro
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_SERVER_ROOT_URL: https://${STAGING_GRAFANA_DOMAIN:?STAGING_GRAFANA_DOMAIN is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    logging: *default-logging
+    networks:
+      - edge
+      - observability
+    volumes:
+      - ./deploy/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+
+networks:
+  backend:
+    internal: true
+  edge:
+  observability:
+    internal: true
+
+volumes:
+  alertmanager_data:
+  caddy_config:
+  caddy_data:
+  grafana_data:
+  loki_data:
+  postgres_data:
+  prometheus_data:

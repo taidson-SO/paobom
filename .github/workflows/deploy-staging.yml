@@ -1,0 +1,213 @@
+name: Deploy hosted staging
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "deploy/**"
+      - "Dockerfile"
+      - "docker-compose.hosted.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: Recriar dados controlados de staging
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: paobom-hosted-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Validate
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+
+  publish:
+    name: Publish immutable images
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      web_image: ${{ steps.images.outputs.web_image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image names
+        id: images
+        shell: bash
+        run: |
+          namespace="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "api_image=ghcr.io/${namespace}/paobom-api:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "web_image=ghcr.io/${namespace}/paobom-web:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: api
+          push: true
+          tags: |
+            ${{ steps.images.outputs.api_image }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and publish Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: web
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.STAGING_API_URL }}
+          tags: |
+            ${{ steps.images.outputs.web_image }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Deploy with controlled migrations
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment bundle
+        env:
+          STAGING_ENV_FILE: ${{ secrets.STAGING_ENV_FILE }}
+          API_IMAGE: ${{ needs.publish.outputs.api_image }}
+          WEB_IMAGE: ${{ needs.publish.outputs.web_image }}
+        run: |
+          mkdir -p .deploy-bundle
+          cp -R deploy .deploy-bundle/deploy
+          cp docker-compose.hosted.yml .deploy-bundle/docker-compose.hosted.yml
+          printf '%s\n' "$STAGING_ENV_FILE" > .deploy-bundle/.env.hosted
+          printf '\nSTAGING_API_IMAGE=%s\nSTAGING_WEB_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE" >> .deploy-bundle/.env.hosted
+          node scripts/render-hosted-config.mjs \
+            --env .deploy-bundle/.env.hosted \
+            --output .deploy-bundle/.runtime/staging
+          tar -C .deploy-bundle -czf staging-bundle.tgz .
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          # shellcheck disable=SC2029
+          ssh "$STAGING_USER@$STAGING_HOST" \
+            "mkdir -p '$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA' && chmod 700 '$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA'"
+          scp staging-bundle.tgz "$STAGING_USER@$STAGING_HOST:$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA/"
+
+      - name: Activate release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          GHCR_USER: ${{ secrets.STAGING_GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
+          SEED: ${{ inputs.seed || 'false' }}
+        run: |
+          # shellcheck disable=SC2029
+          printf '%s' "$GHCR_TOKEN" | ssh "$STAGING_USER@$STAGING_HOST" \
+            "docker login ghcr.io -u '$GHCR_USER' --password-stdin"
+          # shellcheck disable=SC2029
+          ssh "$STAGING_USER@$STAGING_HOST" \
+            "STAGING_DEPLOY_PATH='$STAGING_DEPLOY_PATH' RELEASE='$GITHUB_SHA' SEED='$SEED' bash -s" <<'REMOTE'
+          set -euo pipefail
+          release_dir="$STAGING_DEPLOY_PATH/releases/$RELEASE"
+          cd "$release_dir"
+          tar -xzf staging-bundle.tgz
+          chmod 600 .env.hosted
+          docker compose --env-file .env.hosted -f docker-compose.hosted.yml pull
+          docker compose --env-file .env.hosted -f docker-compose.hosted.yml --profile migration run --rm migrate
+          if [ "$SEED" = "true" ]; then
+            docker compose --env-file .env.hosted -f docker-compose.hosted.yml --profile seed run --rm seed
+          fi
+          docker compose --env-file .env.hosted -f docker-compose.hosted.yml up -d --remove-orphans
+          ln -sfn "$release_dir" "$STAGING_DEPLOY_PATH/current"
+          REMOTE
+
+      - name: Verify HTTPS readiness
+        run: |
+          for _ in $(seq 1 20); do
+            if curl --fail --silent --show-error "${{ vars.STAGING_API_URL }}/health/ready"; then
+              break
+            fi
+            sleep 6
+          done
+          curl --fail --silent --show-error "${{ vars.STAGING_API_URL }}/health/ready"
+
+      - name: Run authenticated staging smoke
+        env:
+          STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+          STAGING_SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
+          STAGING_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: node scripts/smoke-hosted-staging.mjs

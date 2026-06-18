@@ -8,6 +8,29 @@ if (!apiBaseUrl) {
   throw new Error("E2E_API_BASE_URL nao configurada");
 }
 
+test("health, correlacao e metricas estao disponiveis", async () => {
+  const requestId = "e2e-observability-request";
+  const healthResponse = await fetch(`${apiBaseUrl}/health/ready`, {
+    headers: { "X-Request-Id": requestId },
+  });
+  const healthPayload = await healthResponse.json();
+
+  assert.equal(healthResponse.ok, true);
+  assert.equal(healthPayload.data.checks.database, "ok");
+  assert.equal(healthResponse.headers.get("x-request-id"), requestId);
+
+  const metricsResponse = await fetch(`${apiBaseUrl}/metrics`);
+  const metrics = await metricsResponse.text();
+
+  assert.equal(metricsResponse.ok, true);
+  assert.match(
+    metricsResponse.headers.get("content-type") ?? "",
+    /text\/plain/,
+  );
+  assert.match(metrics, /paobom_http_requests_total/);
+  assert.match(metrics, /paobom_database_ready 1/);
+});
+
 test("sessao Web usa cookie HttpOnly e logout revoga acesso", async () => {
   const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
     body: JSON.stringify({

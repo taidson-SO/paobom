@@ -11,6 +11,13 @@ type AppProvidersProps = PropsWithChildren<{
   bootstrap?: () => void;
 }>;
 
+type GlobalErrorHandler = (error: Error, isFatal?: boolean) => void;
+
+type ErrorUtilsApi = {
+  getGlobalHandler?: () => GlobalErrorHandler;
+  setGlobalHandler?: (handler: GlobalErrorHandler) => void;
+};
+
 export function AppProviders({ bootstrap, children }: AppProvidersProps) {
   const [queryClient] = useState(() => new QueryClient());
   const setSession = useAuthStore((state) => state.setSession);
@@ -21,7 +28,14 @@ export function AppProviders({ bootstrap, children }: AppProvidersProps) {
   useEffect(() => {
     const apiClient = container.get<ApiClient>(TOKENS.apiClient);
     const authRepository = container.get<AuthRepository>(TOKENS.authRepository);
+    const errorUtils = (globalThis as { ErrorUtils?: ErrorUtilsApi }).ErrorUtils;
+    const previousErrorHandler = errorUtils?.getGlobalHandler?.();
     let active = true;
+
+    errorUtils?.setGlobalHandler?.((error, isFatal) => {
+      void apiClient.reportClientError(error).catch(() => undefined);
+      previousErrorHandler?.(error, isFatal);
+    });
 
     apiClient.setUnauthorizedHandler(() => {
       void authRepository.clearLocalSession();
@@ -44,6 +58,10 @@ export function AppProviders({ bootstrap, children }: AppProvidersProps) {
     return () => {
       active = false;
       apiClient.setUnauthorizedHandler(null);
+
+      if (previousErrorHandler) {
+        errorUtils?.setGlobalHandler?.(previousErrorHandler);
+      }
     };
   }, [clearSession, queryClient, setSession]);
 
