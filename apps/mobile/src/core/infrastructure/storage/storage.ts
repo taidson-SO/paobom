@@ -1,21 +1,39 @@
+import * as SecureStore from "expo-secure-store";
+
 export interface KeyValueStorage {
   getItem(key: string): Promise<string | null>;
   removeItem(key: string): Promise<void>;
   setItem(key: string, value: string): Promise<void>;
 }
 
-export class MemoryStorage implements KeyValueStorage {
-  private readonly values = new Map<string, string>();
+export class SecureKeyValueStorage implements KeyValueStorage {
+  private readonly fallback = new Map<string, string>();
 
   async getItem(key: string) {
-    return this.values.get(key) ?? null;
+    if (await SecureStore.isAvailableAsync()) {
+      return SecureStore.getItemAsync(key);
+    }
+
+    return this.fallback.get(key) ?? null;
   }
 
   async removeItem(key: string) {
-    this.values.delete(key);
+    if (await SecureStore.isAvailableAsync()) {
+      await SecureStore.deleteItemAsync(key);
+      return;
+    }
+
+    this.fallback.delete(key);
   }
 
   async setItem(key: string, value: string) {
-    this.values.set(key, value);
+    if (await SecureStore.isAvailableAsync()) {
+      await SecureStore.setItemAsync(key, value, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      return;
+    }
+
+    this.fallback.set(key, value);
   }
 }

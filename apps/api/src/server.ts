@@ -367,7 +367,7 @@ async function authorize(req: IncomingMessage, route: Route) {
     return null;
   }
 
-  const token = getBearerToken(req);
+  const token = getBearerToken(req) ?? getSessionCookie(req);
 
   if (!token) {
     throw new HttpError(401, "Token de autenticacao nao informado");
@@ -587,6 +587,56 @@ function getBearerToken(req: IncomingMessage) {
   }
 
   return authorization.slice("Bearer ".length).trim();
+}
+
+function getSessionCookie(req: IncomingMessage) {
+  const cookies = req.headers.cookie?.split(";") ?? [];
+  const sessionCookie = cookies
+    .map((cookie) => cookie.trim().split("="))
+    .find(([name]) => name === "paobom_session");
+
+  return sessionCookie?.[1] ? decodeURIComponent(sessionCookie[1]) : null;
+}
+
+function setSessionCookie(res: ServerResponse, token: string, expiresAt: Date) {
+  const secure =
+    process.env.SESSION_COOKIE_SECURE !== undefined
+      ? process.env.SESSION_COOKIE_SECURE === "true"
+      : process.env.NODE_ENV === "production";
+  const parts = [
+    `paobom_session=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Expires=${expiresAt.toUTCString()}`,
+  ];
+
+  if (secure) {
+    parts.push("Secure");
+  }
+
+  res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+function clearSessionCookie(res: ServerResponse) {
+  const secure =
+    process.env.SESSION_COOKIE_SECURE !== undefined
+      ? process.env.SESSION_COOKIE_SECURE === "true"
+      : process.env.NODE_ENV === "production";
+  const parts = [
+    "paobom_session=",
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    "Max-Age=0",
+  ];
+
+  if (secure) {
+    parts.push("Secure");
+  }
+
+  res.setHeader("Set-Cookie", parts.join("; "));
 }
 
 function hashToken(token: string) {
@@ -911,9 +961,13 @@ function sendJson(res: ServerResponse, statusCode: number, payload: unknown) {
 }
 
 function setCorsHeaders(res: ServerResponse) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN ?? "*");
+  const origin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Vary", "Origin");
 }
 
 function serialize(value: unknown): unknown {
@@ -1016,7 +1070,7 @@ function booleanQuery(query: URLSearchParams, field: string) {
   return value === "true";
 }
 
-async function login({ body }: Context) {
+async function login({ body, res }: Context) {
   const input = bodyAsRecord(body);
   const email = stringField(input, "email").toLowerCase();
   const password = stringField(input, "password");
@@ -1033,14 +1087,52 @@ async function login({ body }: Context) {
     expiresAt.getHours() + Number(process.env.SESSION_TTL_HOURS ?? 12),
   );
 
-  const session = await prisma.authSession.create({
-    data: {
-      expiresAt,
-      tokenHash: hashToken(token),
-      user: { connect: { id: user.id } },
-    },
+  const session = await prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const maxActiveSessions = Math.max(
+      1,
+      Number(process.env.SESSION_MAX_ACTIVE ?? 5),
+    );
+
+    await tx.authSession.updateMany({
+      data: { revokedAt: now },
+      where: {
+        expiresAt: { lte: now },
+        revokedAt: null,
+        userId: user.id,
+      },
+    });
+
+    const created = await tx.authSession.create({
+      data: {
+        expiresAt,
+        tokenHash: hashToken(token),
+        user: { connect: { id: user.id } },
+      },
+    });
+    const excessSessions = await tx.authSession.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+      skip: maxActiveSessions,
+      where: {
+        expiresAt: { gt: now },
+        revokedAt: null,
+        userId: user.id,
+      },
+    });
+
+    if (excessSessions.length) {
+      await tx.authSession.updateMany({
+        data: { revokedAt: now },
+        where: { id: { in: excessSessions.map(({ id }) => id) } },
+      });
+    }
+
+    return created;
   });
   const role = user.role as UserRole;
+
+  setSessionCookie(res, token, expiresAt);
 
   await prisma.auditLog.create({
     data: {
@@ -1078,7 +1170,7 @@ async function me({ currentUser }: Context) {
   return currentUser;
 }
 
-async function logout({ currentUser }: Context) {
+async function logout({ currentUser, res }: Context) {
   if (!currentUser) {
     throw new HttpError(401, "Usuario nao autenticado");
   }
@@ -1087,6 +1179,7 @@ async function logout({ currentUser }: Context) {
     data: { revokedAt: new Date() },
     where: { id: currentUser.sessionId },
   });
+  clearSessionCookie(res);
 
   await prisma.auditLog.create({
     data: {

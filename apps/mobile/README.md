@@ -47,5 +47,6 @@ pnpm --filter mobile typecheck
 pnpm --filter mobile lint
 ```
 
-A sessao permanece apenas em memoria nesta fase. Ao recarregar o aplicativo, o
-usuario deve autenticar novamente.
+A sessao e armazenada com `expo-secure-store`, restaurada na abertura e
+revalidada pela API em `GET /auth/me`. Tokens expirados, revogados ou
+rejeitados com `401` sao removidos automaticamente.

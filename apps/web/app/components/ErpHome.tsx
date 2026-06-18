@@ -1,13 +1,18 @@
 "use client";
 
 import { Permission } from "@paobom/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { ReactNode } from "react";
 
+import { ApiClient } from "@/core/infrastructure/api/api-client";
+import { container } from "@/core/infrastructure/di/container";
+import { TOKENS } from "@/core/infrastructure/di/tokens";
 import { PermissionGate } from "@/core/permissions/PermissionGate";
 import {
-  getRoleLabel,
   usePermissionSession,
+  usePermissionSessionStore,
 } from "@/core/permissions/permission-session";
+import { AuthenticatedUserSummary } from "@/features/auth/presentation/components/WebAuthGate";
 import { AuditSection } from "@/features/audit/presentation/components/AuditSection";
 import { CustomerSection } from "@/features/customer/presentation/components/CustomerSection";
 import { CustomerRelationshipSection } from "@/features/customer-relationship/presentation/components/CustomerRelationshipSection";
@@ -64,17 +69,30 @@ const navigationGroups = [
 }[];
 
 export function ErpHome() {
+  const queryClient = useQueryClient();
   const { products } = useProducts();
   const { suppliers } = useSuppliers();
   const { customers } = useCustomers();
   const { balances } = useInventory();
-  const { can, currentUser, setCurrentUser, users } = usePermissionSession();
+  const { can } = usePermissionSession();
+  const clearSession = usePermissionSessionStore(
+    (state) => state.clearSession,
+  );
   const visibleNavigationGroups = navigationGroups
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => can(item.permission)),
     }))
     .filter((group) => group.items.length > 0);
+
+  async function logout() {
+    try {
+      await container.get<ApiClient>(TOKENS.apiClient).logout();
+    } finally {
+      queryClient.clear();
+      clearSession();
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -90,20 +108,16 @@ export function ErpHome() {
               </h1>
             </div>
             <div className="grid gap-3 md:justify-items-end">
-              <label className="grid gap-1 text-xs font-bold uppercase text-zinc-500">
-                Perfil operacional
-                <select
-                  className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold normal-case text-zinc-800"
-                  onChange={(event) => setCurrentUser(event.target.value)}
-                  value={currentUser.id}
+              <div className="flex items-center gap-3">
+                <AuthenticatedUserSummary />
+                <button
+                  className="h-9 rounded-md border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 hover:border-zinc-400 hover:text-zinc-950"
+                  onClick={() => void logout()}
+                  type="button"
                 >
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {getRoleLabel(user.role)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  Sair
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-zinc-600 md:grid-cols-6">
                 <OperationalStep label="Compra" step="01" />
                 <OperationalStep label="Estoque" step="02" />

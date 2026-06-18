@@ -17,10 +17,7 @@ export function bootstrapCoreContainer() {
   container.register(
     TOKENS.apiClient,
     () => {
-      apiClient ??= new ApiClient(appConfig.apiBaseUrl, {
-        email: appConfig.apiDefaultEmail,
-        password: appConfig.apiDefaultPassword,
-      });
+      apiClient ??= new ApiClient(appConfig.apiBaseUrl);
 
       return apiClient;
     },

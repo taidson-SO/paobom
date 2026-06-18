@@ -11,30 +11,44 @@ type ApiEnvelope<TResponse> = {
   };
 };
 
-type ApiAuthenticatedUser = {
-  id: string;
+export type ApiAuthenticatedUser = {
   email: string;
+  id: string;
   name: string;
   permissions: string[];
   role: string;
 };
 
-type ApiLoginResponse = {
+export type ApiLoginResponse = {
   expiresAt: string;
   token: string;
   user: ApiAuthenticatedUser;
 };
 
 export class ApiClient {
-  private token: string | null = null;
+  private unauthorizedHandler: (() => void) | null = null;
 
-  constructor(
-    private readonly baseUrl: string,
-    private readonly defaultCredentials?: {
-      email: string;
-      password: string;
-    },
-  ) {}
+  constructor(private readonly baseUrl: string) {}
+
+  setUnauthorizedHandler(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler;
+  }
+
+  login(email: string, password: string) {
+    return this.post<ApiLoginResponse>(
+      "/auth/login",
+      { email, password },
+      { auth: false },
+    );
+  }
+
+  me() {
+    return this.get<ApiAuthenticatedUser>("/auth/me");
+  }
+
+  logout() {
+    return this.post("/auth/logout", {});
+  }
 
   async get<TResponse>(path: string, options?: ApiRequestOptions) {
     return this.request<TResponse>(path, {
@@ -78,50 +92,28 @@ export class ApiClient {
     path: string,
     options: ApiRequestOptions,
   ): Promise<TResponse> {
-    const shouldAuthenticate = options.auth ?? !path.startsWith("/auth/login");
     const headers = new Headers(options.headers);
 
     headers.set("Content-Type", "application/json");
 
-    if (shouldAuthenticate) {
-      const token = await this.getToken();
-
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       body: options.body ? JSON.stringify(options.body) : undefined,
+      credentials: "include",
       headers,
     });
     const payload = (await response.json().catch(() => ({}))) as ApiEnvelope<TResponse>;
 
     if (!response.ok) {
+      if (response.status === 401 && options.auth !== false) {
+        this.unauthorizedHandler?.();
+      }
+
       throw new Error(
-        payload.error?.message ?? `Request failed with status ${response.status}`,
+        payload.error?.message ?? `Falha na requisicao (${response.status})`,
       );
     }
 
     return payload.data as TResponse;
-  }
-
-  private async getToken() {
-    if (this.token) {
-      return this.token;
-    }
-
-    if (!this.defaultCredentials) {
-      throw new Error("Credenciais padrao da API nao configuradas");
-    }
-
-    const session = await this.request<ApiLoginResponse>("/auth/login", {
-      auth: false,
-      body: this.defaultCredentials,
-      method: "POST",
-    });
-
-    this.token = session.token;
-
-    return this.token;
   }
 }

@@ -8,6 +8,52 @@ if (!apiBaseUrl) {
   throw new Error("E2E_API_BASE_URL nao configurada");
 }
 
+test("sessao Web usa cookie HttpOnly e logout revoga acesso", async () => {
+  const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
+    body: JSON.stringify({
+      email: "dono@paobom.local",
+      password,
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const loginPayload = await loginResponse.json();
+  const setCookie = loginResponse.headers.get("set-cookie");
+
+  assert.equal(loginResponse.ok, true);
+  assert.ok(loginPayload.data.token, "Mobile ainda deve receber bearer token");
+  assert.match(setCookie ?? "", /paobom_session=/);
+  assert.match(setCookie ?? "", /HttpOnly/i);
+  assert.match(setCookie ?? "", /SameSite=Lax/i);
+
+  const cookie = setCookie?.split(";")[0];
+  const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
+    headers: { Cookie: cookie ?? "" },
+  });
+  const mePayload = await meResponse.json();
+
+  assert.equal(meResponse.ok, true);
+  assert.equal(mePayload.data.email, "dono@paobom.local");
+
+  const logoutResponse = await fetch(`${apiBaseUrl}/auth/logout`, {
+    body: "{}",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie ?? "",
+    },
+    method: "POST",
+  });
+
+  assert.equal(logoutResponse.ok, true);
+  assert.match(logoutResponse.headers.get("set-cookie") ?? "", /Max-Age=0/i);
+
+  const revokedResponse = await fetch(`${apiBaseUrl}/auth/me`, {
+    headers: { Cookie: cookie ?? "" },
+  });
+
+  assert.equal(revokedResponse.status, 401);
+});
+
 test("compra -> estoque -> producao -> venda -> caixa -> relatorio -> auditoria", async () => {
   const session = await request("/auth/login", {
     body: {

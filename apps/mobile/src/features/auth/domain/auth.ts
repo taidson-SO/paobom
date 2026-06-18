@@ -13,6 +13,8 @@ export type MobileSession = {
 };
 
 export interface AuthRepository {
+  clearLocalSession(): Promise<void>;
   login(email: string, password: string): Promise<MobileSession>;
   logout(): Promise<void>;
+  restoreSession(): Promise<MobileSession | null>;
 }

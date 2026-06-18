@@ -59,6 +59,8 @@ services:
       CORS_ORIGIN: ${STAGING_CORS_ORIGIN:-http://localhost:3001}
       AUTH_TOKEN_SECRET: ${STAGING_AUTH_TOKEN_SECRET:-paobom-staging-secret}
       SESSION_TTL_HOURS: ${STAGING_SESSION_TTL_HOURS:-12}
+      SESSION_MAX_ACTIVE: ${STAGING_SESSION_MAX_ACTIVE:-5}
+      SESSION_COOKIE_SECURE: ${STAGING_SESSION_COOKIE_SECURE:-false}
       DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-paobom_staging}:${STAGING_POSTGRES_PASSWORD:-paobom_staging}@postgres:5432/${STAGING_POSTGRES_DB:-paobom_staging}?schema=public
     ports:
       - "${STAGING_API_PORT:-3335}:3333"
@@ -87,8 +89,6 @@ services:
       APP_ENV: staging
       NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: ${STAGING_PUBLIC_API_BASE_URL:-http://localhost:3335}
-      NEXT_PUBLIC_API_DEFAULT_EMAIL: ${STAGING_DEFAULT_EMAIL:-dono@paobom.local}
-      NEXT_PUBLIC_API_DEFAULT_PASSWORD: ${STAGING_SEED_USER_PASSWORD:-Paobom@123}
     ports:
       - "${STAGING_WEB_PORT:-3001}:3000"
     depends_on:

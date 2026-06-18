@@ -1,60 +1,53 @@
 "use client";
 
-import {
-  AppUser,
-  Permission,
-  UserRole,
-  getRolePermissions,
-  hasAnyPermission,
-  hasEveryPermission,
-  hasPermission,
-} from "@paobom/domain";
+import { AppUser, Permission, UserRole } from "@paobom/domain";
 import { create } from "zustand";
 
-export const mockUsers: AppUser[] = [
-  { id: "user-owner", name: "Taidson Silva", role: "owner" },
-  { id: "user-manager", name: "Gerencia", role: "manager" },
-  { id: "user-cashier", name: "Caixa", role: "cashier" },
-  { id: "user-baker", name: "Producao", role: "baker" },
-  { id: "user-stock", name: "Estoque", role: "stock" },
-  { id: "user-sales", name: "Atendimento", role: "sales" },
-  { id: "user-viewer", name: "Consulta", role: "viewer" },
-];
+import { ApiAuthenticatedUser } from "@/core/infrastructure/api/api-client";
+
+export type WebSessionUser = ApiAuthenticatedUser & {
+  role: UserRole;
+};
 
 type PermissionSessionState = {
-  currentUserId: string;
-  setCurrentUser: (userId: string) => void;
+  status: "authenticated" | "loading" | "unauthenticated";
+  user: WebSessionUser | null;
+  clearSession: () => void;
+  setLoading: () => void;
+  setUser: (user: WebSessionUser) => void;
 };
 
 export const usePermissionSessionStore = create<PermissionSessionState>(
   (set) => ({
-    currentUserId: mockUsers[0].id,
-    setCurrentUser: (currentUserId) => set({ currentUserId }),
+    clearSession: () => set({ status: "unauthenticated", user: null }),
+    setLoading: () => set({ status: "loading" }),
+    setUser: (user) => set({ status: "authenticated", user }),
+    status: "loading",
+    user: null,
   }),
 );
 
 export function usePermissionSession() {
-  const currentUserId = usePermissionSessionStore(
-    (state) => state.currentUserId,
-  );
-  const setCurrentUser = usePermissionSessionStore(
-    (state) => state.setCurrentUser,
-  );
-  const currentUser =
-    mockUsers.find((user) => user.id === currentUserId) ?? mockUsers[0];
+  const user = usePermissionSessionStore((state) => state.user);
+  const status = usePermissionSessionStore((state) => state.status);
+  const permissions = (user?.permissions ?? []) as Permission[];
+  const currentUser: AppUser = {
+    id: user?.id ?? "anonymous",
+    name: user?.name ?? "Nao autenticado",
+    role: user?.role ?? "viewer",
+  };
 
   return {
-    can: (permission: Permission) =>
-      hasPermission(currentUser.role, permission),
-    canAny: (permissions: Permission[]) =>
-      hasAnyPermission(currentUser.role, permissions),
-    canEvery: (permissions: Permission[]) =>
-      hasEveryPermission(currentUser.role, permissions),
+    can: (permission: Permission) => permissions.includes(permission),
+    canAny: (required: Permission[]) =>
+      required.some((permission) => permissions.includes(permission)),
+    canEvery: (required: Permission[]) =>
+      required.every((permission) => permissions.includes(permission)),
     currentUser,
-    permissions: getRolePermissions(currentUser.role),
+    permissions,
     role: currentUser.role,
-    setCurrentUser,
-    users: mockUsers,
+    status,
+    user,
   };
 }
 

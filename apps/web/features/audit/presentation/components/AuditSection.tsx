@@ -3,10 +3,6 @@
 import { AuditActionResult, AuditLog } from "@paobom/domain";
 import { useMemo, useState } from "react";
 
-import {
-  getRoleLabel,
-  mockUsers,
-} from "@/core/permissions/permission-session";
 import { useAuditLogs } from "@/features/audit/presentation/hooks/useAuditLogs";
 
 type AuditFilterForm = {
@@ -60,6 +56,22 @@ export function AuditSection() {
   );
   const { auditLogs, isLoading } = useAuditLogs(filter);
   const summary = getSummary(auditLogs);
+  const users = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          auditLogs.map((log) => [
+            log.userId,
+            {
+              id: log.userId,
+              name: log.userName,
+              role: log.userRole,
+            },
+          ]),
+        ).values(),
+      ).sort((left, right) => left.name.localeCompare(right.name)),
+    [auditLogs],
+  );
 
   return (
     <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
@@ -76,6 +88,7 @@ export function AuditSection() {
         <AuditFilters
           filterForm={filterForm}
           setFilterForm={setFilterForm}
+          users={users}
         />
       </div>
 
@@ -153,9 +166,11 @@ export function AuditSection() {
 function AuditFilters({
   filterForm,
   setFilterForm,
+  users,
 }: {
   filterForm: AuditFilterForm;
   setFilterForm: (filterForm: AuditFilterForm) => void;
+  users: { id: string; name: string; role: string }[];
 }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
@@ -210,9 +225,9 @@ function AuditFilters({
           value={filterForm.userId}
         >
           <option value="">Todos</option>
-          {mockUsers.map((user) => (
+          {users.map((user) => (
             <option key={user.id} value={user.id}>
-              {user.name} - {getRoleLabel(user.role)}
+              {user.name} - {user.role}
             </option>
           ))}
         </select>

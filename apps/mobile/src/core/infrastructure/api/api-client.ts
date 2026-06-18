@@ -13,11 +13,16 @@ type ApiEnvelope<TResponse> = {
 
 export class ApiClient {
   private token: string | null = null;
+  private unauthorizedHandler: (() => void) | null = null;
 
   constructor(private readonly baseUrl: string) {}
 
   setToken(token: string | null) {
     this.token = token;
+  }
+
+  setUnauthorizedHandler(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler;
   }
 
   async get<TResponse>(path: string, options?: ApiRequestOptions) {
@@ -63,8 +68,9 @@ export class ApiClient {
     const payload = (await response.json().catch(() => ({}))) as ApiEnvelope<TResponse>;
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && options.auth !== false) {
         this.token = null;
+        this.unauthorizedHandler?.();
       }
 
       throw new Error(

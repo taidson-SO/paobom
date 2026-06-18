@@ -1,56 +1,202 @@
 # PaoBom ERP
 
-ERP para gestao de panificadora, construido em monorepo com versoes web e mobile.
+ERP web e mobile para gestao operacional e financeira de panificadoras.
 
-O checkpoint demonstravel em modo mock/in-memory foi congelado na tag `v0.1.0-mock-mvp`. O estado atual avanca para API real com PostgreSQL e web consumindo `ApiRepository`.
+O projeto esta em fase de preparacao para piloto interno. Os fluxos centrais
+usam API real, PostgreSQL, autorizacao no backend, auditoria persistente e
+testes E2E sobre banco isolado.
 
-## Estado Atual
+## Capacidades
 
-O projeto cobre os principais fluxos operacionais da padaria:
+- Cadastro de produtos, insumos, fornecedores e clientes
+- CRM com registro de interacoes
+- Compras com aprovacao, recebimento parcial, divergencias e contas a pagar
+- Estoque com lotes, validade, custo medio, perdas e inventario fisico
+- Receitas versionadas e ordens de producao
+- Vendas com baixa de estoque, descontos, pagamentos e cancelamento
+- Caixa com abertura, suprimento, sangria, conciliacao e fechamento
+- Custos, margem, lucratividade e fluxo financeiro
+- Relatorios por periodo e dashboard executivo
+- Usuarios, papeis e permissoes validados pela API
+- Login Web interativo com cookie de sessao `HttpOnly`
+- Sessao Mobile persistida no armazenamento seguro nativo
+- Auditoria persistente das operacoes
+- Mobile transacional para estoque, producao e venda simples
 
-- Produtos e insumos
-- Fornecedores
-- Clientes e CRM
-- Compras reais com aprovacao, recebimento parcial, divergencias e contas a pagar
-- Estoque rastreavel, lotes, validade, perdas, ajustes e inventario fisico
-- Receitas versionadas
-- Producao com status
-- Vendas com estoque, desconto e cancelamento
-- Caixa com abertura e fechamento
-- Custos e lucratividade
-- Relatorios por periodo
-- Dashboard executivo
-- Permissoes por perfil operacional
-- Auditoria de eventos
-- Mobile de acompanhamento operacional
+## Stack
+
+| Camada | Tecnologias |
+| --- | --- |
+| Monorepo | pnpm workspaces, Turborepo, TypeScript |
+| Web | Next.js 16, React 19, React Query, Zustand, Tailwind CSS |
+| Mobile | Expo 56, React Native, Expo Router, React Query, Zustand |
+| Backend | Node.js, API HTTP, Prisma |
+| Banco | PostgreSQL 16 |
+| Qualidade | ESLint, TypeScript, `node:test`, E2E com banco real |
+| Infra local | Docker Compose, GitHub Actions |
 
 ## Arquitetura
 
-O projeto segue a arquitetura definida em [docs/arquitetura.md](docs/arquitetura.md):
+O projeto segue a arquitetura descrita em
+[docs/arquitetura.md](docs/arquitetura.md), com separacao por responsabilidade:
 
-- `apps/web`: aplicacao Next.js
-- `apps/mobile`: aplicacao Expo/React Native
-- `packages/domain`: regras de dominio compartilhadas
-- `packages/*`: pacotes compartilhados do monorepo
-- `features/*`: isolamento por dominio funcional
-- `core/*`: infraestrutura global, DI, providers, EventBus e configuracoes
+```text
+apps/
+  api/       API HTTP e autorizacao backend
+  web/       Aplicacao administrativa Next.js
+  mobile/    Aplicacao operacional Expo
 
-As features usam DTOs, mappers, repositories, use cases, React Query e Zustand conforme o padrao adotado no projeto.
+packages/
+  database/  Schema Prisma, migrations e seeds
+  domain/    Entidades, contratos, regras e casos de uso
+  constants/
+  hooks/
+  types/
+  ui/
+  utils/
+```
 
-## Requisitos Locais
+Dentro das aplicacoes:
 
-- Node.js compativel com o lockfile do projeto
-- `pnpm` 10.29.3
+- `core`: infraestrutura global, configuracao, providers e DI
+- `features`: dominios funcionais isolados
+- `shared`: componentes e utilitarios locais sem regra de negocio
+- `packages`: codigo compartilhado entre aplicacoes
 
-Instalacao:
+As interfaces consomem repositories por meio de casos de uso e React Query. As
+regras criticas, permissoes e efeitos transacionais permanecem no dominio e no
+backend.
+
+## Requisitos
+
+- Node.js 22 ou superior
+- pnpm 10.29.3
+- Docker com Docker Compose
+
+Instale as dependencias:
 
 ```bash
+corepack enable
 pnpm install
 ```
 
-## Comandos
+## Inicio Rapido
 
-Executar validacoes:
+Crie o arquivo local de ambiente:
+
+```bash
+cp .env.example .env
+```
+
+Prepare o PostgreSQL:
+
+```bash
+docker compose up -d postgres
+pnpm db:generate
+pnpm db:deploy
+pnpm db:seed
+```
+
+Inicie API e Web em terminais separados:
+
+```bash
+pnpm dev-api
+```
+
+```bash
+pnpm dev-web
+```
+
+Servicos locais:
+
+| Servico | Endereco |
+| --- | --- |
+| Web | `http://localhost:3000` |
+| API | `http://localhost:3333` |
+| PostgreSQL | `localhost:5432` |
+| Health check | `http://localhost:3333/health` |
+
+O pgAdmin e opcional:
+
+```bash
+docker compose --profile tools up -d
+```
+
+Para encerrar a infraestrutura:
+
+```bash
+docker compose down
+```
+
+## Usuarios Locais
+
+O seed base cria os seguintes usuarios para desenvolvimento. A senha inicial e
+definida por `SEED_USER_PASSWORD` e vale `Paobom@123` no exemplo local:
+
+| Perfil | E-mail |
+| --- | --- |
+| Proprietario | `dono@paobom.local` |
+| Gerente | `gerente@paobom.local` |
+| Caixa | `caixa@paobom.local` |
+
+O seed de staging adiciona os perfis de producao, estoque, vendas e consulta.
+
+## Mobile
+
+Configure o ambiente do Expo:
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env.local
+pnpm dev-mobile
+```
+
+Enderecos usuais para `EXPO_PUBLIC_API_BASE_URL`:
+
+| Ambiente | URL |
+| --- | --- |
+| Android Emulator | `http://10.0.2.2:3333` |
+| iOS Simulator | `http://localhost:3333` |
+| Dispositivo fisico | `http://IP_DA_MAQUINA:3333` |
+
+O mobile permite:
+
+- Autenticacao com papeis e permissoes reais
+- Restauracao segura da sessao entre reinicios
+- Consulta de saldo e registro de perdas
+- Inicio e finalizacao de producao
+- Venda simples em dinheiro, cartao ou Pix
+
+Mais detalhes em [apps/mobile/README.md](apps/mobile/README.md).
+
+## Staging Local
+
+O staging executa PostgreSQL, API e Web isolados, com dados proximos da
+operacao da padaria:
+
+```bash
+cp .env.staging.example .env.staging
+pnpm staging:seed
+pnpm staging:up
+```
+
+| Servico | Endereco |
+| --- | --- |
+| Web staging | `http://localhost:3001` |
+| API staging | `http://localhost:3335` |
+| PostgreSQL staging | `localhost:55432` |
+
+Encerrar:
+
+```bash
+pnpm staging:down
+```
+
+Consulte [docs/staging.md](docs/staging.md) para usuarios, dados simulados e
+uso com o mobile.
+
+## Testes e Qualidade
+
+Validacao completa do monorepo:
 
 ```bash
 pnpm typecheck
@@ -59,229 +205,99 @@ pnpm test
 pnpm build
 ```
 
-Rodar web:
-
-```bash
-pnpm dev-web
-```
-
-Rodar API:
-
-```bash
-pnpm dev-api
-```
-
-Para usar a web com dados persistentes, suba PostgreSQL, aplique migrations/seeds e inicie a API antes da web:
-
-```bash
-docker compose up -d postgres
-pnpm db:deploy
-pnpm db:seed
-pnpm dev-api
-pnpm dev-web
-```
-
-Rodar mobile:
-
-```bash
-cp apps/mobile/.env.example apps/mobile/.env.local
-pnpm dev-mobile
-```
-
-Tambem e possivel usar filtros diretos:
-
-```bash
-pnpm --filter web dev
-pnpm --filter mobile dev
-pnpm --filter mobile typecheck
-pnpm --filter mobile lint
-```
-
-## DevOps Local
-
-A Fase 13 adiciona os artefatos minimos para preparar automacao e infraestrutura local:
-
-- `.env.example`: contrato inicial de variaveis de ambiente
-- `docker-compose.yml`: PostgreSQL local e pgAdmin opcional
-- `.github/workflows/ci.yml`: pipeline com `typecheck`, `lint`, `test` e `build`
-
-Subir somente PostgreSQL:
-
-```bash
-docker compose up -d postgres
-```
-
-Subir PostgreSQL com pgAdmin:
-
-```bash
-docker compose --profile tools up -d
-```
-
-Encerrar os servicos:
-
-```bash
-docker compose down
-```
-
-## Staging Local
-
-A Fase 25 adiciona um ambiente staging local com PostgreSQL isolado, API, Web, pgAdmin opcional e seed com dados simulados proximos da operacao real. A documentacao detalhada fica em [docs/staging.md](docs/staging.md).
-
-Fluxo recomendado:
-
-```bash
-cp .env.staging.example .env.staging
-pnpm staging:seed
-pnpm staging:up
-```
-
-URLs padrao:
-
-- Web staging: `http://localhost:3001`
-- API staging: `http://localhost:3335`
-- PostgreSQL staging: `localhost:55432`
-
-Encerrar staging:
-
-```bash
-pnpm staging:down
-```
-
-## Banco Persistente
-
-A Fase 15 adiciona o pacote `@paobom/database` com PostgreSQL + Prisma, migration inicial e seed local. A documentacao detalhada fica em [docs/banco-persistente.md](docs/banco-persistente.md).
-
-Validar schema e gerar client:
-
-```bash
-pnpm db:validate
-pnpm db:generate
-```
-
-Aplicar migrations e popular dados locais:
-
-```bash
-docker compose up -d postgres
-pnpm db:deploy
-pnpm db:seed
-```
-
-## Backend/API Real
-
-A Fase 16 adiciona `apps/api`, uma API HTTP real sobre PostgreSQL/Prisma. A Fase 17 adiciona autenticacao por sessao, usuarios, papeis e permissoes validadas no backend. A Fase 19 registra auditoria persistente das acoes mutaveis da API. A documentacao detalhada fica em [docs/api-real.md](docs/api-real.md).
-
-Fluxo local basico:
-
-```bash
-docker compose up -d postgres
-pnpm db:deploy
-pnpm db:seed
-pnpm db:generate
-pnpm build
-pnpm --filter api start
-```
-
-## Validacao do MVP Mock
-
-Na estabilizacao da fase 12, estes comandos passam:
-
-- `pnpm typecheck`
-- `pnpm lint`
-- `pnpm test`
-- `pnpm build`
-
-Observacao: `pnpm test` agora executa testes reais no pacote de dominio. Web e mobile ainda mantem placeholders e devem receber testes de UI/integracao nas proximas fases.
-
-## Testes de Dominio
-
-A Fase 14 substitui o placeholder do pacote `@paobom/domain` por testes reais com `node:test`, cobrindo:
-
-- Produtos/Insumos
-- Estoque rastreavel
-- Compras com custo, aprovacao e recebimento parcial
-- Receitas versionadas e producao
-- Vendas com estoque, desconto e cancelamento
-- Caixa, fluxo financeiro e lucratividade
-- Permissoes
-- Auditoria
-
-Executar somente os testes de dominio:
+Testes de dominio:
 
 ```bash
 pnpm --filter @paobom/domain test
 ```
 
-Executar o fluxo E2E completo com PostgreSQL e API isolados:
+Fluxo E2E completo com PostgreSQL efemero e API real:
 
 ```bash
 pnpm test:e2e:local
 ```
 
-O cenário cobre compra, estoque, produção, venda, caixa, relatório e auditoria.
-Detalhes e proteção de banco estão em `docs/e2e.md`.
+O E2E valida:
 
-## Perfis de Permissao
-
-O backend aplica permissoes aos perfis operacionais:
-
-- Dono
-- Gerente
-- Caixa
-- Producao
-- Estoque
-- Atendimento
-- Consulta
-
-As permissoes validam rotas e acoes sensiveis na API. Web e mobile adaptam a navegacao ao perfil autenticado.
-
-## Mobile
-
-O mobile transacional consome a API real e entrega:
-
-- login com usuario, papel e permissoes do backend;
-- consulta de estoque e registro de perdas;
-- inicio e finalizacao de ordens de producao;
-- venda simples com carrinho;
-- pagamentos em dinheiro, cartao ou Pix;
-- sincronizacao dos dados apos cada operacao.
-
-O endereco da API e definido por `EXPO_PUBLIC_API_BASE_URL`. Consulte `apps/mobile/README.md` para enderecos de emulador, simulador e dispositivo fisico.
-
-## Limitacoes Conhecidas
-
-Esta versao ainda nao esta pronta para producao real. O projeto ja possui banco, API, autorizacao backend, auditoria persistente e web consumindo `ApiRepository`, mas ainda restam pontos antes de piloto:
-
-- Sessao mobile ainda nao possui persistencia segura entre reinicios
-- Web ainda usa credenciais padrao via env, sem tela de login real
-- Web e mobile ainda nao possuem testes automatizados de interface
-- CRM persistente ainda usa modelo reduzido para interacoes
-- Staging ainda e local/assistido, sem hospedagem HTTPS
-- Sem backup, restore ou plano de rollback automatizado
-
-## Checkpoint
-
-Tag prevista para esta fase:
-
-```bash
-v0.1.0-mock-mvp
+```text
+compra -> estoque -> producao -> venda -> caixa -> relatorio -> auditoria
 ```
 
-Objetivo da tag: congelar uma versao demonstravel do ERP PaoBom antes da entrada em DevOps minimo, testes reais, banco persistente e API.
+O banco E2E e isolado, usa a porta `55434` e e removido automaticamente. O
+runner recusa bancos cujo nome nao contenha `e2e` ou `test`.
 
-## Fases Consolidadas
+Detalhes em [docs/e2e.md](docs/e2e.md).
 
-1. Testes reais de dominio
-2. Banco de dados persistente
-3. Backend/API real
-4. Autenticacao e autorizacao real
-5. Migracao dos repositories mock para API
-6. Auditoria persistente
-7. Estoque avancado, compras, vendas e caixa robustos
-8. Mobile transacional
-9. Ambiente staging
-10. Testes E2E do fluxo completo
+## Comandos Principais
 
-## Proximas Fases
+| Comando | Finalidade |
+| --- | --- |
+| `pnpm dev` | Executar tarefas de desenvolvimento do monorepo |
+| `pnpm dev-api` | Iniciar a API |
+| `pnpm dev-web` | Iniciar a aplicacao Web |
+| `pnpm dev-mobile` | Iniciar o Expo |
+| `pnpm db:validate` | Validar o schema Prisma |
+| `pnpm db:generate` | Gerar o Prisma Client |
+| `pnpm db:deploy` | Aplicar migrations |
+| `pnpm db:seed` | Recriar os dados locais |
+| `pnpm db:studio` | Abrir o Prisma Studio |
+| `pnpm staging:seed` | Preparar dados de staging |
+| `pnpm staging:up` | Subir staging |
+| `pnpm staging:down` | Encerrar staging |
+| `pnpm test:e2e:local` | Executar o fluxo integrado completo |
 
-1. Piloto interno assistido
-2. Producao assistida
+## CI
+
+O workflow em `.github/workflows/ci.yml` possui dois jobs:
+
+1. `validate`: schema, typecheck, lint, testes e build
+2. `e2e`: PostgreSQL dedicado e fluxo ERP completo
+
+## Documentacao
+
+| Documento | Conteudo |
+| --- | --- |
+| [Arquitetura](docs/arquitetura.md) | Camadas, dependencias e convencoes |
+| [Banco persistente](docs/banco-persistente.md) | Prisma, migrations e modelo |
+| [Backend/API](docs/api-real.md) | Endpoints, autenticacao e auditoria |
+| [Staging](docs/staging.md) | Ambiente e dados simulados |
+| [Testes E2E](docs/e2e.md) | Execucao e protecao do banco |
+| [Roadmap para producao](docs/roadmap-producao.md) | Fases, gates e criterios para piloto |
+| [Checkpoint mock](docs/v0.1.0-mock-mvp.md) | Registro historico da tag `v0.1.0-mock-mvp` |
+
+## Prontidao Operacional
+
+Ja implementado:
+
+- Persistencia PostgreSQL e migrations
+- API e repositories reais
+- Autenticacao, autorizacao e auditoria
+- Login interativo Web e sessao segura Mobile
+- Staging local com seed operacional
+- Testes de dominio e E2E do fluxo completo
+- Web administrativa e mobile transacional
+
+Pontos pendentes antes da producao:
+
+- Piloto interno assistido
+- Testes automatizados de interface Web e Mobile
+- Staging hospedado com HTTPS e observabilidade
+- Backup, restore e plano de rollback automatizados
+- Validacao contabil e fiscal para operacao real
+
+## Roadmap Imediato
+
+1. Testes automatizados de interface
+2. Staging hospedado e observabilidade
+3. Backup, restore e rollback
+4. Validacao contabil e fiscal
+5. Piloto interno assistido
+
+O detalhamento, as dependencias e os criterios de aceite estao em
+[docs/roadmap-producao.md](docs/roadmap-producao.md).
+
+## Historico
+
+O primeiro MVP demonstravel em memoria foi congelado na tag
+`v0.1.0-mock-mvp`. O estado atual substitui os repositories mock dos fluxos
+principais por API e PostgreSQL reais.

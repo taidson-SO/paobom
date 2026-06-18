@@ -66,13 +66,23 @@ DATABASE_URL=postgresql://paobom:paobom@localhost:5433/paobom?schema=public pnpm
 
 - `DATABASE_URL`: conexao PostgreSQL.
 - `API_PORT` ou `PORT`: porta HTTP da API. Padrao: `3333`.
-- `CORS_ORIGIN`: origem permitida para browser. Padrao: `*`.
+- `CORS_ORIGIN`: origem permitida para browser. Padrao: `http://localhost:3000`.
 - `AUTH_TOKEN_SECRET`: segredo usado para assinar/hash de tokens de sessao.
 - `SESSION_TTL_HOURS`: duracao das sessoes. Padrao: `12`.
+- `SESSION_MAX_ACTIVE`: limite de sessoes validas por usuario. Padrao: `5`.
+- `SESSION_COOKIE_SECURE`: exige HTTPS para o cookie Web. Use `true` em producao.
 - `SEED_USER_PASSWORD`: senha usada nos usuarios iniciais do seed. Padrao: `Paobom@123`.
 - `NEXT_PUBLIC_API_BASE_URL`: URL da API usada pela web. Padrao local: `http://localhost:3333`.
-- `NEXT_PUBLIC_API_DEFAULT_EMAIL`: usuario usado pela web durante a etapa sem tela de login. Padrao: `dono@paobom.local`.
-- `NEXT_PUBLIC_API_DEFAULT_PASSWORD`: senha do usuario padrao da web. Padrao: `Paobom@123`.
+
+## Sessoes Web e Mobile
+
+- A Web autentica interativamente e usa cookie `HttpOnly` com `SameSite=Lax`.
+- O token nao fica acessivel ao JavaScript da Web.
+- O Mobile usa bearer token guardado pelo `expo-secure-store`.
+- Ambos validam a sessao restaurada em `GET /auth/me`.
+- Logout revoga a sessao no banco.
+- Respostas `401` limpam o estado local e exigem nova autenticacao.
+- Novo login revoga sessoes expiradas e as mais antigas acima do limite.
 
 ## Migracao web para ApiRepository
 

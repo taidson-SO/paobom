@@ -19,8 +19,8 @@ import { AuthRepository } from "@/features/auth/domain/auth";
 import { useAuthStore } from "@/features/auth/presentation/stores/useAuthStore";
 
 export function LoginScreen() {
-  const [email, setEmail] = useState(appConfig.defaultEmail);
-  const [password, setPassword] = useState(appConfig.defaultPassword);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const setSession = useAuthStore((state) => state.setSession);
   const login = useMutation({
     mutationFn: () =>

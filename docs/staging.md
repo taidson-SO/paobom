@@ -47,8 +47,6 @@ Para usar o mobile com staging, configure `apps/mobile/.env.local`:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3335
-EXPO_PUBLIC_API_DEFAULT_EMAIL=vendas@paobom.local
-EXPO_PUBLIC_API_DEFAULT_PASSWORD=Paobom@123
 ```
 
 Em dispositivo fisico, substitua `10.0.2.2` pelo IP da maquina que executa o

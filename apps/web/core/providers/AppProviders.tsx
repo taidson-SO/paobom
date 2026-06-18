@@ -3,6 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PropsWithChildren, useState } from "react";
 
+import { WebAuthGate } from "@/features/auth/presentation/components/WebAuthGate";
+
 type AppProvidersProps = PropsWithChildren<{
   bootstrap?: () => void;
 }>;
@@ -13,6 +15,8 @@ export function AppProviders({ bootstrap, children }: AppProvidersProps) {
   bootstrap?.();
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <WebAuthGate>{children}</WebAuthGate>
+    </QueryClientProvider>
   );
 }

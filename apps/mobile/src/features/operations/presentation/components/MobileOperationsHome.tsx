@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ReactNode, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +31,7 @@ type CartLine = {
 };
 
 export function MobileOperationsHome() {
+  const queryClient = useQueryClient();
   const session = useAuthStore((state) => state.session);
   const clearSession = useAuthStore((state) => state.clearSession);
   const operations = useTransactionalOperations();
@@ -68,6 +70,7 @@ export function MobileOperationsHome() {
     try {
       await container.get<AuthRepository>(TOKENS.authRepository).logout();
     } finally {
+      queryClient.clear();
       clearSession();
     }
   }

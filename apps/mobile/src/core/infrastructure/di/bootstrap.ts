@@ -1,7 +1,7 @@
 import { appConfig } from "@/core/config/app-config";
 import { ApiClient } from "@/core/infrastructure/api/api-client";
 import { eventBus } from "@/core/infrastructure/events/event-bus";
-import { MemoryStorage } from "@/core/infrastructure/storage/storage";
+import { SecureKeyValueStorage } from "@/core/infrastructure/storage/storage";
 
 import { container } from "./container";
 import { TOKENS } from "./tokens";
@@ -17,7 +17,9 @@ export function bootstrapCoreContainer() {
 
   container.register(TOKENS.apiClient, () => apiClient);
   container.register(TOKENS.eventBus, () => eventBus);
-  container.register(TOKENS.storage, () => new MemoryStorage());
+  const storage = new SecureKeyValueStorage();
+
+  container.register(TOKENS.storage, () => storage);
 
   bootstrapped = true;
 }
