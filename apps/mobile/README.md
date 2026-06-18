@@ -45,6 +45,7 @@ Os usuarios de desenvolvimento e staging sao documentados em
 ```bash
 pnpm --filter mobile typecheck
 pnpm --filter mobile lint
+pnpm --filter mobile test
 ```
 
 A sessao e armazenada com `expo-secure-store`, restaurada na abertura e

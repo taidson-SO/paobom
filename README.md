@@ -228,6 +228,18 @@ runner recusa bancos cujo nome nao contenha `e2e` ou `test`.
 
 Detalhes em [docs/e2e.md](docs/e2e.md).
 
+Testes automatizados das interfaces:
+
+```bash
+pnpm test:ui:mobile
+pnpm test:ui:web:local
+pnpm test:ui
+```
+
+O Playwright cobre autenticacao, sessao, permissoes e a jornada operacional Web.
+Os testes Mobile validam login, venda, perda de estoque e producao. Consulte
+[docs/interface-tests.md](docs/interface-tests.md) para cobertura e diagnostico.
+
 ## Comandos Principais
 
 | Comando | Finalidade |
@@ -245,13 +257,17 @@ Detalhes em [docs/e2e.md](docs/e2e.md).
 | `pnpm staging:up` | Subir staging |
 | `pnpm staging:down` | Encerrar staging |
 | `pnpm test:e2e:local` | Executar o fluxo integrado completo |
+| `pnpm test:ui:mobile` | Executar testes de interface Mobile |
+| `pnpm test:ui:web:local` | Executar Playwright Web com banco isolado |
+| `pnpm test:ui` | Executar as suites Mobile e Web |
 
 ## CI
 
-O workflow em `.github/workflows/ci.yml` possui dois jobs:
+O workflow em `.github/workflows/ci.yml` possui tres jobs:
 
 1. `validate`: schema, typecheck, lint, testes e build
 2. `e2e`: PostgreSQL dedicado e fluxo ERP completo
+3. `ui`: Playwright Web com PostgreSQL dedicado e artefatos de falha
 
 ## Documentacao
 
@@ -262,6 +278,7 @@ O workflow em `.github/workflows/ci.yml` possui dois jobs:
 | [Backend/API](docs/api-real.md) | Endpoints, autenticacao e auditoria |
 | [Staging](docs/staging.md) | Ambiente e dados simulados |
 | [Testes E2E](docs/e2e.md) | Execucao e protecao do banco |
+| [Testes de interface](docs/interface-tests.md) | Playwright Web e testes Mobile |
 | [Roadmap para producao](docs/roadmap-producao.md) | Fases, gates e criterios para piloto |
 | [Checkpoint mock](docs/v0.1.0-mock-mvp.md) | Registro historico da tag `v0.1.0-mock-mvp` |
 
@@ -275,23 +292,22 @@ Ja implementado:
 - Login interativo Web e sessao segura Mobile
 - Staging local com seed operacional
 - Testes de dominio e E2E do fluxo completo
+- Testes automatizados de interface Web e Mobile
 - Web administrativa e mobile transacional
 
 Pontos pendentes antes da producao:
 
 - Piloto interno assistido
-- Testes automatizados de interface Web e Mobile
 - Staging hospedado com HTTPS e observabilidade
 - Backup, restore e plano de rollback automatizados
 - Validacao contabil e fiscal para operacao real
 
 ## Roadmap Imediato
 
-1. Testes automatizados de interface
-2. Staging hospedado e observabilidade
-3. Backup, restore e rollback
-4. Validacao contabil e fiscal
-5. Piloto interno assistido
+1. Staging hospedado e observabilidade
+2. Backup, restore e rollback
+3. Validacao contabil e fiscal
+4. Piloto interno assistido
 
 O detalhamento, as dependencias e os criterios de aceite estao em
 [docs/roadmap-producao.md](docs/roadmap-producao.md).

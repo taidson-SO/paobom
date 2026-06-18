@@ -27,7 +27,7 @@ O roadmap parte do estado atual:
 | Fase | Nome | Duracao estimada | Dependencias |
 | --- | --- | --- | --- |
 | 27 | Sessoes seguras Web e Mobile | Concluida | Estado atual |
-| 28 | Testes automatizados de interface | 2 sprints | Fase 27 |
+| 28 | Testes automatizados de interface | Concluida | Fase 27 |
 | 29 | Staging hospedado e observabilidade | 2 sprints | Fase 27 |
 | 30 | Backup, restore e rollback | 1 a 2 sprints | Fase 29 |
 | 31 | Validacao contabil e fiscal | 2 a 4 sprints, em paralelo | Inicia na Fase 27 |
@@ -113,6 +113,15 @@ testes de dominio e API existentes.
 ### Gate
 
 Nenhuma regressao critica pode seguir para staging hospedado ou piloto.
+
+### Estado implementado
+
+- Playwright executa autenticacao, sessao, permissoes e jornada operacional Web
+- Viewports desktop e mobile cobrem acesso e navegacao responsiva
+- Jest e React Native Testing Library cobrem login, venda, perda e producao Mobile
+- CI publica screenshot, trace e video para diagnostico de falhas Web
+- Coberturas de modo offline, sessao expirada Mobile e smoke em dispositivo
+  permanecem como evolucao da suite antes do piloto
 
 ## Fase 29 - Staging hospedado e observabilidade
 

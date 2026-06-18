@@ -85,3 +85,56 @@ jobs:
         env:
           E2E_DATABASE_URL: postgresql://paobom_e2e:paobom_e2e@localhost:5432/paobom_e2e?schema=public
         run: pnpm test:e2e
+
+  ui:
+    name: Web interface tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: paobom_ui_test
+          POSTGRES_USER: paobom_ui_test
+          POSTGRES_PASSWORD: paobom_ui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U paobom_ui_test -d paobom_ui_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Web interface tests
+        env:
+          E2E_DATABASE_URL: postgresql://paobom_ui_test:paobom_ui_test@localhost:5432/paobom_ui_test?schema=public
+        run: pnpm test:ui:web
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results/playwright
+          if-no-files-found: ignore
+          retention-days: 7
