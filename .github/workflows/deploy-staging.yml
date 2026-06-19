@@ -148,38 +148,43 @@ jobs:
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Upload release
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
           STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
         run: |
           # shellcheck disable=SC2029
-          ssh "$STAGING_USER@$STAGING_HOST" \
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_USER@$STAGING_HOST" \
             "mkdir -p '$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA' && chmod 700 '$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA'"
-          scp staging-bundle.tgz "$STAGING_USER@$STAGING_HOST:$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA/"
+          scp -P "$STAGING_SSH_PORT" staging-bundle.tgz \
+            "$STAGING_USER@$STAGING_HOST:$STAGING_DEPLOY_PATH/releases/$GITHUB_SHA/"
 
       - name: Activate release
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
           STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
           GHCR_USER: ${{ secrets.STAGING_GHCR_USER }}
           GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
           SEED: ${{ inputs.seed || 'false' }}
         run: |
           # shellcheck disable=SC2029
-          printf '%s' "$GHCR_TOKEN" | ssh "$STAGING_USER@$STAGING_HOST" \
+          printf '%s' "$GHCR_TOKEN" | ssh -p "$STAGING_SSH_PORT" \
+            "$STAGING_USER@$STAGING_HOST" \
             "docker login ghcr.io -u '$GHCR_USER' --password-stdin"
           # shellcheck disable=SC2029
-          ssh "$STAGING_USER@$STAGING_HOST" \
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_USER@$STAGING_HOST" \
             "STAGING_DEPLOY_PATH='$STAGING_DEPLOY_PATH' RELEASE='$GITHUB_SHA' SEED='$SEED' bash -s" <<'REMOTE'
           set -euo pipefail
           release_dir="$STAGING_DEPLOY_PATH/releases/$RELEASE"

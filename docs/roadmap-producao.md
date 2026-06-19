@@ -170,11 +170,15 @@ monitorado continuamente.
 - Erros Web e Mobile enviados para coleta centralizada autenticada
 - Prometheus, Blackbox Exporter, Grafana, Loki, Vector e Alertmanager
 - Dashboard e alertas provisionados como codigo
+- Bootstrap idempotente da VPS com Docker, firewall e chave exclusiva
+- Ativacao DNS manual ou automatizada para Cloudflare
+- Configuracao automatizada de environment, variables e secrets no GitHub
+- Orquestracao do primeiro deploy e verificacao de DNS, SSH, HTTPS e TLS
 
-A ativacao externa ainda depende da VPS, dos registros DNS, dos secrets do
-ambiente GitHub e de um webhook operacional. A fase so deve ser considerada
-operacionalmente aceita apos o primeiro deploy HTTPS e o teste de entrega dos
-alertas.
+A automacao esta concluida. A execucao externa ainda depende do IP da VPS,
+dominios, acesso SSH, token GHCR, autenticacao administrativa no GitHub e
+webhook operacional. A fase so deve ser considerada operacionalmente aceita
+apos o primeiro deploy HTTPS e o teste de entrega dos alertas.
 
 ## Fase 30 - Backup, restore e rollback
 

@@ -258,6 +258,9 @@ Os testes Mobile validam login, venda, perda de estoque e producao. Consulte
 | `pnpm staging:down` | Encerrar staging |
 | `pnpm hosted:render` | Renderizar configuracoes hospedadas |
 | `pnpm hosted:config` | Validar o compose hospedado |
+| `pnpm staging:activate` | Simular ativacao do staging |
+| `pnpm staging:activate -- --apply` | Ativar VPS, DNS, GitHub e deploy |
+| `pnpm staging:activation:verify` | Validar DNS, SSH e HTTPS |
 | `pnpm test:e2e:local` | Executar o fluxo integrado completo |
 | `pnpm test:ui:mobile` | Executar testes de interface Mobile |
 | `pnpm test:ui:web:local` | Executar Playwright Web com banco isolado |
@@ -280,6 +283,7 @@ O workflow em `.github/workflows/ci.yml` possui tres jobs:
 | [Backend/API](docs/api-real.md) | Endpoints, autenticacao e auditoria |
 | [Staging](docs/staging.md) | Ambiente e dados simulados |
 | [Staging hospedado](docs/staging-hosted.md) | HTTPS, deploy e observabilidade |
+| [Ativacao do staging](docs/staging-activation.md) | VPS, DNS e secrets GitHub |
 | [Testes E2E](docs/e2e.md) | Execucao e protecao do banco |
 | [Testes de interface](docs/interface-tests.md) | Playwright Web e testes Mobile |
 | [Roadmap para producao](docs/roadmap-producao.md) | Fases, gates e criterios para piloto |
@@ -295,6 +299,7 @@ Ja implementado:
 - Login interativo Web e sessao segura Mobile
 - Staging local com seed operacional
 - Infraestrutura de staging hospedado com HTTPS e observabilidade
+- Automacao de ativacao da VPS, DNS e secrets do staging
 - Testes de dominio e E2E do fluxo completo
 - Testes automatizados de interface Web e Mobile
 - Web administrativa e mobile transacional
@@ -302,13 +307,13 @@ Ja implementado:
 Pontos pendentes antes da producao:
 
 - Piloto interno assistido
-- Ativacao da VPS, DNS e secrets do staging hospedado
+- Execucao da ativacao com credenciais e dominios reais
 - Backup, restore e plano de rollback automatizados
 - Validacao contabil e fiscal para operacao real
 
 ## Roadmap Imediato
 
-1. Ativar VPS, DNS e secrets do staging
+1. Executar a ativacao com credenciais e dominios reais
 2. Backup, restore e rollback
 3. Validacao contabil e fiscal
 4. Piloto interno assistido

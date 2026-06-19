@@ -43,6 +43,9 @@ pnpm hosted:config
 
 O comando gera arquivos sensiveis em `.runtime/staging`, ignorado pelo Git.
 
+A preparacao e ativacao da VPS, DNS e GitHub esta automatizada em
+[staging-activation.md](staging-activation.md).
+
 ## Pipeline
 
 O workflow `.github/workflows/deploy-staging.yml`:
@@ -67,6 +70,8 @@ quando a entrada `seed` for habilitada no disparo manual.
 
 - `STAGING_ENV_FILE`: conteudo integral do `.env.hosted`
 - `STAGING_HOST`
+- `STAGING_SSH_PORT`
+- `STAGING_SSH_KNOWN_HOSTS`
 - `STAGING_USER`
 - `STAGING_DEPLOY_PATH`: por exemplo `/opt/paobom`
 - `STAGING_SSH_PRIVATE_KEY`

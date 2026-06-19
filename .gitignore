@@ -23,6 +23,7 @@ dist
 # misc
 .DS_Store
 .env
+.env.activation
 .env.hosted
 .env.local
 .env*.local
