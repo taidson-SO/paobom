@@ -17,7 +17,21 @@ html {
 }
 
 body {
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+main :where(section, div) {
+  min-width: 0;
+}
+
+main :where(div):has(> table) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+main table {
+  min-width: 720px;
 }

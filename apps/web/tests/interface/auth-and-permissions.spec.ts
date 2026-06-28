@@ -3,7 +3,9 @@ import { expect, Page, test } from "@playwright/test";
 async function login(page: Page, email: string) {
   await page.goto("/");
   await page.getByPlaceholder("usuario@paobom.local").fill(email);
-  await page.getByPlaceholder("Sua senha").fill("Paobom@123");
+  await page
+    .getByPlaceholder("Sua senha")
+    .fill(process.env.PLAYWRIGHT_USER_PASSWORD ?? "Paobom@123");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(
     page.getByRole("heading", { name: "Operacao da padaria" }),

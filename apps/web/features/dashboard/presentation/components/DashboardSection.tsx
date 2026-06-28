@@ -203,11 +203,11 @@ function PeriodControls({
   setPeriodForm: (periodForm: PeriodForm) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
       <label className="grid gap-1 text-xs font-semibold text-zinc-600">
         Inicio
         <input
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
           max={periodForm.endDate || undefined}
           onChange={(event) =>
             setPeriodForm({
@@ -222,7 +222,7 @@ function PeriodControls({
       <label className="grid gap-1 text-xs font-semibold text-zinc-600">
         Fim
         <input
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
           min={periodForm.startDate || undefined}
           onChange={(event) =>
             setPeriodForm({

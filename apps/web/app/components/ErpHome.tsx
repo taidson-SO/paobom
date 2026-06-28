@@ -95,7 +95,7 @@ export function ErpHome() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen overflow-x-hidden bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-5 lg:px-6">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
@@ -131,8 +131,8 @@ export function ErpHome() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[240px_1fr] lg:px-6">
-        <aside className="lg:sticky lg:top-4 lg:self-start">
+      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-6">
+        <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
           <nav className="overflow-x-auto border-b border-zinc-200 pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
             <div className="flex min-w-max gap-5 lg:min-w-0 lg:flex-col lg:gap-6">
               {visibleNavigationGroups.map((group) => (
@@ -157,7 +157,7 @@ export function ErpHome() {
           </nav>
         </aside>
 
-        <main className="grid gap-8">
+        <main className="grid min-w-0 gap-8">
           <WorkspaceGroup
             description="Indicadores e consolidacoes para acompanhar a saude do negocio."
             id="visao-geral"
@@ -289,12 +289,12 @@ function WorkspaceGroup({
 }) {
   return (
     <PermissionGate permission={permission}>
-      <section className="scroll-mt-5" id={id}>
+      <section className="min-w-0 scroll-mt-5" id={id}>
         <div className="mb-3 border-b border-zinc-200 pb-2">
           <h2 className="text-lg font-bold text-zinc-950">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
         </div>
-        <div className="grid gap-4">{children}</div>
+        <div className="grid min-w-0 gap-4">{children}</div>
       </section>
     </PermissionGate>
   );
