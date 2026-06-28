@@ -81,11 +81,11 @@ export function ProductSection() {
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[360px_1fr]">
-      <form className="space-y-3" onSubmit={handleSubmit}>
+    <section className="brand-card grid min-w-0 gap-4 p-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
+      <form className="min-w-0 space-y-3" onSubmit={handleSubmit}>
         <div>
-          <p className="text-sm font-bold text-green-800">Produtos</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Produtos</p>
+          <h2 className="brand-section-title text-xl">
             Cadastro de produtos
           </h2>
         </div>
@@ -108,10 +108,10 @@ export function ProductSection() {
           value={form.category}
           onChange={(category) => setForm((state) => ({ ...state, category }))}
         />
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
           Tipo
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.kind}
             onChange={(event) =>
               setForm((state) => ({
@@ -126,10 +126,10 @@ export function ProductSection() {
             <option value="packaging">Embalagem</option>
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
           Unidade
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.unit}
             onChange={(event) =>
               setForm((state) => ({
@@ -146,7 +146,7 @@ export function ProductSection() {
             <option value="package">Pacote</option>
           </select>
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid min-w-0 gap-2 sm:grid-cols-3">
           <NumberField
             label="Compra"
             value={form.purchasePrice}
@@ -170,16 +170,16 @@ export function ProductSection() {
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canManageProducts}
           >
             {selectedProductId ? "Salvar" : "Criar"}
           </button>
           {selectedProductId ? (
             <button
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
+              className="brand-secondary-button px-4 py-2 text-sm"
               type="button"
               onClick={() => setSelectedProduct(null)}
             >
@@ -187,12 +187,14 @@ export function ProductSection() {
             </button>
           ) : null}
         </div>
-        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+        {error ? (
+          <p className="text-sm font-semibold text-red-700">{error}</p>
+        ) : null}
       </form>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200">
+      <div className="brand-table min-w-0 overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+          <thead className="brand-table-header text-xs uppercase">
             <tr>
               <th className="px-3 py-2">Produto</th>
               <th className="px-3 py-2">Tipo</th>
@@ -203,17 +205,20 @@ export function ProductSection() {
           </thead>
           <tbody>
             {products.map((product) => (
-              <tr className="border-t border-zinc-100" key={product.id}>
+              <tr className="border-t border-[#f1dfb5]" key={product.id}>
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-zinc-950">{product.name}</p>
-                  <p className="text-xs text-zinc-500">
-                    {product.sku} · {product.category} · {getUnitLabel(product.unit)}
+                  <p className="brand-section-title font-semibold">
+                    {product.name}
+                  </p>
+                  <p className="brand-muted text-xs">
+                    {product.sku} · {product.category} ·{" "}
+                    {getUnitLabel(product.unit)}
                   </p>
                 </td>
-                <td className="px-3 py-3 text-zinc-700">
+                <td className="px-3 py-3 text-[var(--brand-brown)]">
                   {getKindLabel(product.kind)}
                 </td>
-                <td className="px-3 py-3 text-zinc-700">
+                <td className="px-3 py-3 text-[var(--brand-brown)]">
                   R$ {product.salePrice.toFixed(2)}
                 </td>
                 <td className="px-3 py-3">
@@ -292,10 +297,10 @@ function Field({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -313,10 +318,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"
@@ -331,7 +336,9 @@ function Status({ active }: { active: boolean }) {
   return (
     <span
       className={`rounded-full px-2 py-1 text-xs font-bold ${
-        active ? "bg-green-100 text-green-800" : "bg-zinc-100 text-zinc-500"
+        active
+          ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+          : "bg-[#f3ead7] text-[var(--brand-caramel)]"
       }`}
     >
       {active ? "Ativo" : "Inativo"}
@@ -349,13 +356,16 @@ function RowActions({
   onEdit: () => void;
 }) {
   return (
-    <div className="flex justify-end gap-2">
-      <button className="text-sm font-semibold text-green-800" onClick={onEdit}>
+    <div className="flex flex-wrap justify-end gap-2">
+      <button
+        className="text-sm font-semibold text-[var(--brand-leaf)]"
+        onClick={onEdit}
+      >
         Editar
       </button>
       {active ? (
         <button
-          className="text-sm font-semibold text-zinc-500"
+          className="brand-muted text-sm font-semibold"
           onClick={onDeactivate}
         >
           Inativar

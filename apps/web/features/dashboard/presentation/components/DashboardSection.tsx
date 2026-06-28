@@ -22,11 +22,11 @@ export function DashboardSection() {
 
   if (!dashboard) {
     return (
-      <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="brand-card space-y-4 p-4">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-bold text-green-800">Dashboard</p>
-            <h2 className="text-xl font-bold text-zinc-950">
+            <p className="brand-kicker text-sm">Dashboard</p>
+            <h2 className="brand-section-title text-xl">
               Carregando indicadores
             </h2>
           </div>
@@ -40,14 +40,14 @@ export function DashboardSection() {
   }
 
   return (
-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+    <section className="brand-card space-y-4 p-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <p className="text-sm font-bold text-green-800">Dashboard</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Dashboard</p>
+          <h2 className="brand-section-title text-xl">
             Painel executivo
           </h2>
-          <p className="mt-1 text-xs font-semibold text-zinc-500">
+          <p className="brand-muted mt-1 text-xs font-semibold">
             {formatPeriodLabel(dashboard.period)}
           </p>
         </div>
@@ -56,7 +56,7 @@ export function DashboardSection() {
             periodForm={periodForm}
             setPeriodForm={setPeriodForm}
           />
-          <p className="text-xs font-semibold text-zinc-500">
+          <p className="brand-muted text-xs font-semibold">
             Atualizado {dashboard.generatedAt.toLocaleString()}
           </p>
         </div>
@@ -134,13 +134,13 @@ export function DashboardSection() {
             />
           </div>
 
-          <div className="overflow-hidden rounded-md border border-zinc-200">
-            <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
-              <h3 className="text-sm font-bold text-zinc-800">
+          <div className="brand-table">
+            <div className="brand-table-header px-3 py-2">
+              <h3 className="text-sm font-bold">
                 Focos executivos
               </h3>
             </div>
-            <div className="divide-y divide-zinc-100">
+            <div className="divide-y divide-[#f1dfb5]">
               {dashboard.focusAreas.length ? (
                 dashboard.focusAreas.map((focus) => (
                   <div
@@ -153,20 +153,20 @@ export function DashboardSection() {
                       {getPriorityLabel(focus.priority)}
                     </span>
                     <div>
-                      <p className="text-sm font-bold text-zinc-900">
+                      <p className="brand-section-title text-sm">
                         {focus.title}
                       </p>
-                      <p className="text-xs leading-5 text-zinc-600">
+                      <p className="brand-muted text-xs leading-5">
                         {focus.description}
                       </p>
                     </div>
-                    <p className="text-sm font-bold text-zinc-800 md:text-right">
+                    <p className="text-sm font-bold text-[var(--brand-brown)] md:text-right">
                       {focus.metric}
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="px-3 py-4 text-sm font-semibold text-zinc-500">
+                <p className="brand-muted px-3 py-4 text-sm font-semibold">
                   Nenhum foco critico para o periodo
                 </p>
               )}
@@ -204,10 +204,10 @@ function PeriodControls({
 }) {
   return (
     <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Inicio
         <input
-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
           max={periodForm.endDate || undefined}
           onChange={(event) =>
             setPeriodForm({
@@ -219,10 +219,10 @@ function PeriodControls({
           value={periodForm.startDate}
         />
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Fim
         <input
-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
           min={periodForm.startDate || undefined}
           onChange={(event) =>
             setPeriodForm({
@@ -235,14 +235,14 @@ function PeriodControls({
         />
       </label>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => setPeriodForm(getCurrentMonthPeriod())}
         type="button"
       >
         Mes atual
       </button>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => setPeriodForm({ endDate: "", startDate: "" })}
         type="button"
       >
@@ -292,10 +292,16 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className={`rounded-md border p-3 ${getMetricTone(tone)}`}>
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-zinc-950">{value}</p>
-      <p className="mt-1 text-xs font-medium text-zinc-500">{hint}</p>
+    <div className={`rounded-md border p-3 shadow-sm ${getMetricTone(tone)}`}>
+      <p className="brand-muted text-xs font-semibold">
+        {label}
+      </p>
+      <p className="brand-section-title mt-1 text-2xl">
+        {value}
+      </p>
+      <p className="brand-muted mt-1 text-xs font-medium">
+        {hint}
+      </p>
     </div>
   );
 }
@@ -310,9 +316,11 @@ function MiniMetric({
   value: number;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 p-3">
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-bold text-zinc-950">
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-semibold">
+        {label}
+      </p>
+      <p className="brand-section-title mt-1 text-xl">
         {suffix === "%" ? value.toFixed(0) : value}
         {suffix}
       </p>
@@ -339,18 +347,24 @@ function ExecutiveSnapshot({
   ];
 
   return (
-    <div className="rounded-md border border-zinc-200">
-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
-        <h3 className="text-sm font-bold text-zinc-800">Resumo de controle</h3>
+    <div className="brand-table">
+      <div className="brand-table-header px-3 py-2">
+        <h3 className="text-sm font-bold">
+          Resumo de controle
+        </h3>
       </div>
-      <div className="divide-y divide-zinc-100">
+      <div className="divide-y divide-[#f1dfb5]">
         {rows.map(([label, value]) => (
           <div
             className="flex items-center justify-between gap-3 px-3 py-2"
             key={label}
           >
-            <p className="text-xs font-semibold text-zinc-500">{label}</p>
-            <p className="text-sm font-bold text-zinc-900">{value}</p>
+            <p className="brand-muted text-xs font-semibold">
+              {label}
+            </p>
+            <p className="brand-section-title text-sm">
+              {value}
+            </p>
           </div>
         ))}
       </div>
@@ -369,24 +383,24 @@ function AlertsPanel({
   }[];
 }) {
   return (
-    <div className="rounded-md border border-zinc-200">
-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
-        <h3 className="text-sm font-bold text-zinc-800">Alertas</h3>
+    <div className="brand-table">
+      <div className="brand-table-header px-3 py-2">
+        <h3 className="text-sm font-bold">Alertas</h3>
       </div>
-      <div className="divide-y divide-zinc-100">
+      <div className="divide-y divide-[#f1dfb5]">
         {alerts.length ? (
           alerts.map((alert) => (
             <div className="px-3 py-2" key={alert.id}>
               <p className={`text-sm font-bold ${getAlertTone(alert.level)}`}>
                 {alert.title}
               </p>
-              <p className="text-xs leading-5 text-zinc-600">
+              <p className="brand-muted text-xs leading-5">
                 {alert.description}
               </p>
             </div>
           ))
         ) : (
-          <p className="px-3 py-4 text-sm font-semibold text-zinc-500">
+          <p className="brand-muted px-3 py-4 text-sm font-semibold">
             Nenhum alerta executivo
           </p>
         )}
@@ -401,10 +415,10 @@ function getAlertTone(level: DashboardAlertLevel) {
   }
 
   if (level === "warning") {
-    return "text-amber-700";
+    return "text-[var(--brand-caramel)]";
   }
 
-  return "text-blue-700";
+  return "text-[var(--brand-leaf)]";
 }
 
 function getPriorityLabel(priority: DashboardFocusPriority) {
@@ -425,10 +439,10 @@ function getPriorityTone(priority: DashboardFocusPriority) {
   }
 
   if (priority === "medium") {
-    return "text-amber-700";
+    return "text-[var(--brand-caramel)]";
   }
 
-  return "text-blue-700";
+  return "text-[var(--brand-leaf)]";
 }
 
 function getHealthStatusLabel(status: DashboardHealthStatus) {
@@ -449,10 +463,10 @@ function getHealthPanelTone(status: DashboardHealthStatus) {
   }
 
   if (status === "attention") {
-    return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-[#e7b76a] bg-[#fff4cf] text-[var(--brand-caramel)]";
   }
 
-  return "border-green-200 bg-green-50 text-green-800";
+  return "border-[#c4d8a8] bg-[#f4f9ec] text-[var(--brand-leaf)]";
 }
 
 function getMetricTone(tone: MetricTone) {
@@ -461,14 +475,14 @@ function getMetricTone(tone: MetricTone) {
   }
 
   if (tone === "success") {
-    return "border-green-200 bg-green-50";
+    return "border-[#c4d8a8] bg-[#f4f9ec]";
   }
 
   if (tone === "warning") {
-    return "border-amber-200 bg-amber-50";
+    return "border-[#e7b76a] bg-[#fff4cf]";
   }
 
-  return "border-zinc-200 bg-zinc-50";
+  return "border-[var(--brand-line)] bg-[var(--brand-cream)]";
 }
 
 function getCurrentMonthPeriod(): PeriodForm {

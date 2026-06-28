@@ -186,11 +186,11 @@ export function SalesSection({
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div>
-          <p className="text-sm font-bold text-green-800">Vendas</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Vendas</p>
+          <h2 className="brand-section-title text-xl">
             Balcao e encomendas
           </h2>
         </div>
@@ -198,10 +198,10 @@ export function SalesSection({
           <PermissionNotice description="Voce pode consultar vendas, mas nao registrar novos atendimentos." />
         ) : null}
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Cliente
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.customerId}
             onChange={(event) =>
               setForm((state) => ({
@@ -219,10 +219,10 @@ export function SalesSection({
           </select>
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Pagamento
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.paymentMethod}
             onChange={(event) =>
               setForm((state) => ({
@@ -274,13 +274,13 @@ export function SalesSection({
         <div className="space-y-2">
           {form.items.map((item, index) => (
             <div
-              className="grid gap-2 rounded-md border border-zinc-200 p-3"
+              className="brand-card-warm grid gap-2 p-3"
               key={index}
             >
-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
+              <label className="brand-muted grid gap-1 text-sm font-medium">
                 Produto
                 <select
-                  className="rounded-md border border-zinc-300 px-3 py-2"
+                  className="brand-input px-3 py-2"
                   value={item.productId}
                   onChange={(event) => selectProduct(index, event.target.value)}
                 >
@@ -309,7 +309,7 @@ export function SalesSection({
         </div>
 
         <button
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
+          className="brand-secondary-button px-4 py-2 text-sm"
           type="button"
           onClick={() =>
             setForm((state) => ({
@@ -332,11 +332,11 @@ export function SalesSection({
               setForm((state) => ({ ...state, discountAmount }))
             }
           />
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
-            <p className="font-bold text-zinc-700">
+          <div className="brand-card-warm p-3 text-sm">
+            <p className="brand-section-title font-bold">
               Subtotal: R$ {subtotal.toFixed(2)}
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="brand-muted text-xs">
               Limite sem autorizacao: R$ {(subtotal * 0.1).toFixed(2)}
             </p>
           </div>
@@ -399,10 +399,10 @@ export function SalesSection({
           </div>
         ) : null}
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Observacoes
           <textarea
-            className="min-h-16 rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input min-h-16 px-3 py-2"
             value={form.notes}
             onChange={(event) =>
               setForm((state) => ({ ...state, notes: event.target.value }))
@@ -411,11 +411,11 @@ export function SalesSection({
         </label>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-zinc-700">
+          <p className="brand-section-title text-sm">
             Total: R$ {total.toFixed(2)}
           </p>
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={
               !canCreateSale ||
               (needsDiscountAuthorization && !canAuthorizeDiscount) ||
@@ -435,8 +435,8 @@ export function SalesSection({
             <button
               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
                 selectedStatus === status
-                  ? "border-green-800 bg-green-50 text-green-900"
-                  : "border-zinc-200 text-zinc-600"
+                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
+                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
               }`}
               key={status}
               onClick={() => setSelectedStatus(status)}
@@ -447,9 +447,9 @@ export function SalesSection({
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Venda</th>
                 <th className="px-3 py-2">Itens</th>
@@ -460,19 +460,19 @@ export function SalesSection({
             </thead>
             <tbody>
               {filteredSales.map((sale) => (
-                <tr className="border-t border-zinc-100" key={sale.id}>
+                <tr className="border-t border-[#f1dfb5]" key={sale.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {sale.customerId
                         ? customerNames.get(sale.customerId)
                         : "Consumidor final"}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {getPaymentLabel(sale.paymentMethod)} ·{" "}
                       {sale.createdAt.toLocaleDateString()}
                     </p>
                     {sale.payments.length > 0 ? (
-                      <p className="text-xs text-zinc-500">
+                      <p className="brand-muted text-xs">
                         {sale.payments
                           .map((payment) =>
                             formatPaymentDetail(payment.method, payment.amount),
@@ -481,7 +481,7 @@ export function SalesSection({
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {sale.items.map((item) => (
                       <p key={item.id}>
                         {productNames.get(item.productId) ?? "Produto"} ·{" "}
@@ -489,14 +489,14 @@ export function SalesSection({
                       </p>
                     ))}
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     R$ {sale.total.toFixed(2)}
                     {sale.discountAmount > 0 ? (
                       <p className="text-xs font-medium text-amber-700">
                         Desc. R$ {sale.discountAmount.toFixed(2)}
                       </p>
                     ) : null}
-                    <p className="text-xs font-medium text-zinc-500">
+                    <p className="brand-muted text-xs font-medium">
                       Margem R$ {sale.grossMargin.toFixed(2)}
                     </p>
                   </td>
@@ -508,7 +508,7 @@ export function SalesSection({
                       <div className="flex justify-end gap-2">
                         {sale.status === "open" && canPaySale ? (
                           <button
-                            className="text-sm font-semibold text-green-800"
+                            className="text-sm font-semibold text-[var(--brand-leaf)]"
                             onClick={async () => {
                               await paySale.mutateAsync(sale.id);
                               recordAudit({
@@ -525,7 +525,7 @@ export function SalesSection({
                         ) : null}
                         {canCancelSale ? (
                           <button
-                            className="text-sm font-semibold text-zinc-500"
+                            className="brand-muted text-sm font-semibold"
                             onClick={async () => {
                               await cancelSale.mutateAsync(sale.id);
                               recordAudit({
@@ -563,10 +563,10 @@ function Field({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 bg-white px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -584,10 +584,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"
@@ -603,10 +603,10 @@ function Status({ status }: { status: SaleStatus }) {
     status === "open" ? "Aberta" : status === "paid" ? "Paga" : "Cancelada";
   const tone =
     status === "paid"
-      ? "bg-green-50 text-green-800"
+      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
       : status === "cancelled"
-        ? "bg-zinc-100 text-zinc-500"
-        : "bg-amber-50 text-amber-800";
+        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
+        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
 
   return (
     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>

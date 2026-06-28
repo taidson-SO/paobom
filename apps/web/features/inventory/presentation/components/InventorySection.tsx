@@ -217,11 +217,11 @@ export function InventorySection({ products }: { products: Product[] }) {
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-bold text-green-800">Estoque</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Estoque</p>
+          <h2 className="brand-section-title text-xl">
             Saldos, perdas e ajustes
           </h2>
         </div>
@@ -233,7 +233,7 @@ export function InventorySection({ products }: { products: Product[] }) {
           <Metric label="Divergencias" value={String(divergenceCount)} />
         </div>
 
-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleSubmit}>
+        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleSubmit}>
           {!canRegisterMovement ? (
             <PermissionNotice description="Voce pode consultar estoque e movimentos, mas nao registrar perdas ou ajustes." />
           ) : null}
@@ -242,7 +242,7 @@ export function InventorySection({ products }: { products: Product[] }) {
               className={`rounded-md border px-3 py-2 text-sm font-bold ${
                 form.mode === "loss"
                   ? "border-red-200 bg-red-50 text-red-800"
-                  : "border-zinc-300 text-zinc-700"
+                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
               }`}
               disabled={!canRegisterLoss}
               type="button"
@@ -253,8 +253,8 @@ export function InventorySection({ products }: { products: Product[] }) {
             <button
               className={`rounded-md border px-3 py-2 text-sm font-bold ${
                 form.mode === "adjustment"
-                  ? "border-green-200 bg-green-50 text-green-800"
-                  : "border-zinc-300 text-zinc-700"
+                  ? "border-[#c4d8a8] bg-[#f4f9ec] text-[var(--brand-leaf)]"
+                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
               }`}
               disabled={!canAdjustInventory}
               type="button"
@@ -266,10 +266,10 @@ export function InventorySection({ products }: { products: Product[] }) {
             </button>
           </div>
 
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Produto
             <select
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={form.productId}
               onChange={(event) =>
                 setForm((state) => ({
@@ -295,10 +295,10 @@ export function InventorySection({ products }: { products: Product[] }) {
             }
           />
 
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Motivo
             <input
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={form.reason}
               onChange={(event) =>
                 setForm((state) => ({
@@ -310,7 +310,7 @@ export function InventorySection({ products }: { products: Product[] }) {
           </label>
 
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canRegisterMovement}
           >
             Registrar
@@ -319,20 +319,20 @@ export function InventorySection({ products }: { products: Product[] }) {
           {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
         </form>
 
-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCountSubmit}>
+        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCountSubmit}>
           {!canAdjustInventory ? (
             <PermissionNotice description="Voce pode consultar inventario fisico, mas nao registrar contagens." />
           ) : null}
           <div>
-            <p className="text-sm font-bold text-zinc-950">Inventario fisico</p>
-            <p className="text-xs text-zinc-500">
+            <p className="brand-section-title text-sm">Inventario fisico</p>
+            <p className="brand-muted text-xs">
               Registre contagens e justifique divergencias.
             </p>
           </div>
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Produto
             <select
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={countForm.productId}
               onChange={(event) =>
                 setCountForm((state) => ({
@@ -356,10 +356,10 @@ export function InventorySection({ products }: { products: Product[] }) {
               setCountForm((state) => ({ ...state, countedQuantity }))
             }
           />
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Responsavel
             <input
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={countForm.countedBy}
               onChange={(event) =>
                 setCountForm((state) => ({
@@ -369,10 +369,10 @@ export function InventorySection({ products }: { products: Product[] }) {
               }
             />
           </label>
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Justificativa
             <input
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={countForm.reason}
               onChange={(event) =>
                 setCountForm((state) => ({
@@ -383,7 +383,7 @@ export function InventorySection({ products }: { products: Product[] }) {
             />
           </label>
           <button
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canAdjustInventory}
           >
             Registrar contagem
@@ -395,9 +395,9 @@ export function InventorySection({ products }: { products: Product[] }) {
       </div>
 
       <div className="grid gap-4">
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Lote</th>
                 <th className="px-3 py-2">Produto</th>
@@ -408,23 +408,23 @@ export function InventorySection({ products }: { products: Product[] }) {
             </thead>
             <tbody>
               {visibleLots.map((lot) => (
-                <tr className="border-t border-zinc-100" key={lot.id}>
+                <tr className="border-t border-[#f1dfb5]" key={lot.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">{lot.lotCode}</p>
-                    <p className="text-xs text-zinc-500">{lot.status}</p>
+                    <p className="brand-section-title font-semibold">{lot.lotCode}</p>
+                    <p className="brand-muted text-xs">{lot.status}</p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {productNames.get(lot.productId) ?? "Produto"}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">{lot.quantity}</td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">{lot.quantity}</td>
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {lot.expirationDate
                       ? lot.expirationDate.toLocaleDateString()
                       : "sem validade"}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p>{lot.purchaseId ?? "operacional"}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {lot.supplierId ?? "sem fornecedor"}
                     </p>
                   </td>
@@ -434,9 +434,9 @@ export function InventorySection({ products }: { products: Product[] }) {
           </table>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Produto</th>
                 <th className="px-3 py-2">Tipo</th>
@@ -448,8 +448,8 @@ export function InventorySection({ products }: { products: Product[] }) {
             <tbody>
               {balances.map((balance) => (
                 <tr
-                  className={`cursor-pointer border-t border-zinc-100 ${
-                    selectedProductId === balance.productId ? "bg-green-50" : ""
+                  className={`cursor-pointer border-t border-[#f1dfb5] ${
+                    selectedProductId === balance.productId ? "bg-[#f4f9ec]" : ""
                   }`}
                   key={balance.productId}
                   onClick={() =>
@@ -461,7 +461,7 @@ export function InventorySection({ products }: { products: Product[] }) {
                   }
                 >
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {productNames.get(balance.productId) ?? "Produto"}
                     </p>
                     {balance.isBelowMinimum ? (
@@ -470,16 +470,16 @@ export function InventorySection({ products }: { products: Product[] }) {
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {getProductKindLabel(productKinds.get(balance.productId))}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {balance.quantity}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {balance.minimumStock}
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     R$ {balance.estimatedValue.toFixed(2)}
                   </td>
                 </tr>
@@ -488,9 +488,9 @@ export function InventorySection({ products }: { products: Product[] }) {
           </table>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Movimento</th>
                 <th className="px-3 py-2">Produto</th>
@@ -502,31 +502,31 @@ export function InventorySection({ products }: { products: Product[] }) {
             </thead>
             <tbody>
               {visibleMovements.map((movement) => (
-                <tr className="border-t border-zinc-100" key={movement.id}>
+                <tr className="border-t border-[#f1dfb5]" key={movement.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {movementLabels[movement.type]}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {movement.reason}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {productNames.get(movement.productId) ?? "Produto"}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {movement.lotId ?? "sem lote"}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {movement.quantity}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p>{originLabels[movement.origin]}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {movement.referenceId ?? "sem referencia"}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {movement.occurredAt.toLocaleDateString()}
                   </td>
                 </tr>
@@ -535,9 +535,9 @@ export function InventorySection({ products }: { products: Product[] }) {
           </table>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Contagem</th>
                 <th className="px-3 py-2">Produto</th>
@@ -548,35 +548,35 @@ export function InventorySection({ products }: { products: Product[] }) {
             </thead>
             <tbody>
               {visibleCounts.map((count) => (
-                <tr className="border-t border-zinc-100" key={count.id}>
+                <tr className="border-t border-[#f1dfb5]" key={count.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {count.countedBy}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {count.countedAt.toLocaleDateString()}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {productNames.get(count.productId) ?? "Produto"}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {count.expectedQuantity}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {count.countedQuantity}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p
                       className={
                         count.hasDivergence
                           ? "font-bold text-red-700"
-                          : "font-semibold text-green-700"
+                          : "font-semibold text-[var(--brand-leaf)]"
                       }
                     >
                       {count.divergenceQuantity}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {count.reason ?? "sem divergencia"}
                     </p>
                   </td>
@@ -596,9 +596,9 @@ function getProductKindLabel(kind?: ProductKind) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-bold uppercase text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-bold uppercase">{label}</p>
+      <p className="brand-section-title mt-1 text-xl">{value}</p>
     </div>
   );
 }
@@ -613,10 +613,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"

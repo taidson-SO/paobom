@@ -74,14 +74,14 @@ export function AuditSection() {
   );
 
   return (
-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+    <section className="brand-card space-y-4 p-4">
       <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
         <div>
-          <p className="text-sm font-bold text-green-800">Auditoria</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Auditoria</p>
+          <h2 className="brand-section-title text-xl">
             Trilha operacional
           </h2>
-          <p className="mt-1 text-xs font-semibold text-zinc-500">
+          <p className="brand-muted mt-1 text-xs font-semibold">
             {isLoading ? "Carregando eventos" : `${auditLogs.length} evento(s)`}
           </p>
         </div>
@@ -99,9 +99,9 @@ export function AuditSection() {
         <Metric label="Usuarios" value={String(summary.users)} />
       </div>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200">
+      <div className="brand-table">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+          <thead className="brand-table-header text-xs uppercase">
             <tr>
               <th className="px-3 py-2">Quando</th>
               <th className="px-3 py-2">Usuario</th>
@@ -114,44 +114,44 @@ export function AuditSection() {
           <tbody>
             {auditLogs.length ? (
               auditLogs.map((log) => (
-                <tr className="border-t border-zinc-100" key={log.id}>
-                  <td className="px-3 py-3 text-zinc-700">
+                <tr className="border-t border-[#f1dfb5]" key={log.id}>
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p className="font-semibold">
                       {log.occurredAt.toLocaleDateString()}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {log.occurredAt.toLocaleTimeString()}
                     </p>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {log.userName}
                     </p>
-                    <p className="text-xs text-zinc-500">{log.userRole}</p>
+                    <p className="brand-muted text-xs">{log.userRole}</p>
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     {log.action}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p>{getEntityLabel(log.entity)}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {log.entityId ?? "sem referencia"}
                     </p>
                   </td>
                   <td className="px-3 py-3">
                     <ResultBadge result={log.result} />
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p>{log.description}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {formatMetadata(log.metadata)}
                     </p>
                   </td>
                 </tr>
               ))
             ) : (
-              <tr className="border-t border-zinc-100">
-                <td className="px-3 py-4 text-zinc-500" colSpan={6}>
+              <tr className="border-t border-[#f1dfb5]">
+                <td className="brand-muted px-3 py-4" colSpan={6}>
                   Nenhum evento encontrado
                 </td>
               </tr>
@@ -174,10 +174,10 @@ function AuditFilters({
 }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Inicio
         <input
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 px-2 text-sm font-semibold"
           max={filterForm.endDate || undefined}
           onChange={(event) =>
             setFilterForm({ ...filterForm, startDate: event.target.value })
@@ -186,10 +186,10 @@ function AuditFilters({
           value={filterForm.startDate}
         />
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Fim
         <input
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 px-2 text-sm font-semibold"
           min={filterForm.startDate || undefined}
           onChange={(event) =>
             setFilterForm({ ...filterForm, endDate: event.target.value })
@@ -198,10 +198,10 @@ function AuditFilters({
           value={filterForm.endDate}
         />
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Entidade
         <select
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 px-2 text-sm font-semibold"
           onChange={(event) =>
             setFilterForm({ ...filterForm, entity: event.target.value })
           }
@@ -215,10 +215,10 @@ function AuditFilters({
           ))}
         </select>
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Usuario
         <select
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 px-2 text-sm font-semibold"
           onChange={(event) =>
             setFilterForm({ ...filterForm, userId: event.target.value })
           }
@@ -232,10 +232,10 @@ function AuditFilters({
           ))}
         </select>
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Acao
         <input
-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 px-2 text-sm font-semibold"
           onChange={(event) =>
             setFilterForm({ ...filterForm, action: event.target.value })
           }
@@ -244,7 +244,7 @@ function AuditFilters({
         />
       </label>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => setFilterForm(initialFilter)}
         type="button"
       >
@@ -256,9 +256,9 @@ function AuditFilters({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-semibold">{label}</p>
+      <p className="brand-section-title mt-1 text-xl">{value}</p>
     </div>
   );
 }
@@ -266,7 +266,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 function ResultBadge({ result }: { result: AuditActionResult }) {
   const tone =
     result === "success"
-      ? "bg-green-50 text-green-800"
+      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
       : "bg-red-50 text-red-800";
 
   return (

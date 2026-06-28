@@ -143,17 +143,17 @@ export function ProductionSection({ products }: { products: Product[] }) {
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-bold text-green-800">Producao</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Producao</p>
+          <h2 className="brand-section-title text-xl">
             Fichas tecnicas e ordens
           </h2>
         </div>
 
-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateRecipe}>
-          <h3 className="text-sm font-bold text-zinc-800">
+        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCreateRecipe}>
+          <h3 className="brand-section-title text-sm">
             Nova versao de ficha tecnica
           </h3>
           {!canManageRecipe ? (
@@ -184,7 +184,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
 
           <div className="space-y-2">
             {recipeForm.ingredients.map((ingredient, index) => (
-              <div className="grid gap-2 rounded-md bg-zinc-50 p-2" key={index}>
+              <div className="brand-card-warm grid gap-2 p-2" key={index}>
                 <ProductSelect
                   label="Insumo"
                   products={ingredientProducts}
@@ -202,7 +202,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
 
           <div className="flex flex-wrap gap-2">
             <button
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
+              className="brand-secondary-button px-4 py-2 text-sm"
               type="button"
               onClick={() =>
                 setRecipeForm((state) => ({
@@ -217,7 +217,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
               Adicionar insumo
             </button>
             <button
-              className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+              className="brand-primary-button px-4 py-2 text-sm"
               disabled={!canManageRecipe}
             >
               Criar ficha
@@ -225,15 +225,15 @@ export function ProductionSection({ products }: { products: Product[] }) {
           </div>
         </form>
 
-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateOrder}>
-          <h3 className="text-sm font-bold text-zinc-800">Nova ordem</h3>
+        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCreateOrder}>
+          <h3 className="brand-section-title text-sm">Nova ordem</h3>
           {!canManageOrder ? (
             <PermissionNotice description="Voce pode acompanhar ordens, mas nao planejar ou executar producao." />
           ) : null}
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Ficha tecnica
             <select
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={orderForm.recipeId}
               onChange={(event) => {
                 setOrderForm((state) => ({
@@ -268,13 +268,13 @@ export function ProductionSection({ products }: { products: Product[] }) {
             }
           />
           {selectedRecipe ? (
-            <p className="rounded-md bg-zinc-50 p-2 text-xs text-zinc-600">
+            <p className="brand-card-warm brand-muted p-2 text-xs">
               Produz {productNames.get(selectedRecipe.outputProductId)} com{" "}
               {selectedRecipe.ingredients.length} insumo(s).
             </p>
           ) : null}
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canManageOrder}
           >
             Planejar producao
@@ -285,9 +285,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
       </div>
 
       <div className="grid gap-4">
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Ficha</th>
                 <th className="px-3 py-2">Produto</th>
@@ -296,17 +296,17 @@ export function ProductionSection({ products }: { products: Product[] }) {
             </thead>
             <tbody>
               {recipes.map((recipe) => (
-                <tr className="border-t border-zinc-100" key={recipe.id}>
-                  <td className="px-3 py-3 font-semibold text-zinc-950">
+                <tr className="border-t border-[#f1dfb5]" key={recipe.id}>
+                  <td className="brand-section-title px-3 py-3 font-semibold">
                     <p>{recipe.name}</p>
-                    <p className="text-xs font-normal text-zinc-500">
+                    <p className="brand-muted text-xs font-normal">
                       v{recipe.version} · {recipe.active ? "ativa" : "historica"}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {productNames.get(recipe.outputProductId)}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {recipe.ingredients.map((ingredient) => (
                       <p key={ingredient.productId}>
                         {productNames.get(ingredient.productId)} ·{" "}
@@ -320,9 +320,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
           </table>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Ordem</th>
                 <th className="px-3 py-2">Produzido</th>
@@ -333,24 +333,24 @@ export function ProductionSection({ products }: { products: Product[] }) {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr className="border-t border-zinc-100" key={order.id}>
+                <tr className="border-t border-[#f1dfb5]" key={order.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {recipes.find((recipe) => recipe.id === order.recipeId)
                         ?.name ?? order.recipeSnapshot.recipeName}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       v{order.recipeSnapshot.recipeVersion} ·{" "}
                       {order.startedAt?.toLocaleDateString() ?? "nao iniciada"}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {order.quantityProduced} ·{" "}
                     {productNames.get(order.outputProductId)}
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     R$ {order.totalCost.toFixed(2)}
-                    <p className="text-xs font-medium text-zinc-500">
+                    <p className="brand-muted text-xs font-medium">
                       Unit. R$ {order.unitCost.toFixed(2)}
                     </p>
                   </td>
@@ -363,7 +363,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
                         <>
                           {canManageOrder ? (
                             <button
-                              className="text-sm font-semibold text-green-800"
+                              className="text-sm font-semibold text-[var(--brand-leaf)]"
                               onClick={async () => {
                                 await startProductionOrder.mutateAsync(order.id);
                                 recordAudit({
@@ -380,7 +380,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           ) : null}
                           {canCancelProduction ? (
                             <button
-                              className="text-sm font-semibold text-zinc-500"
+                              className="brand-muted text-sm font-semibold"
                               onClick={async () => {
                                 await cancelProductionOrder.mutateAsync(order.id);
                                 recordAudit({
@@ -401,7 +401,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
                         <>
                           {canManageOrder ? (
                             <button
-                              className="text-sm font-semibold text-green-800"
+                              className="text-sm font-semibold text-[var(--brand-leaf)]"
                               onClick={async () => {
                                 await finishProductionOrder.mutateAsync(order.id);
                                 recordAudit({
@@ -421,7 +421,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
                           ) : null}
                           {canCancelProduction ? (
                             <button
-                              className="text-sm font-semibold text-zinc-500"
+                              className="brand-muted text-sm font-semibold"
                               onClick={async () => {
                                 await cancelProductionOrder.mutateAsync(order.id);
                                 recordAudit({
@@ -462,9 +462,9 @@ function Status({
     started: "Iniciada",
   };
   const colors = {
-    cancelled: "bg-zinc-100 text-zinc-500",
-    finished: "bg-green-100 text-green-800",
-    planned: "bg-amber-100 text-amber-800",
+    cancelled: "bg-[#f3ead7] text-[var(--brand-caramel)]",
+    finished: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
+    planned: "bg-[#fff4cf] text-[var(--brand-caramel)]",
     started: "bg-blue-100 text-blue-800",
   };
 
@@ -485,10 +485,10 @@ function Field({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -506,10 +506,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"
@@ -532,10 +532,10 @@ function ProductSelect({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <select
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >

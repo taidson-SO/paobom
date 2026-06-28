@@ -50,8 +50,8 @@ export function WebAuthGate({ children }: PropsWithChildren) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-100 px-4">
-        <p className="text-sm font-semibold text-zinc-600">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-cream-soft)] px-4">
+        <p className="brand-muted text-sm font-semibold">
           Restaurando sessao...
         </p>
       </div>
@@ -96,32 +96,35 @@ function WebLoginForm({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,#f9cc4b33,transparent_34%),linear-gradient(135deg,#fff7dc_0%,#fffaf0_48%,#f4dfb5_100%)] px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex size-14 items-center justify-center rounded-md bg-green-800 text-lg font-black text-white">
+          <div className="flex size-16 items-center justify-center rounded-md border border-[var(--brand-gold)] bg-[var(--brand-brown)] text-xl font-black text-[var(--brand-cream)] shadow-sm">
             PB
           </div>
           <div>
-            <p className="text-xs font-black uppercase text-green-800">
-              PaoBom ERP
+            <p className="brand-kicker text-xs font-black uppercase">
+              Panificadora PaoBom
             </p>
-            <h1 className="text-2xl font-black text-zinc-950">
+            <h1 className="brand-section-title text-2xl font-black">
               Acesso operacional
             </h1>
+            <p className="brand-muted mt-1 text-sm font-semibold">
+              Gestao da fornada, do balcao e do caixa.
+            </p>
           </div>
         </div>
 
         <form
-          className="grid gap-4 rounded-md border border-zinc-200 bg-white p-5 shadow-sm"
+          className="brand-card grid gap-4 p-5"
           onSubmit={submit}
         >
-          <label className="grid gap-1.5 text-sm font-bold text-zinc-800">
+          <label className="grid gap-1.5 text-sm font-bold text-[var(--brand-ink)]">
             E-mail
             <input
               autoComplete="username"
               autoFocus
-              className="h-11 rounded-md border border-zinc-300 px-3 font-normal outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100"
+              className="brand-input h-11 px-3 font-normal"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="usuario@paobom.local"
               type="email"
@@ -129,11 +132,11 @@ function WebLoginForm({
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm font-bold text-zinc-800">
+          <label className="grid gap-1.5 text-sm font-bold text-[var(--brand-ink)]">
             Senha
             <input
               autoComplete="current-password"
-              className="h-11 rounded-md border border-zinc-300 px-3 font-normal outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100"
+              className="brand-input h-11 px-3 font-normal"
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Sua senha"
               type="password"
@@ -148,7 +151,7 @@ function WebLoginForm({
           ) : null}
 
           <button
-            className="h-11 rounded-md bg-green-800 px-4 text-sm font-black text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="brand-primary-button h-11 px-4 text-sm font-black"
             disabled={!email.trim() || !password || isSubmitting}
             type="submit"
           >
@@ -169,8 +172,8 @@ export function AuthenticatedUserSummary() {
 
   return (
     <div className="text-right">
-      <p className="text-sm font-bold text-zinc-900">{user.name}</p>
-      <p className="text-xs text-zinc-500">
+      <p className="text-sm font-bold text-[var(--brand-ink)]">{user.name}</p>
+      <p className="brand-muted text-xs">
         {getRoleLabel(user.role)} · {user.email}
       </p>
     </div>

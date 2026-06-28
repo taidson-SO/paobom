@@ -159,11 +159,11 @@ export function PurchaseSection({
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div>
-          <p className="text-sm font-bold text-green-800">Compras</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Compras</p>
+          <h2 className="brand-section-title text-xl">
             Pedido e recebimento
           </h2>
         </div>
@@ -171,10 +171,10 @@ export function PurchaseSection({
           <PermissionNotice description="Voce pode consultar compras, mas nao criar novos pedidos." />
         ) : null}
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Fornecedor
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.supplierId}
             onChange={(event) =>
               setForm((state) => ({
@@ -192,10 +192,10 @@ export function PurchaseSection({
           </select>
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Previsao
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             type="date"
             value={form.expectedDate}
             onChange={(event) =>
@@ -210,13 +210,13 @@ export function PurchaseSection({
         <div className="space-y-2">
           {form.items.map((item, index) => (
             <div
-              className="grid gap-2 rounded-md border border-zinc-200 p-3"
+              className="brand-card-warm grid gap-2 p-3"
               key={index}
             >
-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
+              <label className="brand-muted grid gap-1 text-sm font-medium">
                 Produto
                 <select
-                  className="rounded-md border border-zinc-300 px-3 py-2"
+                  className="brand-input px-3 py-2"
                   value={item.productId}
                   onChange={(event) => selectProduct(index, event.target.value)}
                 >
@@ -245,7 +245,7 @@ export function PurchaseSection({
         </div>
 
         <button
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
+          className="brand-secondary-button px-4 py-2 text-sm"
           type="button"
           onClick={() =>
             setForm((state) => ({
@@ -260,10 +260,10 @@ export function PurchaseSection({
           Adicionar item
         </button>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Observacoes
           <textarea
-            className="min-h-16 rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input min-h-16 px-3 py-2"
             value={form.notes}
             onChange={(event) =>
               setForm((state) => ({
@@ -275,11 +275,11 @@ export function PurchaseSection({
         </label>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-zinc-700">
+          <p className="brand-section-title text-sm">
             Total: R$ {total.toFixed(2)}
           </p>
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canCreatePurchase}
           >
             Criar compra
@@ -289,9 +289,9 @@ export function PurchaseSection({
         {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
       </form>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200">
+      <div className="brand-table">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+          <thead className="brand-table-header text-xs uppercase">
             <tr>
               <th className="px-3 py-2">Compra</th>
               <th className="px-3 py-2">Itens</th>
@@ -302,34 +302,34 @@ export function PurchaseSection({
           </thead>
           <tbody>
             {purchases.map((purchase) => (
-              <tr className="border-t border-zinc-100 align-top" key={purchase.id}>
+              <tr className="border-t border-[#f1dfb5] align-top" key={purchase.id}>
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-zinc-950">
+                  <p className="brand-section-title font-semibold">
                     {supplierNames.get(purchase.supplierId) ?? "Fornecedor"}
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="brand-muted text-xs">
                     Prev. {purchase.expectedDate.toLocaleDateString()}
                   </p>
                   {purchase.approvedBy ? (
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       Aprovada por {purchase.approvedBy}
                     </p>
                   ) : null}
                 </td>
-                <td className="px-3 py-3 text-zinc-700">
+                <td className="px-3 py-3 text-[var(--brand-brown)]">
                   {purchase.items.map((item) => (
                     <div className="mb-2 grid gap-1" key={item.id}>
                       <p>
                         {productNames.get(item.productId) ?? "Produto"} ·{" "}
                         {item.quantity} x R$ {item.unitCost.toFixed(2)}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="brand-muted text-xs">
                         Recebido: {item.receivedQuantity ?? 0} / {item.quantity}
                       </p>
                       {canReceivePurchase &&
                       isReceivableStatus(purchase.status) ? (
                         <input
-                          className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                          className="brand-input w-28 px-2 py-1 text-xs"
                           min="0"
                           step="0.01"
                           type="number"
@@ -351,7 +351,7 @@ export function PurchaseSection({
                   {canReceivePurchase && isReceivableStatus(purchase.status) ? (
                     <div className="mt-2 grid max-w-xs gap-2">
                       <input
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                        className="brand-input px-2 py-1 text-xs"
                         placeholder="Responsavel"
                         value={getReceiptDraft(purchase.id).receivedBy}
                         onChange={(event) =>
@@ -361,7 +361,7 @@ export function PurchaseSection({
                         }
                       />
                       <input
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                        className="brand-input px-2 py-1 text-xs"
                         placeholder="Justificativa de divergencia"
                         value={getReceiptDraft(purchase.id).divergenceReason}
                         onChange={(event) =>
@@ -373,7 +373,7 @@ export function PurchaseSection({
                     </div>
                   ) : null}
                 </td>
-                <td className="px-3 py-3 font-semibold text-zinc-800">
+                <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                   R$ {purchase.total.toFixed(2)}
                 </td>
                 <td className="px-3 py-3">
@@ -384,7 +384,7 @@ export function PurchaseSection({
                     {purchase.status === "pending_approval" &&
                     canCreatePurchase ? (
                       <button
-                        className="text-sm font-semibold text-green-800"
+                        className="text-sm font-semibold text-[var(--brand-leaf)]"
                         onClick={async () => {
                           await approvePurchase.mutateAsync({
                             approvedBy: "Gerencia",
@@ -406,7 +406,7 @@ export function PurchaseSection({
                       <>
                         {canReceivePurchase ? (
                           <button
-                            className="text-sm font-semibold text-green-800"
+                            className="text-sm font-semibold text-[var(--brand-leaf)]"
                             onClick={async () => {
                               const draft = getReceiptDraft(purchase.id);
                               await receivePurchase.mutateAsync({
@@ -434,7 +434,7 @@ export function PurchaseSection({
                         ) : null}
                         {canCancelPurchase ? (
                           <button
-                            className="text-sm font-semibold text-zinc-500"
+                            className="brand-muted text-sm font-semibold"
                             onClick={async () => {
                               await cancelPurchase.mutateAsync(purchase.id);
                               recordAudit({
@@ -453,7 +453,7 @@ export function PurchaseSection({
                     ) : null}
                     {purchase.status === "received" && canCancelPurchase ? (
                       <button
-                        className="text-sm font-semibold text-zinc-500"
+                        className="brand-muted text-sm font-semibold"
                         onClick={async () => {
                           await cancelPurchase.mutateAsync(purchase.id);
                           recordAudit({
@@ -489,10 +489,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"
@@ -505,13 +505,13 @@ function NumberField({
 
 function Status({ status }: { status: PurchaseStatus }) {
   const styles = {
-    approved: "bg-emerald-100 text-emerald-800",
-    cancelled: "bg-zinc-100 text-zinc-500",
+    approved: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
+    cancelled: "bg-[#f3ead7] text-[var(--brand-caramel)]",
     draft: "bg-sky-100 text-sky-800",
-    ordered: "bg-amber-100 text-amber-800",
+    ordered: "bg-[#fff4cf] text-[var(--brand-caramel)]",
     partially_received: "bg-orange-100 text-orange-800",
     pending_approval: "bg-violet-100 text-violet-800",
-    received: "bg-green-100 text-green-800",
+    received: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
   };
 
   const labels = {

@@ -77,11 +77,11 @@ export function SupplierSection() {
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[360px_1fr]">
+    <section className="brand-card grid gap-4 p-4 lg:grid-cols-[360px_1fr]">
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div>
-          <p className="text-sm font-bold text-green-800">Fornecedores</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Fornecedores</p>
+          <h2 className="brand-section-title text-xl">
             Relacionamento com fornecedores
           </h2>
         </div>
@@ -119,14 +119,14 @@ export function SupplierSection() {
 
         <div className="flex gap-2">
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canManageSuppliers}
           >
             {selectedSupplierId ? "Salvar" : "Criar"}
           </button>
           {selectedSupplierId ? (
             <button
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
+              className="brand-secondary-button px-4 py-2 text-sm"
               type="button"
               onClick={() => setSelectedSupplier(null)}
             >
@@ -137,9 +137,9 @@ export function SupplierSection() {
         {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
       </form>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200">
+      <div className="brand-table">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+          <thead className="brand-table-header text-xs uppercase">
             <tr>
               <th className="px-3 py-2">Fornecedor</th>
               <th className="px-3 py-2">Contato</th>
@@ -149,16 +149,16 @@ export function SupplierSection() {
           </thead>
           <tbody>
             {suppliers.map((supplier) => (
-              <tr className="border-t border-zinc-100" key={supplier.id}>
+              <tr className="border-t border-[#f1dfb5]" key={supplier.id}>
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-zinc-950">
+                  <p className="brand-section-title font-semibold">
                     {supplier.name}
                   </p>
-                  <p className="text-xs text-zinc-500">{supplier.document}</p>
+                  <p className="brand-muted text-xs">{supplier.document}</p>
                 </td>
-                <td className="px-3 py-3 text-zinc-700">
+                <td className="px-3 py-3 text-[var(--brand-brown)]">
                   <p>{supplier.contactName}</p>
-                  <p className="text-xs text-zinc-500">{supplier.phone}</p>
+                  <p className="brand-muted text-xs">{supplier.phone}</p>
                 </td>
                 <td className="px-3 py-3">
                   <Status active={supplier.active} />
@@ -209,10 +209,10 @@ function Field({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -224,7 +224,9 @@ function Status({ active }: { active: boolean }) {
   return (
     <span
       className={`rounded-full px-2 py-1 text-xs font-bold ${
-        active ? "bg-green-100 text-green-800" : "bg-zinc-100 text-zinc-500"
+        active
+          ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+          : "bg-[#f3ead7] text-[var(--brand-caramel)]"
       }`}
     >
       {active ? "Ativo" : "Inativo"}
@@ -243,12 +245,12 @@ function RowActions({
 }) {
   return (
     <div className="flex justify-end gap-2">
-      <button className="text-sm font-semibold text-green-800" onClick={onEdit}>
+      <button className="text-sm font-semibold text-[var(--brand-leaf)]" onClick={onEdit}>
         Editar
       </button>
       {active ? (
         <button
-          className="text-sm font-semibold text-zinc-500"
+          className="brand-muted text-sm font-semibold"
           onClick={onDeactivate}
         >
           Inativar

@@ -89,11 +89,11 @@ export function CustomerRelationshipSection({
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div>
-          <p className="text-sm font-bold text-green-800">CRM</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">CRM</p>
+          <h2 className="brand-section-title text-xl">
             Historico e retornos
           </h2>
         </div>
@@ -105,11 +105,11 @@ export function CustomerRelationshipSection({
           <Metric label="Interacoes" value={summary.totalInteractions} />
           <Metric label="Retornos abertos" value={summary.openFollowUps} />
           <Metric label="Concluidas" value={summary.completedInteractions} />
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-semibold text-zinc-500">
+          <div className="brand-card-warm p-3">
+            <p className="brand-muted text-xs font-semibold">
               Proximo contato
             </p>
-            <p className="text-sm font-bold text-zinc-950">
+            <p className="brand-section-title text-sm">
               {summary.nextContactAt
                 ? summary.nextContactAt.toLocaleDateString()
                 : "Sem agenda"}
@@ -117,10 +117,10 @@ export function CustomerRelationshipSection({
           </div>
         </div>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Cliente
           <select
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.customerId}
             onChange={(event) =>
               setForm((state) => ({
@@ -139,10 +139,10 @@ export function CustomerRelationshipSection({
         </label>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Tipo
             <select
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={form.type}
               onChange={(event) =>
                 setForm((state) => ({
@@ -159,10 +159,10 @@ export function CustomerRelationshipSection({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Data
             <input
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               type="date"
               value={form.occurredAt}
               onChange={(event) =>
@@ -175,10 +175,10 @@ export function CustomerRelationshipSection({
           </label>
         </div>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Assunto
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.subject}
             onChange={(event) =>
               setForm((state) => ({ ...state, subject: event.target.value }))
@@ -186,10 +186,10 @@ export function CustomerRelationshipSection({
           />
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Proximo contato
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             type="date"
             value={form.nextContactAt}
             onChange={(event) =>
@@ -201,10 +201,10 @@ export function CustomerRelationshipSection({
           />
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Observacoes
           <textarea
-            className="min-h-20 rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input min-h-20 px-3 py-2"
             value={form.notes}
             onChange={(event) =>
               setForm((state) => ({ ...state, notes: event.target.value }))
@@ -213,11 +213,11 @@ export function CustomerRelationshipSection({
         </label>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-zinc-600">
+          <p className="brand-muted text-sm font-semibold">
             Feedbacks: {summary.interactionsByType.feedback}
           </p>
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canManageCrm}
           >
             Registrar
@@ -233,8 +233,8 @@ export function CustomerRelationshipSection({
             <button
               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
                 selectedStatus === status
-                  ? "border-green-800 bg-green-50 text-green-900"
-                  : "border-zinc-200 text-zinc-600"
+                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
+                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
               }`}
               key={status}
               onClick={() => setSelectedStatus(status)}
@@ -245,9 +245,9 @@ export function CustomerRelationshipSection({
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Cliente</th>
                 <th className="px-3 py-2">Interacao</th>
@@ -257,18 +257,18 @@ export function CustomerRelationshipSection({
             </thead>
             <tbody>
               {filteredInteractions.map((interaction) => (
-                <tr className="border-t border-zinc-100" key={interaction.id}>
+                <tr className="border-t border-[#f1dfb5]" key={interaction.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {customerNames.get(interaction.customerId) ?? "Cliente"}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {interaction.occurredAt.toLocaleDateString()}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     <p className="font-semibold">{interaction.subject}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {getTypeLabel(interaction.type)}
                       {interaction.nextContactAt
                         ? ` · retorno ${interaction.nextContactAt.toLocaleDateString()}`
@@ -282,7 +282,7 @@ export function CustomerRelationshipSection({
                     {interaction.status === "open" && canManageCrm ? (
                       <div className="flex justify-end gap-2">
                         <button
-                          className="text-sm font-semibold text-green-800"
+                          className="text-sm font-semibold text-[var(--brand-leaf)]"
                           onClick={async () => {
                             await completeInteraction.mutateAsync(
                               interaction.id,
@@ -299,7 +299,7 @@ export function CustomerRelationshipSection({
                           Concluir
                         </button>
                         <button
-                          className="text-sm font-semibold text-zinc-500"
+                          className="brand-muted text-sm font-semibold"
                           onClick={async () => {
                             await cancelInteraction.mutateAsync(interaction.id);
                             recordAudit({
@@ -328,9 +328,9 @@ export function CustomerRelationshipSection({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="text-lg font-bold text-zinc-950">{value}</p>
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-semibold">{label}</p>
+      <p className="brand-section-title text-lg">{value}</p>
     </div>
   );
 }
@@ -340,10 +340,10 @@ function Status({ status }: { status: CustomerInteractionStatus }) {
     status === "open" ? "Aberta" : status === "done" ? "Concluida" : "Cancelada";
   const tone =
     status === "done"
-      ? "bg-green-50 text-green-800"
+      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
       : status === "cancelled"
-        ? "bg-zinc-100 text-zinc-500"
-        : "bg-amber-50 text-amber-800";
+        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
+        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
 
   return (
     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>

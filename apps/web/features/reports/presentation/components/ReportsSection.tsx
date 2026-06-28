@@ -18,11 +18,11 @@ export function ReportsSection() {
 
   if (!reports) {
     return (
-      <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+      <section className="brand-card space-y-4 p-4">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-bold text-green-800">Relatorios</p>
-            <h2 className="text-xl font-bold text-zinc-950">
+            <p className="brand-kicker text-sm">Relatorios</p>
+            <h2 className="brand-section-title text-xl">
               Carregando dados
             </h2>
           </div>
@@ -36,14 +36,14 @@ export function ReportsSection() {
   }
 
   return (
-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+    <section className="brand-card space-y-4 p-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <p className="text-sm font-bold text-green-800">Relatorios</p>
-          <h2 className="text-xl font-bold text-zinc-950">
+          <p className="brand-kicker text-sm">Relatorios</p>
+          <h2 className="brand-section-title text-xl">
             Analise consolidada por periodo
           </h2>
-          <p className="mt-1 text-xs font-semibold text-zinc-500">
+          <p className="brand-muted mt-1 text-xs font-semibold">
             {formatPeriodLabel(reports.period)}
           </p>
         </div>
@@ -53,7 +53,7 @@ export function ReportsSection() {
             setPeriodForm={setPeriodForm}
           />
           <ExportControls reports={reports} />
-          <p className="text-xs font-semibold text-zinc-500">
+          <p className="brand-muted text-xs font-semibold">
             Gerado {reports.generatedAt.toLocaleString()}
           </p>
         </div>
@@ -101,13 +101,13 @@ export function ReportsSection() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-md border border-zinc-200">
-        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
-          <h3 className="text-sm font-bold text-zinc-800">
+      <div className="brand-table">
+        <div className="brand-table-header px-3 py-2">
+          <h3 className="brand-section-title text-sm">
             Validacao contabil basica
           </h3>
         </div>
-        <div className="divide-y divide-zinc-100">
+        <div className="divide-y divide-[#f1dfb5]">
           {reports.financial.validations.map((validation) => (
             <div
               className="grid gap-2 px-3 py-3 md:grid-cols-[120px_180px_1fr]"
@@ -118,10 +118,10 @@ export function ReportsSection() {
               >
                 {getValidationLabel(validation.level)}
               </span>
-              <p className="text-sm font-bold text-zinc-900">
+              <p className="brand-section-title text-sm">
                 {validation.label}
               </p>
-              <p className="text-sm text-zinc-600">{validation.message}</p>
+              <p className="brand-muted text-sm">{validation.message}</p>
             </div>
           ))}
         </div>
@@ -183,10 +183,10 @@ function PeriodControls({
 }) {
   return (
     <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Inicio
         <input
-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
           max={periodForm.endDate || undefined}
           onChange={(event) =>
             setPeriodForm({
@@ -198,10 +198,10 @@ function PeriodControls({
           value={periodForm.startDate}
         />
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
+      <label className="brand-muted grid gap-1 text-xs font-semibold">
         Fim
         <input
-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
+          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
           min={periodForm.startDate || undefined}
           onChange={(event) =>
             setPeriodForm({
@@ -214,14 +214,14 @@ function PeriodControls({
         />
       </label>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => setPeriodForm(getCurrentMonthPeriod())}
         type="button"
       >
         Mes atual
       </button>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => setPeriodForm({ endDate: "", startDate: "" })}
         type="button"
       >
@@ -233,9 +233,9 @@ function PeriodControls({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-semibold">{label}</p>
+      <p className="brand-section-title mt-1 text-xl">{value}</p>
     </div>
   );
 }
@@ -248,14 +248,14 @@ function ExportControls({
   return (
     <div className="flex flex-wrap gap-2">
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => downloadText("paobom-relatorio.json", JSON.stringify(reports, null, 2))}
         type="button"
       >
         JSON
       </button>
       <button
-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
+        className="brand-secondary-button h-9 px-3 text-xs"
         onClick={() => downloadText("paobom-relatorio.csv", buildReportsCsv(reports))}
         type="button"
       >
@@ -330,8 +330,8 @@ function getValidationLabel(level: "critical" | "ok" | "warning") {
 function getValidationTone(level: "critical" | "ok" | "warning") {
   const tones = {
     critical: "text-red-700",
-    ok: "text-green-700",
-    warning: "text-amber-700",
+    ok: "text-[var(--brand-leaf)]",
+    warning: "text-[var(--brand-caramel)]",
   };
 
   return tones[level];
@@ -403,12 +403,12 @@ function ReportTable({
   title: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-200">
-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
-        <h3 className="text-sm font-bold text-zinc-800">{title}</h3>
+    <div className="brand-table">
+      <div className="brand-table-header px-3 py-2">
+        <h3 className="brand-section-title text-sm">{title}</h3>
       </div>
       <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase text-zinc-500">
+        <thead className="brand-table-header text-xs uppercase">
           <tr>
             <th className="px-3 py-2">Item</th>
             <th className="px-3 py-2">Qtd.</th>
@@ -418,19 +418,19 @@ function ReportTable({
         <tbody>
           {rows.length ? (
             rows.map((row) => (
-              <tr className="border-t border-zinc-100" key={row.label}>
-                <td className="px-3 py-2 font-semibold text-zinc-800">
+              <tr className="border-t border-[#f1dfb5]" key={row.label}>
+                <td className="brand-section-title px-3 py-2 font-semibold">
                   {row.label}
                 </td>
-                <td className="px-3 py-2 text-zinc-700">{row.quantity}</td>
-                <td className="px-3 py-2 text-zinc-700">
+                <td className="px-3 py-2 text-[var(--brand-brown)]">{row.quantity}</td>
+                <td className="px-3 py-2 text-[var(--brand-brown)]">
                   R$ {row.amount.toFixed(2)}
                 </td>
               </tr>
             ))
           ) : (
-            <tr className="border-t border-zinc-100">
-              <td className="px-3 py-3 text-zinc-500" colSpan={3}>
+            <tr className="border-t border-[#f1dfb5]">
+              <td className="brand-muted px-3 py-3" colSpan={3}>
                 Sem dados
               </td>
             </tr>

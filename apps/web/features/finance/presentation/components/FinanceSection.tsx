@@ -300,11 +300,11 @@ export function FinanceSection() {
   }
 
   return (
-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
+    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-bold text-green-800">Financeiro</p>
-          <h2 className="text-xl font-bold text-zinc-950">Fluxo de caixa</h2>
+          <p className="brand-kicker text-sm">Financeiro</p>
+          <h2 className="brand-section-title text-xl">Fluxo de caixa</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -314,8 +314,8 @@ export function FinanceSection() {
           <Metric label="Saidas pagas" value={summary.expense} />
         </div>
 
-        <div className="rounded-md border border-zinc-200 p-3">
-          <h3 className="text-sm font-bold text-zinc-800">
+        <div className="brand-card-warm p-3">
+          <h3 className="brand-section-title text-sm">
             {currentCashRegister ? "Caixa aberto" : "Abrir caixa"}
           </h3>
           {currentCashRegister ? (
@@ -323,7 +323,7 @@ export function FinanceSection() {
               {!canCloseRegister ? (
                 <PermissionNotice description="Voce pode consultar o caixa aberto, mas nao fecha-lo." />
               ) : null}
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-900">
+              <div className="rounded-md border border-[#c4d8a8] bg-[#f4f9ec] p-3 text-sm text-[var(--brand-leaf)]">
                 <p className="font-bold">
                   Aberto por {currentCashRegister.openedBy}
                 </p>
@@ -357,7 +357,7 @@ export function FinanceSection() {
                 }
               />
               <button
-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                className="brand-primary-button px-4 py-2 text-sm"
                 disabled={!canCloseRegister}
               >
                 Fechar caixa
@@ -383,7 +383,7 @@ export function FinanceSection() {
                 }
               />
               <button
-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                className="brand-primary-button px-4 py-2 text-sm"
                 disabled={!canOpenRegister}
               >
                 Abrir caixa
@@ -393,16 +393,16 @@ export function FinanceSection() {
         </div>
 
         {currentCashRegister ? (
-          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
-            <h3 className="text-sm font-bold text-zinc-800">
+          <div className="brand-card-warm grid gap-3 p-3">
+            <h3 className="brand-section-title text-sm">
               Movimentacao de gaveta
             </h3>
             <form className="space-y-3" onSubmit={handleRegisterMovement}>
               <div className="grid grid-cols-2 gap-2">
-                <label className="grid gap-1 text-sm font-medium text-zinc-700">
+                <label className="brand-muted grid gap-1 text-sm font-medium">
                   Tipo
                   <select
-                    className="rounded-md border border-zinc-300 px-3 py-2"
+                    className="brand-input px-3 py-2"
                     value={movementForm.type}
                     onChange={(event) =>
                       setMovementForm((state) => ({
@@ -441,7 +441,7 @@ export function FinanceSection() {
                   />
                 </div>
                 <button
-                  className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                  className="brand-primary-button px-4 py-2 text-sm"
                   disabled={!canRegisterEntry}
                 >
                   Registrar
@@ -452,13 +452,13 @@ export function FinanceSection() {
         ) : null}
 
         {currentCashRegister ? (
-          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
-            <h3 className="text-sm font-bold text-zinc-800">Conciliacao</h3>
+          <div className="brand-card-warm grid gap-3 p-3">
+            <h3 className="brand-section-title text-sm">Conciliacao</h3>
             <form className="space-y-3" onSubmit={handleReconcileRegister}>
-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
+              <label className="brand-muted grid gap-1 text-sm font-medium">
                 Forma
                 <select
-                  className="rounded-md border border-zinc-300 px-3 py-2"
+                  className="brand-input px-3 py-2"
                   value={reconciliationForm.method}
                   onChange={(event) =>
                     setReconciliationForm((state) => ({
@@ -510,7 +510,7 @@ export function FinanceSection() {
                 }
               />
               <button
-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+                className="brand-primary-button px-4 py-2 text-sm"
                 disabled={!canCloseRegister}
               >
                 Conciliar
@@ -525,10 +525,10 @@ export function FinanceSection() {
         ) : null}
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label className="brand-muted grid gap-1 text-sm font-medium">
             Tipo
             <select
-              className="rounded-md border border-zinc-300 px-3 py-2"
+              className="brand-input px-3 py-2"
               value={form.type}
               onChange={(event) =>
                 setForm((state) => ({
@@ -549,10 +549,10 @@ export function FinanceSection() {
           />
         </div>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Categoria
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.category}
             onChange={(event) =>
               setForm((state) => ({ ...state, category: event.target.value }))
@@ -560,10 +560,10 @@ export function FinanceSection() {
           />
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Descricao
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             value={form.description}
             onChange={(event) =>
               setForm((state) => ({
@@ -574,10 +574,10 @@ export function FinanceSection() {
           />
         </label>
 
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        <label className="brand-muted grid gap-1 text-sm font-medium">
           Vencimento
           <input
-            className="rounded-md border border-zinc-300 px-3 py-2"
+            className="brand-input px-3 py-2"
             type="date"
             value={form.dueDate}
             onChange={(event) =>
@@ -587,12 +587,12 @@ export function FinanceSection() {
         </label>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-zinc-600">
+          <p className="brand-muted text-sm font-semibold">
             Pendente: R$ {summary.pendingIncome.toFixed(2)} / R${" "}
             {summary.pendingExpense.toFixed(2)}
           </p>
           <button
-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
+            className="brand-primary-button px-4 py-2 text-sm"
             disabled={!canRegisterEntry}
           >
             Lancar
@@ -609,8 +609,8 @@ export function FinanceSection() {
             <button
               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
                 selectedStatus === status
-                  ? "border-green-800 bg-green-50 text-green-900"
-                  : "border-zinc-200 text-zinc-600"
+                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
+                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
               }`}
               key={status}
               onClick={() => setSelectedStatus(status)}
@@ -621,9 +621,9 @@ export function FinanceSection() {
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Lancamento</th>
                 <th className="px-3 py-2">Valor</th>
@@ -633,16 +633,16 @@ export function FinanceSection() {
             </thead>
             <tbody>
               {filteredEntries.map((entry) => (
-                <tr className="border-t border-zinc-100" key={entry.id}>
+                <tr className="border-t border-[#f1dfb5]" key={entry.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {entry.description}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {entry.category} · venc. {entry.dueDate.toLocaleDateString()}
                     </p>
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     {entry.type === "income" ? "+" : "-"} R${" "}
                     {entry.amount.toFixed(2)}
                   </td>
@@ -654,7 +654,7 @@ export function FinanceSection() {
                       <div className="flex justify-end gap-2">
                         {canSettleEntry ? (
                           <button
-                            className="text-sm font-semibold text-green-800"
+                            className="text-sm font-semibold text-[var(--brand-leaf)]"
                             onClick={async () => {
                               await settleCashEntry.mutateAsync(entry.id);
                               recordAudit({
@@ -671,7 +671,7 @@ export function FinanceSection() {
                         ) : null}
                         {canCancelEntry ? (
                           <button
-                            className="text-sm font-semibold text-zinc-500"
+                            className="brand-muted text-sm font-semibold"
                             onClick={async () => {
                               await cancelCashEntry.mutateAsync(entry.id);
                               recordAudit({
@@ -696,9 +696,9 @@ export function FinanceSection() {
         </div>
 
         <div className="grid gap-3 xl:grid-cols-2">
-          <div className="overflow-hidden rounded-md border border-zinc-200">
+          <div className="brand-table">
             <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+              <thead className="brand-table-header text-xs uppercase">
                 <tr>
                   <th className="px-3 py-2">Movimento</th>
                   <th className="px-3 py-2">Valor</th>
@@ -706,16 +706,16 @@ export function FinanceSection() {
               </thead>
               <tbody>
                 {cashRegisterMovements.slice(0, 6).map((movement) => (
-                  <tr className="border-t border-zinc-100" key={movement.id}>
+                  <tr className="border-t border-[#f1dfb5]" key={movement.id}>
                     <td className="px-3 py-3">
-                      <p className="font-semibold text-zinc-950">
+                      <p className="brand-section-title font-semibold">
                         {movement.type === "supply" ? "Suprimento" : "Sangria"}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="brand-muted text-xs">
                         {movement.reason} · {movement.actor}
                       </p>
                     </td>
-                    <td className="px-3 py-3 font-semibold text-zinc-800">
+                    <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                       {movement.type === "supply" ? "+" : "-"} R${" "}
                       {movement.amount.toFixed(2)}
                     </td>
@@ -725,9 +725,9 @@ export function FinanceSection() {
             </table>
           </div>
 
-          <div className="overflow-hidden rounded-md border border-zinc-200">
+          <div className="brand-table">
             <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+              <thead className="brand-table-header text-xs uppercase">
                 <tr>
                   <th className="px-3 py-2">Conciliacao</th>
                   <th className="px-3 py-2">Diferenca</th>
@@ -735,20 +735,20 @@ export function FinanceSection() {
               </thead>
               <tbody>
                 {cashReconciliations.slice(0, 6).map((reconciliation) => (
-                  <tr className="border-t border-zinc-100" key={reconciliation.id}>
+                  <tr className="border-t border-[#f1dfb5]" key={reconciliation.id}>
                     <td className="px-3 py-3">
-                      <p className="font-semibold text-zinc-950">
+                      <p className="brand-section-title font-semibold">
                         {reconciliation.method}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="brand-muted text-xs">
                         R$ {reconciliation.expectedAmount.toFixed(2)} esperado ·{" "}
                         {reconciliation.reconciledBy}
                       </p>
                     </td>
-                    <td className="px-3 py-3 font-semibold text-zinc-800">
+                    <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                       R$ {reconciliation.differenceAmount.toFixed(2)}
                       {reconciliation.notes ? (
-                        <p className="text-xs font-medium text-zinc-500">
+                        <p className="brand-muted text-xs font-medium">
                           {reconciliation.notes}
                         </p>
                       ) : null}
@@ -760,9 +760,9 @@ export function FinanceSection() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-zinc-200">
+        <div className="brand-table">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
+            <thead className="brand-table-header text-xs uppercase">
               <tr>
                 <th className="px-3 py-2">Caixa</th>
                 <th className="px-3 py-2">Esperado</th>
@@ -772,25 +772,25 @@ export function FinanceSection() {
             </thead>
             <tbody>
               {cashRegisters.map((register) => (
-                <tr className="border-t border-zinc-100" key={register.id}>
+                <tr className="border-t border-[#f1dfb5]" key={register.id}>
                   <td className="px-3 py-3">
-                    <p className="font-semibold text-zinc-950">
+                    <p className="brand-section-title font-semibold">
                       {register.status === "open" ? "Aberto" : "Fechado"}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="brand-muted text-xs">
                       {register.openedBy} · {register.openedAt.toLocaleDateString()}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {formatOptionalCurrency(register.expectedAmount)}
                   </td>
-                  <td className="px-3 py-3 text-zinc-700">
+                  <td className="px-3 py-3 text-[var(--brand-brown)]">
                     {formatOptionalCurrency(register.countedAmount)}
                   </td>
-                  <td className="px-3 py-3 font-semibold text-zinc-800">
+                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
                     {formatOptionalCurrency(register.differenceAmount)}
                     {register.closingNote ? (
-                      <p className="text-xs font-medium text-zinc-500">
+                      <p className="brand-muted text-xs font-medium">
                         {register.closingNote}
                       </p>
                     ) : null}
@@ -807,9 +807,9 @@ export function FinanceSection() {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
-      <p className="text-lg font-bold text-zinc-950">R$ {value.toFixed(2)}</p>
+    <div className="brand-card-warm p-3">
+      <p className="brand-muted text-xs font-semibold">{label}</p>
+      <p className="brand-section-title text-lg">R$ {value.toFixed(2)}</p>
     </div>
   );
 }
@@ -824,10 +824,10 @@ function NumberField({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         min="0"
         step="0.01"
         type="number"
@@ -848,10 +848,10 @@ function TextField({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
+    <label className="brand-muted grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border border-zinc-300 px-3 py-2"
+        className="brand-input px-3 py-2"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -875,11 +875,11 @@ function Status({
   const tone =
     status === "settled"
       ? type === "income"
-        ? "bg-green-50 text-green-800"
+        ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
         : "bg-blue-50 text-blue-800"
       : status === "cancelled"
-        ? "bg-zinc-100 text-zinc-500"
-        : "bg-amber-50 text-amber-800";
+        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
+        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
 
   return (
     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>

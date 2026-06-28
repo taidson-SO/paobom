@@ -2,7 +2,7 @@
 
 import { Permission } from "@paobom/domain";
 import { useQueryClient } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiClient } from "@/core/infrastructure/api/api-client";
 import { container } from "@/core/infrastructure/di/container";
@@ -30,60 +30,244 @@ import { SalesSection } from "@/features/sales/presentation/components/SalesSect
 import { SupplierSection } from "@/features/supplier/presentation/components/SupplierSection";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
 
-const navigationGroups = [
-  {
-    items: [
-      { href: "#visao-geral", label: "Dashboard", permission: "dashboard:view" },
-      { href: "#relatorios", label: "Relatorios", permission: "reports:view" },
-      { href: "#auditoria", label: "Auditoria", permission: "audit:view" },
-    ],
-    label: "Gestao",
-  },
-  {
-    items: [
-      { href: "#compras", label: "Compras", permission: "purchase:view" },
-      { href: "#producao", label: "Producao", permission: "production:view" },
-      { href: "#estoque", label: "Estoque", permission: "inventory:view" },
-    ],
-    label: "Operacao",
-  },
-  {
-    items: [
-      { href: "#vendas", label: "Vendas", permission: "sales:view" },
-      { href: "#caixa", label: "Caixa", permission: "finance:view" },
-      { href: "#crm", label: "CRM", permission: "crm:view" },
-    ],
-    label: "Atendimento",
-  },
-  {
-    items: [
-      { href: "#produtos", label: "Produtos", permission: "product:view" },
-      { href: "#fornecedores", label: "Fornecedores", permission: "supplier:view" },
-      { href: "#clientes", label: "Clientes", permission: "customer:view" },
-    ],
-    label: "Cadastros",
-  },
-] satisfies {
-  items: { href: string; label: string; permission: Permission }[];
+type ModuleId =
+  | "visao-geral"
+  | "relatorios"
+  | "auditoria"
+  | "compras"
+  | "producao"
+  | "estoque"
+  | "vendas"
+  | "caixa"
+  | "crm"
+  | "produtos"
+  | "fornecedores"
+  | "clientes";
+
+type ErpModule = {
+  description: string;
+  group: ModuleGroup;
+  id: ModuleId;
   label: string;
-}[];
+  permission: Permission;
+  render: () => ReactNode;
+  title: string;
+};
+
+type ModuleGroup = "Gestao" | "Operacao" | "Atendimento" | "Cadastros";
+
+const erpModules = [
+  {
+    description:
+      "Indicadores e consolidacoes para acompanhar a saude do negocio.",
+    group: "Gestao",
+    id: "visao-geral",
+    label: "Dashboard",
+    permission: "dashboard:view",
+    render: () => <DashboardSection />,
+    title: "Gestao",
+  },
+  {
+    description: "Analises consolidadas da operacao.",
+    group: "Gestao",
+    id: "relatorios",
+    label: "Relatorios",
+    permission: "reports:view",
+    render: () => <ReportsSection />,
+    title: "Relatorios",
+  },
+  {
+    description:
+      "Trilha de eventos para controle, rastreabilidade e governanca.",
+    group: "Gestao",
+    id: "auditoria",
+    label: "Auditoria",
+    permission: "audit:view",
+    render: () => <AuditSection />,
+    title: "Auditoria",
+  },
+  {
+    description:
+      "Entrada de insumos, custo de compra e relacionamento com fornecedores.",
+    group: "Operacao",
+    id: "compras",
+    label: "Compras",
+    permission: "purchase:view",
+    render: () => <PurchaseModule />,
+    title: "Abastecimento",
+  },
+  {
+    description: "Fichas tecnicas, ordens e custo unitario do produto fabricado.",
+    group: "Operacao",
+    id: "producao",
+    label: "Producao",
+    permission: "production:view",
+    render: () => <ProductionModule />,
+    title: "Producao",
+  },
+  {
+    description: "Saldos, rastreabilidade, perdas e ajustes.",
+    group: "Operacao",
+    id: "estoque",
+    label: "Estoque",
+    permission: "inventory:view",
+    render: () => <InventoryModule />,
+    title: "Estoque",
+  },
+  {
+    description: "Venda, desconto, estoque e margem por atendimento.",
+    group: "Atendimento",
+    id: "vendas",
+    label: "Vendas",
+    permission: "sales:view",
+    render: () => <SalesModule />,
+    title: "Vendas",
+  },
+  {
+    description: "Lancamentos, saldo, abertura e fechamento de caixa.",
+    group: "Atendimento",
+    id: "caixa",
+    label: "Caixa",
+    permission: "finance:view",
+    render: () => <FinanceSection />,
+    title: "Caixa",
+  },
+  {
+    description: "Relacionamento e acompanhamento comercial.",
+    group: "Atendimento",
+    id: "crm",
+    label: "CRM",
+    permission: "crm:view",
+    render: () => <CrmModule />,
+    title: "Clientes e CRM",
+  },
+  {
+    description: "Produtos vendidos, fabricados e comprados pela padaria.",
+    group: "Cadastros",
+    id: "produtos",
+    label: "Produtos",
+    permission: "product:view",
+    render: () => <ProductSection />,
+    title: "Produtos",
+  },
+  {
+    description: "Fornecedores usados no abastecimento da operacao.",
+    group: "Cadastros",
+    id: "fornecedores",
+    label: "Fornecedores",
+    permission: "supplier:view",
+    render: () => <SupplierSection />,
+    title: "Fornecedores",
+  },
+  {
+    description:
+      "Clientes usados em vendas, relacionamento e acompanhamento comercial.",
+    group: "Cadastros",
+    id: "clientes",
+    label: "Clientes",
+    permission: "customer:view",
+    render: () => <CustomerSection />,
+    title: "Clientes",
+  },
+] satisfies ErpModule[];
+
+const moduleIds = new Set<ModuleId>(erpModules.map((module) => module.id));
+const moduleGroups: ModuleGroup[] = [
+  "Gestao",
+  "Operacao",
+  "Atendimento",
+  "Cadastros",
+];
+
+function readModuleFromLocation(): ModuleId | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const requested =
+    window.location.hash.replace("#", "") ||
+    params.get("module") ||
+    params.get("section");
+
+  return isModuleId(requested) ? requested : null;
+}
 
 export function ErpHome() {
   const queryClient = useQueryClient();
-  const { products } = useProducts();
-  const { suppliers } = useSuppliers();
-  const { customers } = useCustomers();
-  const { balances } = useInventory();
   const { can } = usePermissionSession();
   const clearSession = usePermissionSessionStore(
     (state) => state.clearSession,
   );
-  const visibleNavigationGroups = navigationGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => can(item.permission)),
-    }))
-    .filter((group) => group.items.length > 0);
+  const visibleModules = useMemo(
+    () => erpModules.filter((module) => can(module.permission)),
+    [can],
+  );
+  const firstAvailableModule = visibleModules[0];
+  const [activeModuleId, setActiveModuleId] = useState<ModuleId>(
+    () => readModuleFromLocation() ?? "visao-geral",
+  );
+  const activeModule =
+    visibleModules.find((module) => module.id === activeModuleId) ??
+    firstAvailableModule;
+
+  const selectModule = useCallback(
+    (moduleId: ModuleId, mode: "push" | "replace" = "push") => {
+      setActiveModuleId(moduleId);
+
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const nextUrl = `${window.location.pathname}${window.location.search}#${moduleId}`;
+      if (mode === "replace") {
+        window.history.replaceState(null, "", nextUrl);
+        return;
+      }
+
+      window.history.pushState(null, "", nextUrl);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const requestedModule = readModuleFromLocation();
+    const fallbackModule = firstAvailableModule?.id;
+    const requestedIsAllowed = visibleModules.some(
+      (module) => module.id === requestedModule,
+    );
+    const nextModule =
+      requestedModule && requestedIsAllowed ? requestedModule : fallbackModule;
+
+    if (
+      nextModule &&
+      typeof window !== "undefined" &&
+      window.location.hash !== `#${nextModule}`
+    ) {
+      const nextUrl = `${window.location.pathname}${window.location.search}#${nextModule}`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [firstAvailableModule?.id, visibleModules]);
+
+  useEffect(() => {
+    function syncFromLocation() {
+      const requestedModule = readModuleFromLocation();
+      if (
+        requestedModule &&
+        visibleModules.some((module) => module.id === requestedModule)
+      ) {
+        setActiveModuleId(requestedModule);
+      }
+    }
+
+    window.addEventListener("hashchange", syncFromLocation);
+    window.addEventListener("popstate", syncFromLocation);
+
+    return () => {
+      window.removeEventListener("hashchange", syncFromLocation);
+      window.removeEventListener("popstate", syncFromLocation);
+    };
+  }, [visibleModules]);
 
   async function logout() {
     try {
@@ -95,30 +279,35 @@ export function ErpHome() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-50">
-      <header className="border-b border-zinc-200 bg-white">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--brand-cream-soft)]">
+      <header className="brand-divider border-b bg-[linear-gradient(135deg,#fff7dc_0%,#fffaf0_58%,#f3ddb2_100%)]">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-5 lg:px-6">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-bold uppercase text-green-800">
-                Paobom ERP
-              </p>
-              <h1 className="mt-1 text-3xl font-bold tracking-normal text-zinc-950">
-                Operacao da padaria
-              </h1>
+            <div className="flex items-center gap-4">
+              <div className="flex size-14 items-center justify-center rounded-md border border-[var(--brand-gold)] bg-[var(--brand-brown)] text-lg font-black text-[var(--brand-cream)] shadow-sm">
+                PB
+              </div>
+              <div>
+                <p className="brand-kicker text-sm uppercase">
+                  Panificadora PaoBom
+                </p>
+                <h1 className="brand-section-title mt-1 text-3xl tracking-normal">
+                  Operacao da padaria
+                </h1>
+              </div>
             </div>
             <div className="grid gap-3 md:justify-items-end">
               <div className="flex items-center gap-3">
                 <AuthenticatedUserSummary />
                 <button
-                  className="h-9 rounded-md border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 hover:border-zinc-400 hover:text-zinc-950"
+                  className="brand-secondary-button h-9 px-3 text-sm"
                   onClick={() => void logout()}
                   type="button"
                 >
                   Sair
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-zinc-600 md:grid-cols-6">
+              <div className="brand-muted grid grid-cols-3 gap-2 text-xs font-semibold md:grid-cols-6">
                 <OperationalStep label="Compra" step="01" />
                 <OperationalStep label="Estoque" step="02" />
                 <OperationalStep label="Receita" step="03" />
@@ -131,134 +320,69 @@ export function ErpHome() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-6">
+      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-6">
         <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
-          <nav className="overflow-x-auto border-b border-zinc-200 pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
-            <div className="flex min-w-max gap-5 lg:min-w-0 lg:flex-col lg:gap-6">
-              {visibleNavigationGroups.map((group) => (
-                <div className="grid gap-2" key={group.label}>
-                  <p className="text-xs font-bold uppercase text-zinc-500">
-                    {group.label}
-                  </p>
-                  <div className="flex gap-2 lg:grid">
-                    {group.items.map((item) => (
-                      <a
-                        className="whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-white hover:text-green-800"
-                        href={item.href}
-                        key={item.href}
-                      >
-                        {item.label}
-                      </a>
-                    ))}
+          <nav
+            aria-label="Navegacao principal"
+            className="brand-sidebar brand-divider overflow-x-auto border-b pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
+          >
+            <div className="grid gap-4 lg:gap-5">
+              {moduleGroups.map((group) => {
+                const groupModules = visibleModules.filter(
+                  (module) => module.group === group,
+                );
+
+                if (groupModules.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <div className="grid gap-2" key={group}>
+                    <p className="brand-muted text-xs font-bold uppercase">
+                      {group}
+                    </p>
+                    <div className="flex flex-wrap gap-2 lg:grid">
+                      {groupModules.map((module) => {
+                        const isActive = module.id === activeModule?.id;
+
+                        return (
+                          <a
+                            aria-current={isActive ? "page" : undefined}
+                            className="brand-nav-item"
+                            data-active={isActive ? "true" : "false"}
+                            href={`#${module.id}`}
+                            key={module.id}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              selectModule(module.id);
+                            }}
+                          >
+                            <span>{module.label}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </nav>
         </aside>
 
         <main className="grid min-w-0 gap-8">
-          <WorkspaceGroup
-            description="Indicadores e consolidacoes para acompanhar a saude do negocio."
-            id="visao-geral"
-            permission="dashboard:view"
-            title="Gestao"
-          >
-            <DashboardSection />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Analises consolidadas da operacao."
-            id="relatorios"
-            permission="reports:view"
-            title="Relatorios"
-          >
-            <ReportsSection />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Trilha de eventos para controle, rastreabilidade e governanca."
-            id="auditoria"
-            permission="audit:view"
-            title="Auditoria"
-          >
-            <AuditSection />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Entrada de insumos, custo de compra e relacionamento com fornecedores."
-            id="compras"
-            permission="purchase:view"
-            title="Abastecimento"
-          >
-            <PurchaseSection products={products} suppliers={suppliers} />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Fichas tecnicas, ordens e custo unitario do produto fabricado."
-            id="producao"
-            permission="production:view"
-            title="Producao"
-          >
-            <ProductionSection products={products} />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Saldos, rastreabilidade, perdas e ajustes."
-            id="estoque"
-            permission="inventory:view"
-            title="Estoque"
-          >
-            <InventorySection products={products} />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Venda, desconto, estoque e margem por atendimento."
-            id="vendas"
-            permission="sales:view"
-            title="Vendas"
-          >
-            <SalesSection
-              customers={customers}
-              inventoryBalances={balances}
-              products={products}
-            />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Lancamentos, saldo, abertura e fechamento de caixa."
-            id="caixa"
-            permission="finance:view"
-            title="Caixa"
-          >
-            <FinanceSection />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Relacionamento e acompanhamento comercial."
-            id="crm"
-            permission="crm:view"
-            title="Clientes e CRM"
-          >
-            <CustomerRelationshipSection customers={customers} />
-          </WorkspaceGroup>
-
-          <WorkspaceGroup
-            description="Base operacional usada por compras, receitas, vendas e relatorios."
-            id="produtos"
-            permission="product:view"
-            title="Cadastros"
-          >
-            <PermissionGate permission="product:view">
-              <ProductSection />
-            </PermissionGate>
-            <PermissionGate permission="supplier:view">
-              <SupplierSection />
-            </PermissionGate>
-            <PermissionGate permission="customer:view">
-              <CustomerSection />
-            </PermissionGate>
-          </WorkspaceGroup>
+          {activeModule ? (
+            <WorkspaceModule module={activeModule} />
+          ) : (
+            <section className="brand-card p-5">
+              <h2 className="brand-section-title text-lg">
+                Nenhum modulo disponivel
+              </h2>
+              <p className="brand-muted mt-1 text-sm leading-6">
+                Seu usuario nao possui permissoes para acessar os modulos do
+                ERP.
+              </p>
+            </section>
+          )}
         </main>
       </div>
     </div>
@@ -267,35 +391,71 @@ export function ErpHome() {
 
 function OperationalStep({ label, step }: { label: string; step: string }) {
   return (
-    <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
-      <span className="text-[11px] font-bold text-green-800">{step}</span>
+    <div className="brand-divider flex items-center gap-2 border-l pl-3">
+      <span className="text-[11px] font-bold text-[var(--brand-leaf)]">
+        {step}
+      </span>
       <span>{label}</span>
     </div>
   );
 }
 
-function WorkspaceGroup({
-  children,
-  description,
-  id,
-  permission,
-  title,
-}: {
-  children: ReactNode;
-  description: string;
-  id: string;
-  permission: Permission;
-  title: string;
-}) {
+function WorkspaceModule({ module }: { module: ErpModule }) {
   return (
-    <PermissionGate permission={permission}>
-      <section className="min-w-0 scroll-mt-5" id={id}>
-        <div className="mb-3 border-b border-zinc-200 pb-2">
-          <h2 className="text-lg font-bold text-zinc-950">{title}</h2>
-          <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
+    <PermissionGate permission={module.permission}>
+      <section className="min-w-0 scroll-mt-5" id={module.id}>
+        <div className="brand-divider mb-3 border-b pb-2">
+          <p className="brand-kicker text-xs uppercase">{module.group}</p>
+          <h2 className="brand-section-title mt-1 text-xl">{module.title}</h2>
+          <p className="brand-muted mt-1 text-sm leading-6">
+            {module.description}
+          </p>
         </div>
-        <div className="grid min-w-0 gap-4">{children}</div>
+        <div className="grid min-w-0 gap-4">{module.render()}</div>
       </section>
     </PermissionGate>
   );
+}
+
+function PurchaseModule() {
+  const { products } = useProducts();
+  const { suppliers } = useSuppliers();
+
+  return <PurchaseSection products={products} suppliers={suppliers} />;
+}
+
+function ProductionModule() {
+  const { products } = useProducts();
+
+  return <ProductionSection products={products} />;
+}
+
+function InventoryModule() {
+  const { products } = useProducts();
+
+  return <InventorySection products={products} />;
+}
+
+function SalesModule() {
+  const { customers } = useCustomers();
+  const { products } = useProducts();
+  const { balances } = useInventory();
+
+  return (
+    <SalesSection
+      customers={customers}
+      inventoryBalances={balances}
+      products={products}
+    />
+  );
+}
+
+function CrmModule() {
+  const { customers } = useCustomers();
+
+  return <CustomerRelationshipSection customers={customers} />;
+}
+
+function isModuleId(value: string | null): value is ModuleId {
+  return value !== null && moduleIds.has(value as ModuleId);
 }
