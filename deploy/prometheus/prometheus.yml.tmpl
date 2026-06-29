@@ -19,6 +19,9 @@ scrape_configs:
 
   - job_name: paobom-api
     metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials: ${METRICS_BEARER_TOKEN}
     static_configs:
       - targets:
           - api:3333

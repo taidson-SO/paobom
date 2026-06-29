@@ -177,10 +177,13 @@ export function getRequiredPermissions(route: {
     route.pattern === "/health" ||
     route.pattern === "/health/live" ||
     route.pattern === "/health/ready" ||
-    route.pattern === "/metrics" ||
     route.pattern === "/auth/login"
   ) {
     return null;
+  }
+
+  if (route.pattern === "/metrics") {
+    return ["reports:view"];
   }
 
   if (
@@ -308,7 +311,7 @@ export function getRequiredPermissions(route: {
   }
 
   if (route.pattern === "/audit-logs") {
-    return route.method === "GET" ? ["audit:view"] : ["audit:view"];
+    return route.method === "GET" ? ["audit:view"] : ["permissions:manage"];
   }
 
   if (route.pattern.startsWith("/users")) {
@@ -427,8 +430,22 @@ export function checkRateLimit(
 
 export function hashToken(token: string) {
   return createHash("sha256")
-    .update(`${process.env.AUTH_TOKEN_SECRET ?? "paobom-dev-secret"}:${token}`)
+    .update(`${getAuthTokenSecret()}:${token}`)
     .digest("hex");
+}
+
+export function getAuthTokenSecret() {
+  const secret = process.env.AUTH_TOKEN_SECRET;
+
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production" || process.env.APP_ENV === "staging") {
+    throw new Error("AUTH_TOKEN_SECRET deve ser definido fora do desenvolvimento");
+  }
+
+  return "paobom-dev-secret";
 }
 
 export function hashPassword(password: string, salt = randomBytes(16).toString("hex")) {

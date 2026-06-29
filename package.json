@@ -57,5 +57,12 @@
     "@playwright/test": "^1.61.0",
     "turbo": "latest",
     "typescript": "latest"
+  },
+  "pnpm": {
+    "overrides": {
+      "js-yaml": "3.15.0",
+      "postcss": "8.5.10",
+      "uuid": "11.1.1"
+    }
   }
 }

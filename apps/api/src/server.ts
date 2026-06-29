@@ -147,7 +147,6 @@ const routes: Route[] = [
   route("GET", "/dashboard", getDashboard),
 
   route("GET", "/audit-logs", listAuditLogs),
-  route("POST", "/audit-logs", createAuditLog),
   route("GET", "/users", listUsers),
   route("POST", "/users", createUser),
   route("PATCH", "/users/:id", updateUser),
@@ -380,6 +379,22 @@ async function authorize(req: IncomingMessage, route: Route) {
   }
 
   const token = getBearerToken(req) ?? getSessionCookie(req);
+
+  if (route.pattern === "/metrics") {
+    const metricsToken = process.env.METRICS_BEARER_TOKEN;
+    const bearerToken = getBearerToken(req);
+
+    if (metricsToken && bearerToken === metricsToken) {
+      return {
+        email: "metrics@paobom.local",
+        id: "metrics",
+        name: "Prometheus",
+        permissions: ["reports:view" as Permission],
+        role: "viewer" as UserRole,
+        sessionId: "metrics",
+      };
+    }
+  }
 
   if (!token) {
     throw new HttpError(401, "Token de autenticacao nao informado");
@@ -712,9 +727,21 @@ function matchPattern(pattern: string, pathname: string) {
 
 async function readJsonBody(req: IncomingMessage) {
   const chunks: Buffer[] = [];
+  const configuredMaxBodyBytes = Number(process.env.API_MAX_BODY_BYTES);
+  const maxBodyBytes = Number.isFinite(configuredMaxBodyBytes)
+    ? configuredMaxBodyBytes
+    : 1_048_576;
+  let totalBytes = 0;
 
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+
+    if (totalBytes > maxBodyBytes) {
+      throw new HttpError(413, "Corpo da requisicao excede o limite permitido");
+    }
+
+    chunks.push(buffer);
   }
 
   const rawBody = Buffer.concat(chunks).toString("utf8").trim();
@@ -965,6 +992,33 @@ function booleanQuery(query: URLSearchParams, field: string) {
   }
 
   return value === "true";
+}
+
+function paginationQuery(query: URLSearchParams, options: { max?: number } = {}) {
+  const max = options.max ?? 100;
+  const rawLimit = Number(query.get("limit") ?? 50);
+  const rawOffset = Number(query.get("offset") ?? 0);
+  const limit = Math.min(
+    max,
+    Math.max(1, Math.trunc(Number.isFinite(rawLimit) ? rawLimit : 50)),
+  );
+  const offset = Math.max(
+    0,
+    Math.trunc(Number.isFinite(rawOffset) ? rawOffset : 0),
+  );
+
+  return { skip: offset, take: limit };
+}
+
+function dateRangeFilter(period: { startDate: Date | null; endDate: Date | null }) {
+  if (!period.startDate && !period.endDate) {
+    return undefined;
+  }
+
+  return {
+    gte: period.startDate ?? undefined,
+    lte: period.endDate ?? undefined,
+  };
 }
 
 async function login({ body, res }: Context) {
@@ -1621,7 +1675,8 @@ async function deactivateSupplier({ params }: Context) {
 
 async function listCustomers({ query }: Context) {
   return prisma.customer.findMany({
-    include: { interactions: { orderBy: { occurredAt: "desc" } } },
+    ...paginationQuery(query),
+    include: { interactions: { orderBy: { occurredAt: "desc" }, take: 20 } },
     orderBy: { name: "asc" },
     where: { active: booleanQuery(query, "active") },
   });
@@ -1706,10 +1761,11 @@ async function updateSimpleEntity(entity: "customer" | "supplier", id: string, b
   return prisma.supplier.update({ data, where: { id } });
 }
 
-async function listPurchases() {
+async function listPurchases({ query }: Context) {
   return prisma.purchase.findMany({
+    ...paginationQuery(query),
     include: {
-      history: { orderBy: { occurredAt: "desc" } },
+      history: { orderBy: { occurredAt: "desc" }, take: 20 },
       items: { include: { product: true } },
       payable: true,
       supplier: true,
@@ -1752,8 +1808,9 @@ async function createPurchase({ body }: Context) {
   });
 }
 
-async function listPurchasePayables() {
+async function listPurchasePayables({ query }: Context) {
   return prisma.purchasePayable.findMany({
+    ...paginationQuery(query),
     include: { purchase: true, supplier: true },
     orderBy: { dueDate: "asc" },
   });
@@ -1961,22 +2018,25 @@ async function listInventoryBalances() {
   });
 }
 
-async function listInventoryLots() {
+async function listInventoryLots({ query }: Context) {
   return prisma.inventoryLot.findMany({
+    ...paginationQuery(query),
     include: { product: true, purchase: true, supplier: true },
     orderBy: [{ expirationDate: "asc" }, { receivedAt: "desc" }],
   });
 }
 
-async function listStockMovements() {
+async function listStockMovements({ query }: Context) {
   return prisma.stockMovement.findMany({
+    ...paginationQuery(query),
     include: { lot: true, product: true },
     orderBy: { occurredAt: "desc" },
   });
 }
 
-async function listPhysicalInventoryCounts() {
+async function listPhysicalInventoryCounts({ query }: Context) {
   return prisma.physicalInventoryCount.findMany({
+    ...paginationQuery(query),
     include: { product: true },
     orderBy: { countedAt: "desc" },
   });
@@ -2244,8 +2304,9 @@ async function cancelProductionOrder({ params }: Context) {
   });
 }
 
-async function listSales() {
+async function listSales({ query }: Context) {
   return prisma.sale.findMany({
+    ...paginationQuery(query),
     include: {
       customer: true,
       items: { include: { product: true } },
@@ -2504,8 +2565,11 @@ async function cancelSale({ params }: Context) {
   });
 }
 
-async function listCashEntries() {
-  return prisma.cashEntry.findMany({ orderBy: { dueDate: "desc" } });
+async function listCashEntries({ query }: Context) {
+  return prisma.cashEntry.findMany({
+    ...paginationQuery(query),
+    orderBy: { dueDate: "desc" },
+  });
 }
 
 async function createCashEntry({ body }: Context) {
@@ -2554,18 +2618,23 @@ async function cancelCashEntry({ params }: Context) {
   });
 }
 
-async function listCashRegisters() {
-  return prisma.cashRegister.findMany({ orderBy: { openedAt: "desc" } });
+async function listCashRegisters({ query }: Context) {
+  return prisma.cashRegister.findMany({
+    ...paginationQuery(query),
+    orderBy: { openedAt: "desc" },
+  });
 }
 
-async function listCashRegisterMovements() {
+async function listCashRegisterMovements({ query }: Context) {
   return prisma.cashRegisterMovement.findMany({
+    ...paginationQuery(query),
     orderBy: { occurredAt: "desc" },
   });
 }
 
-async function listCashReconciliations() {
+async function listCashReconciliations({ query }: Context) {
   return prisma.cashReconciliation.findMany({
+    ...paginationQuery(query),
     orderBy: { reconciledAt: "desc" },
   });
 }
@@ -2573,20 +2642,22 @@ async function listCashReconciliations() {
 async function openCashRegister({ body }: Context) {
   const input = bodyAsRecord(body);
   assertAllowedFields(input, ["openedBy", "openingAmount"]);
-  const current = await prisma.cashRegister.findFirst({ where: { status: "open" } });
+  try {
+    return await prisma.cashRegister.create({
+      data: {
+        openedAt: new Date(),
+        openedBy: stringField(input, "openedBy", { maxLength: 120 }),
+        openingAmount: nonNegativeNumberField(input, "openingAmount"),
+        status: "open",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new HttpError(409, "Ja existe um caixa aberto");
+    }
 
-  if (current) {
-    throw new HttpError(409, "Ja existe um caixa aberto");
+    throw error;
   }
-
-  return prisma.cashRegister.create({
-    data: {
-      openedAt: new Date(),
-      openedBy: stringField(input, "openedBy", { maxLength: 120 }),
-      openingAmount: nonNegativeNumberField(input, "openingAmount"),
-      status: "open",
-    },
-  });
 }
 
 async function registerCashRegisterMovement({ body, params }: Context) {
@@ -2704,14 +2775,57 @@ async function closeCashRegister({ body, params }: Context) {
 
 async function getReports({ query }: Context) {
   const period = periodFilter(query);
+  const range = dateRangeFilter(period);
   const [sales, cashEntries, balances, movements, purchases, productions] =
     await Promise.all([
-      prisma.sale.findMany({ include: { items: true, payments: true } }),
-      prisma.cashEntry.findMany(),
+      prisma.sale.findMany({
+        include: { items: true, payments: true },
+        where: range
+          ? {
+              OR: [
+                { paidAt: range },
+                { createdAt: range, paidAt: null },
+              ],
+            }
+          : undefined,
+      }),
+      prisma.cashEntry.findMany({
+        where: range
+          ? {
+              OR: [
+                { settledAt: range },
+                { dueDate: range, settledAt: null },
+              ],
+            }
+          : undefined,
+      }),
       prisma.inventoryBalance.findMany(),
-      prisma.stockMovement.findMany(),
-      prisma.purchase.findMany({ include: { items: true } }),
-      prisma.productionOrder.findMany({ include: { ingredientConsumptions: true } }),
+      prisma.stockMovement.findMany({
+        where: range ? { occurredAt: range } : undefined,
+      }),
+      prisma.purchase.findMany({
+        include: { items: true },
+        where: range
+          ? {
+              OR: [
+                { receivedAt: range },
+                { expectedDate: range, receivedAt: null },
+              ],
+            }
+          : undefined,
+      }),
+      prisma.productionOrder.findMany({
+        include: { ingredientConsumptions: true },
+        where: range
+          ? {
+              OR: [
+                { completedAt: range },
+                { startedAt: range, completedAt: null },
+                { createdAt: range, completedAt: null, startedAt: null },
+              ],
+            }
+          : undefined,
+      }),
     ]);
   const periodSales = sales.filter((sale) =>
     isWithinPeriod(sale.paidAt ?? sale.createdAt, period),
@@ -3229,34 +3343,12 @@ function buildApiDashboardAlerts(data: Awaited<ReturnType<typeof getReports>>) {
 
 async function listAuditLogs({ query }: Context) {
   return prisma.auditLog.findMany({
+    ...paginationQuery(query, { max: 200 }),
     orderBy: { occurredAt: "desc" },
     where: {
       action: query.get("action") ?? undefined,
       entity: query.get("entity") ?? undefined,
       userId: query.get("userId") ?? undefined,
-    },
-  });
-}
-
-async function createAuditLog({ body }: Context) {
-  const input = bodyAsRecord(body);
-
-  return prisma.auditLog.create({
-    data: {
-      action: stringField(input, "action"),
-      description: stringField(input, "description"),
-      entity: stringField(input, "entity"),
-      entityId: optionalStringField(input, "entityId"),
-      metadata:
-        input.metadata && typeof input.metadata === "object"
-          ? (input.metadata as Prisma.InputJsonObject)
-          : {},
-      occurredAt:
-        typeof input.occurredAt === "string" ? new Date(input.occurredAt) : new Date(),
-      result: stringField(input, "result") as Prisma.AuditLogCreateInput["result"],
-      userId: stringField(input, "userId"),
-      userName: stringField(input, "userName"),
-      userRole: stringField(input, "userRole"),
     },
   });
 }

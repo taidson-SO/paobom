@@ -517,7 +517,11 @@ export class ApiAuditLogRepository implements AuditLogRepository {
   }
 
   async register(input: RegisterAuditLogInput) {
-    return toAuditLog(await this.api.post<ApiRecord>("/audit-logs", input));
+    return new AuditLog({
+      ...input,
+      id: `client-audit-ignored-${Date.now()}`,
+      occurredAt: new Date(),
+    });
   }
 }
 

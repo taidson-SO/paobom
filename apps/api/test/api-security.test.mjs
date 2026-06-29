@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 
 import {
   checkRateLimit,
+  getAuthTokenSecret,
   getBearerToken,
   getClientIp,
   getRequiredPermissions,
@@ -50,6 +51,14 @@ describe("permissoes da API", () => {
     assert.deepEqual(
       getRequiredPermissions({ method: "POST", pattern: "/products" }),
       ["product:manage"],
+    );
+    assert.deepEqual(
+      getRequiredPermissions({ method: "GET", pattern: "/metrics" }),
+      ["reports:view"],
+    );
+    assert.deepEqual(
+      getRequiredPermissions({ method: "POST", pattern: "/audit-logs" }),
+      ["permissions:manage"],
     );
     assert.deepEqual(
       getRequiredPermissions({
@@ -168,6 +177,42 @@ describe("autenticacao da API", () => {
 
     assert.notEqual(hashA, hashB);
     assert.match(hashA, /^[a-f0-9]{64}$/);
+  });
+
+  test("exige segredo de token fora do desenvolvimento", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousAppEnv = process.env.APP_ENV;
+    const previousSecret = process.env.AUTH_TOKEN_SECRET;
+
+    delete process.env.AUTH_TOKEN_SECRET;
+    process.env.NODE_ENV = "production";
+    delete process.env.APP_ENV;
+
+    assert.throws(
+      () => getAuthTokenSecret(),
+      /AUTH_TOKEN_SECRET deve ser definido/,
+    );
+
+    process.env.AUTH_TOKEN_SECRET = "configured-secret";
+    assert.equal(getAuthTokenSecret(), "configured-secret");
+
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+
+    if (previousAppEnv === undefined) {
+      delete process.env.APP_ENV;
+    } else {
+      process.env.APP_ENV = previousAppEnv;
+    }
+
+    if (previousSecret === undefined) {
+      delete process.env.AUTH_TOKEN_SECRET;
+    } else {
+      process.env.AUTH_TOKEN_SECRET = previousSecret;
+    }
   });
 
   test("verifica senha PBKDF2 e rejeita formatos invalidos", () => {

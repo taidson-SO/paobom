@@ -49,6 +49,8 @@ const hostedEnvironment = {
   )}@postgres:5432/paobom_staging?schema=public`,
   AUTH_TOKEN_SECRET:
     existingHosted.AUTH_TOKEN_SECRET ?? randomSecret(48),
+  METRICS_BEARER_TOKEN:
+    existingHosted.METRICS_BEARER_TOKEN ?? randomSecret(48),
   SESSION_TTL_HOURS: "12",
   SESSION_MAX_ACTIVE: "5",
   SEED_USER_PASSWORD: seedPassword,
