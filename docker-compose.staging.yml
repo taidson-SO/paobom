@@ -30,7 +30,7 @@ services:
     environment:
       CI: "true"
       DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-paobom_staging}:${STAGING_POSTGRES_PASSWORD:-paobom_staging}@postgres:5432/${STAGING_POSTGRES_DB:-paobom_staging}?schema=public
-      SEED_USER_PASSWORD: ${STAGING_SEED_USER_PASSWORD:-Paobom@123}
+      SEED_USER_PASSWORD: ${STAGING_SEED_USER_PASSWORD:?Defina STAGING_SEED_USER_PASSWORD para executar o seed de staging}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +60,8 @@ services:
       AUTH_TOKEN_SECRET: ${STAGING_AUTH_TOKEN_SECRET:-paobom-staging-secret}
       SESSION_TTL_HOURS: ${STAGING_SESSION_TTL_HOURS:-12}
       SESSION_MAX_ACTIVE: ${STAGING_SESSION_MAX_ACTIVE:-5}
+      LOGIN_RATE_LIMIT_WINDOW_MS: ${LOGIN_RATE_LIMIT_WINDOW_MS:-900000}
+      LOGIN_RATE_LIMIT_MAX_ATTEMPTS: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:-10}
       SESSION_COOKIE_SECURE: ${STAGING_SESSION_COOKIE_SECURE:-false}
       DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-paobom_staging}:${STAGING_POSTGRES_PASSWORD:-paobom_staging}@postgres:5432/${STAGING_POSTGRES_DB:-paobom_staging}?schema=public
     ports:

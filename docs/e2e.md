@@ -49,3 +49,10 @@ Nunca aponte `E2E_DATABASE_URL` para staging ou producao.
 O workflow `.github/workflows/ci.yml` possui um job separado com PostgreSQL
 dedicado. O teste E2E nao faz parte de `pnpm test`, mantendo a suite unitaria
 rapida e permitindo diagnostico independente do ambiente integrado.
+
+## Relacao com `pnpm test`
+
+`pnpm test` executa testes rapidos de dominio, mobile e API. A API cobre
+permissoes, autenticacao, rate limit de login e mascaramento de auditoria sem
+subir banco externo. O fluxo integrado com PostgreSQL real continua separado em
+`pnpm test:e2e:local` para proteger dados e facilitar diagnostico.

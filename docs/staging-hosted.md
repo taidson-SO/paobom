@@ -20,6 +20,10 @@ Alertmanager -> webhook operacional
 Somente as portas `80` e `443` ficam publicas. PostgreSQL, Prometheus, Loki e
 Alertmanager permanecem em redes internas do Docker.
 
+O Caddy faz terminacao TLS automatica, redireciona HTTP para HTTPS pelo
+comportamento padrao do servidor e aplica `Strict-Transport-Security` nos
+dominios Web, API e Grafana.
+
 ## Pre-requisitos
 
 - VPS Linux com Docker Engine e Compose v2

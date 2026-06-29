@@ -6,7 +6,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json && node --env-file-if-exists=../../.env dist/server.js",
     "start": "node --env-file-if-exists=../../.env dist/server.js",
-    "test": "echo \"API E2E suite available through pnpm test:e2e\"",
+    "test": "tsc -p tsconfig.build.json && node test/api-security.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

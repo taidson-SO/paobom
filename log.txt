@@ -757,3 +757,4289 @@ Date:   Sat Jun 13 18:48:05 2026 -0300
     - Projeto roda em web e mobile.
     - Estrutura de pastas segue .
     - Existe um exemplo mínimo de feature atravessando as camadas.
+commit 0dfa1d94cd213e26517c7568a9dc5056f38ad872
+Author:     taidson <taidson2@gmail.com>
+AuthorDate: Sun Jun 28 18:10:27 2026 -0300
+Commit:     taidson <taidson2@gmail.com>
+CommitDate: Sun Jun 28 18:10:27 2026 -0300
+
+    layout ajust
+
+diff --git a/apps/web/app/components/ErpHome.tsx b/apps/web/app/components/ErpHome.tsx
+index ca53230..d50d184 100644
+--- a/apps/web/app/components/ErpHome.tsx
++++ b/apps/web/app/components/ErpHome.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { Permission } from "@paobom/domain";
+ import { useQueryClient } from "@tanstack/react-query";
+-import { ReactNode } from "react";
++import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+ 
+ import { ApiClient } from "@/core/infrastructure/api/api-client";
+ import { container } from "@/core/infrastructure/di/container";
+@@ -30,60 +30,244 @@ import { SalesSection } from "@/features/sales/presentation/components/SalesSect
+ import { SupplierSection } from "@/features/supplier/presentation/components/SupplierSection";
+ import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
+ 
+-const navigationGroups = [
++type ModuleId =
++  | "visao-geral"
++  | "relatorios"
++  | "auditoria"
++  | "compras"
++  | "producao"
++  | "estoque"
++  | "vendas"
++  | "caixa"
++  | "crm"
++  | "produtos"
++  | "fornecedores"
++  | "clientes";
++
++type ErpModule = {
++  description: string;
++  group: ModuleGroup;
++  id: ModuleId;
++  label: string;
++  permission: Permission;
++  render: () => ReactNode;
++  title: string;
++};
++
++type ModuleGroup = "Gestao" | "Operacao" | "Atendimento" | "Cadastros";
++
++const erpModules = [
+   {
+-    items: [
+-      { href: "#visao-geral", label: "Dashboard", permission: "dashboard:view" },
+-      { href: "#relatorios", label: "Relatorios", permission: "reports:view" },
+-      { href: "#auditoria", label: "Auditoria", permission: "audit:view" },
+-    ],
+-    label: "Gestao",
++    description:
++      "Indicadores e consolidacoes para acompanhar a saude do negocio.",
++    group: "Gestao",
++    id: "visao-geral",
++    label: "Dashboard",
++    permission: "dashboard:view",
++    render: () => <DashboardSection />,
++    title: "Gestao",
+   },
+   {
+-    items: [
+-      { href: "#compras", label: "Compras", permission: "purchase:view" },
+-      { href: "#producao", label: "Producao", permission: "production:view" },
+-      { href: "#estoque", label: "Estoque", permission: "inventory:view" },
+-    ],
+-    label: "Operacao",
++    description: "Analises consolidadas da operacao.",
++    group: "Gestao",
++    id: "relatorios",
++    label: "Relatorios",
++    permission: "reports:view",
++    render: () => <ReportsSection />,
++    title: "Relatorios",
+   },
+   {
+-    items: [
+-      { href: "#vendas", label: "Vendas", permission: "sales:view" },
+-      { href: "#caixa", label: "Caixa", permission: "finance:view" },
+-      { href: "#crm", label: "CRM", permission: "crm:view" },
+-    ],
+-    label: "Atendimento",
++    description:
++      "Trilha de eventos para controle, rastreabilidade e governanca.",
++    group: "Gestao",
++    id: "auditoria",
++    label: "Auditoria",
++    permission: "audit:view",
++    render: () => <AuditSection />,
++    title: "Auditoria",
+   },
+   {
+-    items: [
+-      { href: "#produtos", label: "Produtos", permission: "product:view" },
+-      { href: "#fornecedores", label: "Fornecedores", permission: "supplier:view" },
+-      { href: "#clientes", label: "Clientes", permission: "customer:view" },
+-    ],
+-    label: "Cadastros",
++    description:
++      "Entrada de insumos, custo de compra e relacionamento com fornecedores.",
++    group: "Operacao",
++    id: "compras",
++    label: "Compras",
++    permission: "purchase:view",
++    render: () => <PurchaseModule />,
++    title: "Abastecimento",
+   },
+-] satisfies {
+-  items: { href: string; label: string; permission: Permission }[];
+-  label: string;
+-}[];
++  {
++    description: "Fichas tecnicas, ordens e custo unitario do produto fabricado.",
++    group: "Operacao",
++    id: "producao",
++    label: "Producao",
++    permission: "production:view",
++    render: () => <ProductionModule />,
++    title: "Producao",
++  },
++  {
++    description: "Saldos, rastreabilidade, perdas e ajustes.",
++    group: "Operacao",
++    id: "estoque",
++    label: "Estoque",
++    permission: "inventory:view",
++    render: () => <InventoryModule />,
++    title: "Estoque",
++  },
++  {
++    description: "Venda, desconto, estoque e margem por atendimento.",
++    group: "Atendimento",
++    id: "vendas",
++    label: "Vendas",
++    permission: "sales:view",
++    render: () => <SalesModule />,
++    title: "Vendas",
++  },
++  {
++    description: "Lancamentos, saldo, abertura e fechamento de caixa.",
++    group: "Atendimento",
++    id: "caixa",
++    label: "Caixa",
++    permission: "finance:view",
++    render: () => <FinanceSection />,
++    title: "Caixa",
++  },
++  {
++    description: "Relacionamento e acompanhamento comercial.",
++    group: "Atendimento",
++    id: "crm",
++    label: "CRM",
++    permission: "crm:view",
++    render: () => <CrmModule />,
++    title: "Clientes e CRM",
++  },
++  {
++    description: "Produtos vendidos, fabricados e comprados pela padaria.",
++    group: "Cadastros",
++    id: "produtos",
++    label: "Produtos",
++    permission: "product:view",
++    render: () => <ProductSection />,
++    title: "Produtos",
++  },
++  {
++    description: "Fornecedores usados no abastecimento da operacao.",
++    group: "Cadastros",
++    id: "fornecedores",
++    label: "Fornecedores",
++    permission: "supplier:view",
++    render: () => <SupplierSection />,
++    title: "Fornecedores",
++  },
++  {
++    description:
++      "Clientes usados em vendas, relacionamento e acompanhamento comercial.",
++    group: "Cadastros",
++    id: "clientes",
++    label: "Clientes",
++    permission: "customer:view",
++    render: () => <CustomerSection />,
++    title: "Clientes",
++  },
++] satisfies ErpModule[];
++
++const moduleIds = new Set<ModuleId>(erpModules.map((module) => module.id));
++const moduleGroups: ModuleGroup[] = [
++  "Gestao",
++  "Operacao",
++  "Atendimento",
++  "Cadastros",
++];
++
++function readModuleFromLocation(): ModuleId | null {
++  if (typeof window === "undefined") {
++    return null;
++  }
++
++  const params = new URLSearchParams(window.location.search);
++  const requested =
++    window.location.hash.replace("#", "") ||
++    params.get("module") ||
++    params.get("section");
++
++  return isModuleId(requested) ? requested : null;
++}
+ 
+ export function ErpHome() {
+   const queryClient = useQueryClient();
+-  const { products } = useProducts();
+-  const { suppliers } = useSuppliers();
+-  const { customers } = useCustomers();
+-  const { balances } = useInventory();
+   const { can } = usePermissionSession();
+   const clearSession = usePermissionSessionStore(
+     (state) => state.clearSession,
+   );
+-  const visibleNavigationGroups = navigationGroups
+-    .map((group) => ({
+-      ...group,
+-      items: group.items.filter((item) => can(item.permission)),
+-    }))
+-    .filter((group) => group.items.length > 0);
++  const visibleModules = useMemo(
++    () => erpModules.filter((module) => can(module.permission)),
++    [can],
++  );
++  const firstAvailableModule = visibleModules[0];
++  const [activeModuleId, setActiveModuleId] = useState<ModuleId>(
++    () => readModuleFromLocation() ?? "visao-geral",
++  );
++  const activeModule =
++    visibleModules.find((module) => module.id === activeModuleId) ??
++    firstAvailableModule;
++
++  const selectModule = useCallback(
++    (moduleId: ModuleId, mode: "push" | "replace" = "push") => {
++      setActiveModuleId(moduleId);
++
++      if (typeof window === "undefined") {
++        return;
++      }
++
++      const nextUrl = `${window.location.pathname}${window.location.search}#${moduleId}`;
++      if (mode === "replace") {
++        window.history.replaceState(null, "", nextUrl);
++        return;
++      }
++
++      window.history.pushState(null, "", nextUrl);
++    },
++    [],
++  );
++
++  useEffect(() => {
++    const requestedModule = readModuleFromLocation();
++    const fallbackModule = firstAvailableModule?.id;
++    const requestedIsAllowed = visibleModules.some(
++      (module) => module.id === requestedModule,
++    );
++    const nextModule =
++      requestedModule && requestedIsAllowed ? requestedModule : fallbackModule;
++
++    if (
++      nextModule &&
++      typeof window !== "undefined" &&
++      window.location.hash !== `#${nextModule}`
++    ) {
++      const nextUrl = `${window.location.pathname}${window.location.search}#${nextModule}`;
++      window.history.replaceState(null, "", nextUrl);
++    }
++  }, [firstAvailableModule?.id, visibleModules]);
++
++  useEffect(() => {
++    function syncFromLocation() {
++      const requestedModule = readModuleFromLocation();
++      if (
++        requestedModule &&
++        visibleModules.some((module) => module.id === requestedModule)
++      ) {
++        setActiveModuleId(requestedModule);
++      }
++    }
++
++    window.addEventListener("hashchange", syncFromLocation);
++    window.addEventListener("popstate", syncFromLocation);
++
++    return () => {
++      window.removeEventListener("hashchange", syncFromLocation);
++      window.removeEventListener("popstate", syncFromLocation);
++    };
++  }, [visibleModules]);
+ 
+   async function logout() {
+     try {
+@@ -95,30 +279,35 @@ export function ErpHome() {
+   }
+ 
+   return (
+-    <div className="min-h-screen overflow-x-hidden bg-zinc-50">
+-      <header className="border-b border-zinc-200 bg-white">
++    <div className="min-h-screen overflow-x-hidden bg-[var(--brand-cream-soft)]">
++      <header className="brand-divider border-b bg-[linear-gradient(135deg,#fff7dc_0%,#fffaf0_58%,#f3ddb2_100%)]">
+         <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-5 lg:px-6">
+           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+-            <div>
+-              <p className="text-sm font-bold uppercase text-green-800">
+-                Paobom ERP
+-              </p>
+-              <h1 className="mt-1 text-3xl font-bold tracking-normal text-zinc-950">
+-                Operacao da padaria
+-              </h1>
++            <div className="flex items-center gap-4">
++              <div className="flex size-14 items-center justify-center rounded-md border border-[var(--brand-gold)] bg-[var(--brand-brown)] text-lg font-black text-[var(--brand-cream)] shadow-sm">
++                PB
++              </div>
++              <div>
++                <p className="brand-kicker text-sm uppercase">
++                  Panificadora PaoBom
++                </p>
++                <h1 className="brand-section-title mt-1 text-3xl tracking-normal">
++                  Operacao da padaria
++                </h1>
++              </div>
+             </div>
+             <div className="grid gap-3 md:justify-items-end">
+               <div className="flex items-center gap-3">
+                 <AuthenticatedUserSummary />
+                 <button
+-                  className="h-9 rounded-md border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-700 hover:border-zinc-400 hover:text-zinc-950"
++                  className="brand-secondary-button h-9 px-3 text-sm"
+                   onClick={() => void logout()}
+                   type="button"
+                 >
+                   Sair
+                 </button>
+               </div>
+-              <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-zinc-600 md:grid-cols-6">
++              <div className="brand-muted grid grid-cols-3 gap-2 text-xs font-semibold md:grid-cols-6">
+                 <OperationalStep label="Compra" step="01" />
+                 <OperationalStep label="Estoque" step="02" />
+                 <OperationalStep label="Receita" step="03" />
+@@ -131,134 +320,69 @@ export function ErpHome() {
+         </div>
+       </header>
+ 
+-      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-6">
++      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-6">
+         <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
+-          <nav className="overflow-x-auto border-b border-zinc-200 pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
+-            <div className="flex min-w-max gap-5 lg:min-w-0 lg:flex-col lg:gap-6">
+-              {visibleNavigationGroups.map((group) => (
+-                <div className="grid gap-2" key={group.label}>
+-                  <p className="text-xs font-bold uppercase text-zinc-500">
+-                    {group.label}
+-                  </p>
+-                  <div className="flex gap-2 lg:grid">
+-                    {group.items.map((item) => (
+-                      <a
+-                        className="whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-white hover:text-green-800"
+-                        href={item.href}
+-                        key={item.href}
+-                      >
+-                        {item.label}
+-                      </a>
+-                    ))}
++          <nav
++            aria-label="Navegacao principal"
++            className="brand-sidebar brand-divider overflow-x-auto border-b pb-3 lg:overflow-visible lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
++          >
++            <div className="grid gap-4 lg:gap-5">
++              {moduleGroups.map((group) => {
++                const groupModules = visibleModules.filter(
++                  (module) => module.group === group,
++                );
++
++                if (groupModules.length === 0) {
++                  return null;
++                }
++
++                return (
++                  <div className="grid gap-2" key={group}>
++                    <p className="brand-muted text-xs font-bold uppercase">
++                      {group}
++                    </p>
++                    <div className="flex flex-wrap gap-2 lg:grid">
++                      {groupModules.map((module) => {
++                        const isActive = module.id === activeModule?.id;
++
++                        return (
++                          <a
++                            aria-current={isActive ? "page" : undefined}
++                            className="brand-nav-item"
++                            data-active={isActive ? "true" : "false"}
++                            href={`#${module.id}`}
++                            key={module.id}
++                            onClick={(event) => {
++                              event.preventDefault();
++                              selectModule(module.id);
++                            }}
++                          >
++                            <span>{module.label}</span>
++                          </a>
++                        );
++                      })}
++                    </div>
+                   </div>
+-                </div>
+-              ))}
++                );
++              })}
+             </div>
+           </nav>
+         </aside>
+ 
+         <main className="grid min-w-0 gap-8">
+-          <WorkspaceGroup
+-            description="Indicadores e consolidacoes para acompanhar a saude do negocio."
+-            id="visao-geral"
+-            permission="dashboard:view"
+-            title="Gestao"
+-          >
+-            <DashboardSection />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Analises consolidadas da operacao."
+-            id="relatorios"
+-            permission="reports:view"
+-            title="Relatorios"
+-          >
+-            <ReportsSection />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Trilha de eventos para controle, rastreabilidade e governanca."
+-            id="auditoria"
+-            permission="audit:view"
+-            title="Auditoria"
+-          >
+-            <AuditSection />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Entrada de insumos, custo de compra e relacionamento com fornecedores."
+-            id="compras"
+-            permission="purchase:view"
+-            title="Abastecimento"
+-          >
+-            <PurchaseSection products={products} suppliers={suppliers} />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Fichas tecnicas, ordens e custo unitario do produto fabricado."
+-            id="producao"
+-            permission="production:view"
+-            title="Producao"
+-          >
+-            <ProductionSection products={products} />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Saldos, rastreabilidade, perdas e ajustes."
+-            id="estoque"
+-            permission="inventory:view"
+-            title="Estoque"
+-          >
+-            <InventorySection products={products} />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Venda, desconto, estoque e margem por atendimento."
+-            id="vendas"
+-            permission="sales:view"
+-            title="Vendas"
+-          >
+-            <SalesSection
+-              customers={customers}
+-              inventoryBalances={balances}
+-              products={products}
+-            />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Lancamentos, saldo, abertura e fechamento de caixa."
+-            id="caixa"
+-            permission="finance:view"
+-            title="Caixa"
+-          >
+-            <FinanceSection />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Relacionamento e acompanhamento comercial."
+-            id="crm"
+-            permission="crm:view"
+-            title="Clientes e CRM"
+-          >
+-            <CustomerRelationshipSection customers={customers} />
+-          </WorkspaceGroup>
+-
+-          <WorkspaceGroup
+-            description="Base operacional usada por compras, receitas, vendas e relatorios."
+-            id="produtos"
+-            permission="product:view"
+-            title="Cadastros"
+-          >
+-            <PermissionGate permission="product:view">
+-              <ProductSection />
+-            </PermissionGate>
+-            <PermissionGate permission="supplier:view">
+-              <SupplierSection />
+-            </PermissionGate>
+-            <PermissionGate permission="customer:view">
+-              <CustomerSection />
+-            </PermissionGate>
+-          </WorkspaceGroup>
++          {activeModule ? (
++            <WorkspaceModule module={activeModule} />
++          ) : (
++            <section className="brand-card p-5">
++              <h2 className="brand-section-title text-lg">
++                Nenhum modulo disponivel
++              </h2>
++              <p className="brand-muted mt-1 text-sm leading-6">
++                Seu usuario nao possui permissoes para acessar os modulos do
++                ERP.
++              </p>
++            </section>
++          )}
+         </main>
+       </div>
+     </div>
+@@ -267,35 +391,71 @@ export function ErpHome() {
+ 
+ function OperationalStep({ label, step }: { label: string; step: string }) {
+   return (
+-    <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+-      <span className="text-[11px] font-bold text-green-800">{step}</span>
++    <div className="brand-divider flex items-center gap-2 border-l pl-3">
++      <span className="text-[11px] font-bold text-[var(--brand-leaf)]">
++        {step}
++      </span>
+       <span>{label}</span>
+     </div>
+   );
+ }
+ 
+-function WorkspaceGroup({
+-  children,
+-  description,
+-  id,
+-  permission,
+-  title,
+-}: {
+-  children: ReactNode;
+-  description: string;
+-  id: string;
+-  permission: Permission;
+-  title: string;
+-}) {
++function WorkspaceModule({ module }: { module: ErpModule }) {
+   return (
+-    <PermissionGate permission={permission}>
+-      <section className="min-w-0 scroll-mt-5" id={id}>
+-        <div className="mb-3 border-b border-zinc-200 pb-2">
+-          <h2 className="text-lg font-bold text-zinc-950">{title}</h2>
+-          <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
++    <PermissionGate permission={module.permission}>
++      <section className="min-w-0 scroll-mt-5" id={module.id}>
++        <div className="brand-divider mb-3 border-b pb-2">
++          <p className="brand-kicker text-xs uppercase">{module.group}</p>
++          <h2 className="brand-section-title mt-1 text-xl">{module.title}</h2>
++          <p className="brand-muted mt-1 text-sm leading-6">
++            {module.description}
++          </p>
+         </div>
+-        <div className="grid min-w-0 gap-4">{children}</div>
++        <div className="grid min-w-0 gap-4">{module.render()}</div>
+       </section>
+     </PermissionGate>
+   );
+ }
++
++function PurchaseModule() {
++  const { products } = useProducts();
++  const { suppliers } = useSuppliers();
++
++  return <PurchaseSection products={products} suppliers={suppliers} />;
++}
++
++function ProductionModule() {
++  const { products } = useProducts();
++
++  return <ProductionSection products={products} />;
++}
++
++function InventoryModule() {
++  const { products } = useProducts();
++
++  return <InventorySection products={products} />;
++}
++
++function SalesModule() {
++  const { customers } = useCustomers();
++  const { products } = useProducts();
++  const { balances } = useInventory();
++
++  return (
++    <SalesSection
++      customers={customers}
++      inventoryBalances={balances}
++      products={products}
++    />
++  );
++}
++
++function CrmModule() {
++  const { customers } = useCustomers();
++
++  return <CustomerRelationshipSection customers={customers} />;
++}
++
++function isModuleId(value: string | null): value is ModuleId {
++  return value !== null && moduleIds.has(value as ModuleId);
++}
+diff --git a/apps/web/app/globals.css b/apps/web/app/globals.css
+index bc6985c..f77a32b 100644
+--- a/apps/web/app/globals.css
++++ b/apps/web/app/globals.css
+@@ -1,8 +1,17 @@
+ @import "tailwindcss";
+ 
+ :root {
+-  --background: #fafafa;
+-  --foreground: #171717;
++  --brand-brown: #703a12;
++  --brand-caramel: #a36424;
++  --brand-gold: #e9961f;
++  --brand-butter: #f9cc4b;
++  --brand-cream: #fff7dc;
++  --brand-cream-soft: #fffaf0;
++  --brand-leaf: #3f6b2a;
++  --brand-ink: #2a1608;
++  --brand-line: #efd7a1;
++  --background: var(--brand-cream-soft);
++  --foreground: var(--brand-ink);
+ }
+ 
+ @theme inline {
+@@ -23,6 +32,160 @@ body {
+   font-family: Arial, Helvetica, sans-serif;
+ }
+ 
++::selection {
++  background: var(--brand-butter);
++  color: var(--brand-ink);
++}
++
++.brand-card {
++  border: 1px solid var(--brand-line);
++  border-radius: 0.5rem;
++  background: rgb(255 255 255 / 0.92);
++  box-shadow: 0 10px 28px rgb(112 58 18 / 0.08);
++}
++
++.brand-card-warm {
++  border: 1px solid var(--brand-line);
++  border-radius: 0.5rem;
++  background: #fffdf8;
++}
++
++.brand-section-title {
++  color: var(--brand-ink);
++  font-weight: 700;
++}
++
++.brand-kicker {
++  color: var(--brand-leaf);
++  font-weight: 700;
++}
++
++.brand-muted {
++  color: var(--brand-caramel);
++}
++
++.brand-input {
++  width: 100%;
++  min-width: 0;
++  border: 1px solid #e8cf96;
++  border-radius: 0.375rem;
++  background: #fffdf8;
++  color: var(--brand-ink);
++  outline: none;
++}
++
++.brand-input:focus {
++  border-color: var(--brand-caramel);
++  box-shadow: 0 0 0 2px rgb(249 204 75 / 0.33);
++}
++
++.brand-primary-button {
++  border-radius: 0.375rem;
++  background: var(--brand-brown);
++  color: var(--brand-cream);
++  font-weight: 800;
++  box-shadow: 0 1px 2px rgb(42 22 8 / 0.12);
++  transition:
++    background-color 150ms ease,
++    color 150ms ease,
++    border-color 150ms ease;
++}
++
++.brand-primary-button:hover:not(:disabled) {
++  background: var(--brand-caramel);
++}
++
++.brand-primary-button:disabled {
++  cursor: not-allowed;
++  opacity: 0.5;
++}
++
++.brand-secondary-button {
++  border: 1px solid var(--brand-line);
++  border-radius: 0.375rem;
++  background: rgb(255 255 255 / 0.8);
++  color: var(--brand-brown);
++  font-weight: 700;
++  transition:
++    border-color 150ms ease,
++    color 150ms ease,
++    background-color 150ms ease;
++}
++
++.brand-secondary-button:hover {
++  border-color: var(--brand-caramel);
++  color: var(--brand-ink);
++}
++
++.brand-table {
++  overflow: hidden;
++  border: 1px solid var(--brand-line);
++  border-radius: 0.375rem;
++  background: white;
++}
++
++.brand-table-header {
++  border-bottom: 1px solid var(--brand-line);
++  background: var(--brand-cream);
++  color: var(--brand-ink);
++}
++
++.brand-divider {
++  border-color: var(--brand-line);
++}
++
++.brand-sidebar {
++  scrollbar-width: thin;
++  scrollbar-color: var(--brand-line) transparent;
++}
++
++.brand-nav-item {
++  display: flex;
++  align-items: center;
++  min-height: 2.5rem;
++  white-space: nowrap;
++  border: 1px solid transparent;
++  border-radius: 0.5rem;
++  padding: 0.5rem 0.75rem;
++  color: var(--brand-brown);
++  font-size: 0.875rem;
++  font-weight: 700;
++  text-decoration: none;
++  transition:
++    background-color 150ms ease,
++    border-color 150ms ease,
++    color 150ms ease,
++    box-shadow 150ms ease;
++}
++
++.brand-nav-item:hover {
++  border-color: rgb(232 207 150 / 0.75);
++  background: rgb(255 255 255 / 0.78);
++  color: var(--brand-leaf);
++}
++
++.brand-nav-item:focus-visible {
++  outline: 2px solid var(--brand-gold);
++  outline-offset: 2px;
++}
++
++.brand-nav-item[data-active="true"] {
++  border-color: var(--brand-gold);
++  background: linear-gradient(135deg, var(--brand-brown), var(--brand-caramel));
++  color: var(--brand-cream);
++  box-shadow: 0 8px 18px rgb(112 58 18 / 0.16);
++}
++
++.brand-nav-item[data-active="true"]::before {
++  width: 0.375rem;
++  height: 0.375rem;
++  flex: 0 0 auto;
++  margin-right: 0.5rem;
++  border-radius: 999px;
++  background: var(--brand-butter);
++  content: "";
++}
++
+ main :where(section, div) {
+   min-width: 0;
+ }
+diff --git a/apps/web/features/audit/presentation/components/AuditSection.tsx b/apps/web/features/audit/presentation/components/AuditSection.tsx
+index 3f2c65b..1e0a24d 100644
+--- a/apps/web/features/audit/presentation/components/AuditSection.tsx
++++ b/apps/web/features/audit/presentation/components/AuditSection.tsx
+@@ -74,14 +74,14 @@ export function AuditSection() {
+   );
+ 
+   return (
+-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
++    <section className="brand-card space-y-4 p-4">
+       <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Auditoria</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Auditoria</p>
++          <h2 className="brand-section-title text-xl">
+             Trilha operacional
+           </h2>
+-          <p className="mt-1 text-xs font-semibold text-zinc-500">
++          <p className="brand-muted mt-1 text-xs font-semibold">
+             {isLoading ? "Carregando eventos" : `${auditLogs.length} evento(s)`}
+           </p>
+         </div>
+@@ -99,9 +99,9 @@ export function AuditSection() {
+         <Metric label="Usuarios" value={String(summary.users)} />
+       </div>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
++      <div className="brand-table">
+         <table className="w-full text-left text-sm">
+-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++          <thead className="brand-table-header text-xs uppercase">
+             <tr>
+               <th className="px-3 py-2">Quando</th>
+               <th className="px-3 py-2">Usuario</th>
+@@ -114,44 +114,44 @@ export function AuditSection() {
+           <tbody>
+             {auditLogs.length ? (
+               auditLogs.map((log) => (
+-                <tr className="border-t border-zinc-100" key={log.id}>
+-                  <td className="px-3 py-3 text-zinc-700">
++                <tr className="border-t border-[#f1dfb5]" key={log.id}>
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p className="font-semibold">
+                       {log.occurredAt.toLocaleDateString()}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {log.occurredAt.toLocaleTimeString()}
+                     </p>
+                   </td>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {log.userName}
+                     </p>
+-                    <p className="text-xs text-zinc-500">{log.userRole}</p>
++                    <p className="brand-muted text-xs">{log.userRole}</p>
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     {log.action}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p>{getEntityLabel(log.entity)}</p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {log.entityId ?? "sem referencia"}
+                     </p>
+                   </td>
+                   <td className="px-3 py-3">
+                     <ResultBadge result={log.result} />
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p>{log.description}</p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {formatMetadata(log.metadata)}
+                     </p>
+                   </td>
+                 </tr>
+               ))
+             ) : (
+-              <tr className="border-t border-zinc-100">
+-                <td className="px-3 py-4 text-zinc-500" colSpan={6}>
++              <tr className="border-t border-[#f1dfb5]">
++                <td className="brand-muted px-3 py-4" colSpan={6}>
+                   Nenhum evento encontrado
+                 </td>
+               </tr>
+@@ -174,10 +174,10 @@ function AuditFilters({
+ }) {
+   return (
+     <div className="flex flex-wrap items-end gap-2">
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Inicio
+         <input
+-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 px-2 text-sm font-semibold"
+           max={filterForm.endDate || undefined}
+           onChange={(event) =>
+             setFilterForm({ ...filterForm, startDate: event.target.value })
+@@ -186,10 +186,10 @@ function AuditFilters({
+           value={filterForm.startDate}
+         />
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Fim
+         <input
+-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 px-2 text-sm font-semibold"
+           min={filterForm.startDate || undefined}
+           onChange={(event) =>
+             setFilterForm({ ...filterForm, endDate: event.target.value })
+@@ -198,10 +198,10 @@ function AuditFilters({
+           value={filterForm.endDate}
+         />
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Entidade
+         <select
+-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 px-2 text-sm font-semibold"
+           onChange={(event) =>
+             setFilterForm({ ...filterForm, entity: event.target.value })
+           }
+@@ -215,10 +215,10 @@ function AuditFilters({
+           ))}
+         </select>
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Usuario
+         <select
+-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 px-2 text-sm font-semibold"
+           onChange={(event) =>
+             setFilterForm({ ...filterForm, userId: event.target.value })
+           }
+@@ -232,10 +232,10 @@ function AuditFilters({
+           ))}
+         </select>
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Acao
+         <input
+-          className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 px-2 text-sm font-semibold"
+           onChange={(event) =>
+             setFilterForm({ ...filterForm, action: event.target.value })
+           }
+@@ -244,7 +244,7 @@ function AuditFilters({
+         />
+       </label>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => setFilterForm(initialFilter)}
+         type="button"
+       >
+@@ -256,9 +256,9 @@ function AuditFilters({
+ 
+ function Metric({ label, value }: { label: string; value: string }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-semibold">{label}</p>
++      <p className="brand-section-title mt-1 text-xl">{value}</p>
+     </div>
+   );
+ }
+@@ -266,7 +266,7 @@ function Metric({ label, value }: { label: string; value: string }) {
+ function ResultBadge({ result }: { result: AuditActionResult }) {
+   const tone =
+     result === "success"
+-      ? "bg-green-50 text-green-800"
++      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+       : "bg-red-50 text-red-800";
+ 
+   return (
+diff --git a/apps/web/features/auth/presentation/components/WebAuthGate.tsx b/apps/web/features/auth/presentation/components/WebAuthGate.tsx
+index 0e8104f..3c1f025 100644
+--- a/apps/web/features/auth/presentation/components/WebAuthGate.tsx
++++ b/apps/web/features/auth/presentation/components/WebAuthGate.tsx
+@@ -50,8 +50,8 @@ export function WebAuthGate({ children }: PropsWithChildren) {
+ 
+   if (status === "loading") {
+     return (
+-      <div className="flex min-h-screen items-center justify-center bg-zinc-100 px-4">
+-        <p className="text-sm font-semibold text-zinc-600">
++      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-cream-soft)] px-4">
++        <p className="brand-muted text-sm font-semibold">
+           Restaurando sessao...
+         </p>
+       </div>
+@@ -96,32 +96,35 @@ function WebLoginForm({
+   }
+ 
+   return (
+-    <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-10">
++    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,#f9cc4b33,transparent_34%),linear-gradient(135deg,#fff7dc_0%,#fffaf0_48%,#f4dfb5_100%)] px-4 py-10">
+       <div className="w-full max-w-md">
+         <div className="mb-6 flex items-center gap-4">
+-          <div className="flex size-14 items-center justify-center rounded-md bg-green-800 text-lg font-black text-white">
++          <div className="flex size-16 items-center justify-center rounded-md border border-[var(--brand-gold)] bg-[var(--brand-brown)] text-xl font-black text-[var(--brand-cream)] shadow-sm">
+             PB
+           </div>
+           <div>
+-            <p className="text-xs font-black uppercase text-green-800">
+-              PaoBom ERP
++            <p className="brand-kicker text-xs font-black uppercase">
++              Panificadora PaoBom
+             </p>
+-            <h1 className="text-2xl font-black text-zinc-950">
++            <h1 className="brand-section-title text-2xl font-black">
+               Acesso operacional
+             </h1>
++            <p className="brand-muted mt-1 text-sm font-semibold">
++              Gestao da fornada, do balcao e do caixa.
++            </p>
+           </div>
+         </div>
+ 
+         <form
+-          className="grid gap-4 rounded-md border border-zinc-200 bg-white p-5 shadow-sm"
++          className="brand-card grid gap-4 p-5"
+           onSubmit={submit}
+         >
+-          <label className="grid gap-1.5 text-sm font-bold text-zinc-800">
++          <label className="grid gap-1.5 text-sm font-bold text-[var(--brand-ink)]">
+             E-mail
+             <input
+               autoComplete="username"
+               autoFocus
+-              className="h-11 rounded-md border border-zinc-300 px-3 font-normal outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100"
++              className="brand-input h-11 px-3 font-normal"
+               onChange={(event) => setEmail(event.target.value)}
+               placeholder="usuario@paobom.local"
+               type="email"
+@@ -129,11 +132,11 @@ function WebLoginForm({
+             />
+           </label>
+ 
+-          <label className="grid gap-1.5 text-sm font-bold text-zinc-800">
++          <label className="grid gap-1.5 text-sm font-bold text-[var(--brand-ink)]">
+             Senha
+             <input
+               autoComplete="current-password"
+-              className="h-11 rounded-md border border-zinc-300 px-3 font-normal outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100"
++              className="brand-input h-11 px-3 font-normal"
+               onChange={(event) => setPassword(event.target.value)}
+               placeholder="Sua senha"
+               type="password"
+@@ -148,7 +151,7 @@ function WebLoginForm({
+           ) : null}
+ 
+           <button
+-            className="h-11 rounded-md bg-green-800 px-4 text-sm font-black text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50"
++            className="brand-primary-button h-11 px-4 text-sm font-black"
+             disabled={!email.trim() || !password || isSubmitting}
+             type="submit"
+           >
+@@ -169,8 +172,8 @@ export function AuthenticatedUserSummary() {
+ 
+   return (
+     <div className="text-right">
+-      <p className="text-sm font-bold text-zinc-900">{user.name}</p>
+-      <p className="text-xs text-zinc-500">
++      <p className="text-sm font-bold text-[var(--brand-ink)]">{user.name}</p>
++      <p className="brand-muted text-xs">
+         {getRoleLabel(user.role)} · {user.email}
+       </p>
+     </div>
+diff --git a/apps/web/features/customer-relationship/presentation/components/CustomerRelationshipSection.tsx b/apps/web/features/customer-relationship/presentation/components/CustomerRelationshipSection.tsx
+index 3bac69e..a9a509b 100644
+--- a/apps/web/features/customer-relationship/presentation/components/CustomerRelationshipSection.tsx
++++ b/apps/web/features/customer-relationship/presentation/components/CustomerRelationshipSection.tsx
+@@ -89,11 +89,11 @@ export function CustomerRelationshipSection({
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
+       <form className="space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">CRM</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">CRM</p>
++          <h2 className="brand-section-title text-xl">
+             Historico e retornos
+           </h2>
+         </div>
+@@ -105,11 +105,11 @@ export function CustomerRelationshipSection({
+           <Metric label="Interacoes" value={summary.totalInteractions} />
+           <Metric label="Retornos abertos" value={summary.openFollowUps} />
+           <Metric label="Concluidas" value={summary.completedInteractions} />
+-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-            <p className="text-xs font-semibold text-zinc-500">
++          <div className="brand-card-warm p-3">
++            <p className="brand-muted text-xs font-semibold">
+               Proximo contato
+             </p>
+-            <p className="text-sm font-bold text-zinc-950">
++            <p className="brand-section-title text-sm">
+               {summary.nextContactAt
+                 ? summary.nextContactAt.toLocaleDateString()
+                 : "Sem agenda"}
+@@ -117,10 +117,10 @@ export function CustomerRelationshipSection({
+           </div>
+         </div>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Cliente
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.customerId}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -139,10 +139,10 @@ export function CustomerRelationshipSection({
+         </label>
+ 
+         <div className="grid grid-cols-2 gap-2">
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Tipo
+             <select
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={form.type}
+               onChange={(event) =>
+                 setForm((state) => ({
+@@ -159,10 +159,10 @@ export function CustomerRelationshipSection({
+             </select>
+           </label>
+ 
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Data
+             <input
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               type="date"
+               value={form.occurredAt}
+               onChange={(event) =>
+@@ -175,10 +175,10 @@ export function CustomerRelationshipSection({
+           </label>
+         </div>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Assunto
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.subject}
+             onChange={(event) =>
+               setForm((state) => ({ ...state, subject: event.target.value }))
+@@ -186,10 +186,10 @@ export function CustomerRelationshipSection({
+           />
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Proximo contato
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             type="date"
+             value={form.nextContactAt}
+             onChange={(event) =>
+@@ -201,10 +201,10 @@ export function CustomerRelationshipSection({
+           />
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Observacoes
+           <textarea
+-            className="min-h-20 rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input min-h-20 px-3 py-2"
+             value={form.notes}
+             onChange={(event) =>
+               setForm((state) => ({ ...state, notes: event.target.value }))
+@@ -213,11 +213,11 @@ export function CustomerRelationshipSection({
+         </label>
+ 
+         <div className="flex items-center justify-between gap-3">
+-          <p className="text-sm font-semibold text-zinc-600">
++          <p className="brand-muted text-sm font-semibold">
+             Feedbacks: {summary.interactionsByType.feedback}
+           </p>
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canManageCrm}
+           >
+             Registrar
+@@ -233,8 +233,8 @@ export function CustomerRelationshipSection({
+             <button
+               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                 selectedStatus === status
+-                  ? "border-green-800 bg-green-50 text-green-900"
+-                  : "border-zinc-200 text-zinc-600"
++                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
++                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
+               }`}
+               key={status}
+               onClick={() => setSelectedStatus(status)}
+@@ -245,9 +245,9 @@ export function CustomerRelationshipSection({
+           ))}
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Cliente</th>
+                 <th className="px-3 py-2">Interacao</th>
+@@ -257,18 +257,18 @@ export function CustomerRelationshipSection({
+             </thead>
+             <tbody>
+               {filteredInteractions.map((interaction) => (
+-                <tr className="border-t border-zinc-100" key={interaction.id}>
++                <tr className="border-t border-[#f1dfb5]" key={interaction.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {customerNames.get(interaction.customerId) ?? "Cliente"}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {interaction.occurredAt.toLocaleDateString()}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p className="font-semibold">{interaction.subject}</p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {getTypeLabel(interaction.type)}
+                       {interaction.nextContactAt
+                         ? ` · retorno ${interaction.nextContactAt.toLocaleDateString()}`
+@@ -282,7 +282,7 @@ export function CustomerRelationshipSection({
+                     {interaction.status === "open" && canManageCrm ? (
+                       <div className="flex justify-end gap-2">
+                         <button
+-                          className="text-sm font-semibold text-green-800"
++                          className="text-sm font-semibold text-[var(--brand-leaf)]"
+                           onClick={async () => {
+                             await completeInteraction.mutateAsync(
+                               interaction.id,
+@@ -299,7 +299,7 @@ export function CustomerRelationshipSection({
+                           Concluir
+                         </button>
+                         <button
+-                          className="text-sm font-semibold text-zinc-500"
++                          className="brand-muted text-sm font-semibold"
+                           onClick={async () => {
+                             await cancelInteraction.mutateAsync(interaction.id);
+                             recordAudit({
+@@ -328,9 +328,9 @@ export function CustomerRelationshipSection({
+ 
+ function Metric({ label, value }: { label: string; value: number }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="text-lg font-bold text-zinc-950">{value}</p>
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-semibold">{label}</p>
++      <p className="brand-section-title text-lg">{value}</p>
+     </div>
+   );
+ }
+@@ -340,10 +340,10 @@ function Status({ status }: { status: CustomerInteractionStatus }) {
+     status === "open" ? "Aberta" : status === "done" ? "Concluida" : "Cancelada";
+   const tone =
+     status === "done"
+-      ? "bg-green-50 text-green-800"
++      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+       : status === "cancelled"
+-        ? "bg-zinc-100 text-zinc-500"
+-        : "bg-amber-50 text-amber-800";
++        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
++        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
+ 
+   return (
+     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>
+diff --git a/apps/web/features/customer/presentation/components/CustomerSection.tsx b/apps/web/features/customer/presentation/components/CustomerSection.tsx
+index 494f148..67beca2 100644
+--- a/apps/web/features/customer/presentation/components/CustomerSection.tsx
++++ b/apps/web/features/customer/presentation/components/CustomerSection.tsx
+@@ -77,11 +77,11 @@ export function CustomerSection() {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[360px_1fr]">
++    <section className="brand-card grid gap-4 p-4 lg:grid-cols-[360px_1fr]">
+       <form className="space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">Clientes</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Clientes</p>
++          <h2 className="brand-section-title text-xl">
+             Relacionamento com clientes
+           </h2>
+         </div>
+@@ -109,10 +109,10 @@ export function CustomerSection() {
+           value={form.email}
+           onChange={(email) => setForm((state) => ({ ...state, email }))}
+         />
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Observacoes
+           <textarea
+-            className="min-h-20 rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input min-h-20 px-3 py-2"
+             value={form.notes}
+             onChange={(event) =>
+               setForm((state) => ({ ...state, notes: event.target.value }))
+@@ -122,14 +122,14 @@ export function CustomerSection() {
+ 
+         <div className="flex gap-2">
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canManageCustomers}
+           >
+             {selectedCustomerId ? "Salvar" : "Criar"}
+           </button>
+           {selectedCustomerId ? (
+             <button
+-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++              className="brand-secondary-button px-4 py-2 text-sm"
+               type="button"
+               onClick={() => setSelectedCustomer(null)}
+             >
+@@ -140,9 +140,9 @@ export function CustomerSection() {
+         {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+       </form>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
++      <div className="brand-table">
+         <table className="w-full text-left text-sm">
+-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++          <thead className="brand-table-header text-xs uppercase">
+             <tr>
+               <th className="px-3 py-2">Cliente</th>
+               <th className="px-3 py-2">Contato</th>
+@@ -152,16 +152,16 @@ export function CustomerSection() {
+           </thead>
+           <tbody>
+             {customers.map((customer) => (
+-              <tr className="border-t border-zinc-100" key={customer.id}>
++              <tr className="border-t border-[#f1dfb5]" key={customer.id}>
+                 <td className="px-3 py-3">
+-                  <p className="font-semibold text-zinc-950">
++                  <p className="brand-section-title font-semibold">
+                     {customer.name}
+                   </p>
+-                  <p className="text-xs text-zinc-500">{customer.document}</p>
++                  <p className="brand-muted text-xs">{customer.document}</p>
+                 </td>
+-                <td className="px-3 py-3 text-zinc-700">
++                <td className="px-3 py-3 text-[var(--brand-brown)]">
+                   <p>{customer.phone}</p>
+-                  <p className="text-xs text-zinc-500">{customer.email}</p>
++                  <p className="brand-muted text-xs">{customer.email}</p>
+                 </td>
+                 <td className="px-3 py-3">
+                   <Status active={customer.active} />
+@@ -212,10 +212,10 @@ function Field({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -227,7 +227,9 @@ function Status({ active }: { active: boolean }) {
+   return (
+     <span
+       className={`rounded-full px-2 py-1 text-xs font-bold ${
+-        active ? "bg-green-100 text-green-800" : "bg-zinc-100 text-zinc-500"
++        active
++          ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
++          : "bg-[#f3ead7] text-[var(--brand-caramel)]"
+       }`}
+     >
+       {active ? "Ativo" : "Inativo"}
+@@ -246,12 +248,12 @@ function RowActions({
+ }) {
+   return (
+     <div className="flex justify-end gap-2">
+-      <button className="text-sm font-semibold text-green-800" onClick={onEdit}>
++      <button className="text-sm font-semibold text-[var(--brand-leaf)]" onClick={onEdit}>
+         Editar
+       </button>
+       {active ? (
+         <button
+-          className="text-sm font-semibold text-zinc-500"
++          className="brand-muted text-sm font-semibold"
+           onClick={onDeactivate}
+         >
+           Inativar
+diff --git a/apps/web/features/dashboard/presentation/components/DashboardSection.tsx b/apps/web/features/dashboard/presentation/components/DashboardSection.tsx
+index 0b08717..6275404 100644
+--- a/apps/web/features/dashboard/presentation/components/DashboardSection.tsx
++++ b/apps/web/features/dashboard/presentation/components/DashboardSection.tsx
+@@ -22,11 +22,11 @@ export function DashboardSection() {
+ 
+   if (!dashboard) {
+     return (
+-      <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
++      <section className="brand-card space-y-4 p-4">
+         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+           <div>
+-            <p className="text-sm font-bold text-green-800">Dashboard</p>
+-            <h2 className="text-xl font-bold text-zinc-950">
++            <p className="brand-kicker text-sm">Dashboard</p>
++            <h2 className="brand-section-title text-xl">
+               Carregando indicadores
+             </h2>
+           </div>
+@@ -40,14 +40,14 @@ export function DashboardSection() {
+   }
+ 
+   return (
+-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
++    <section className="brand-card space-y-4 p-4">
+       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Dashboard</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Dashboard</p>
++          <h2 className="brand-section-title text-xl">
+             Painel executivo
+           </h2>
+-          <p className="mt-1 text-xs font-semibold text-zinc-500">
++          <p className="brand-muted mt-1 text-xs font-semibold">
+             {formatPeriodLabel(dashboard.period)}
+           </p>
+         </div>
+@@ -56,7 +56,7 @@ export function DashboardSection() {
+             periodForm={periodForm}
+             setPeriodForm={setPeriodForm}
+           />
+-          <p className="text-xs font-semibold text-zinc-500">
++          <p className="brand-muted text-xs font-semibold">
+             Atualizado {dashboard.generatedAt.toLocaleString()}
+           </p>
+         </div>
+@@ -134,13 +134,13 @@ export function DashboardSection() {
+             />
+           </div>
+ 
+-          <div className="overflow-hidden rounded-md border border-zinc-200">
+-            <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+-              <h3 className="text-sm font-bold text-zinc-800">
++          <div className="brand-table">
++            <div className="brand-table-header px-3 py-2">
++              <h3 className="text-sm font-bold">
+                 Focos executivos
+               </h3>
+             </div>
+-            <div className="divide-y divide-zinc-100">
++            <div className="divide-y divide-[#f1dfb5]">
+               {dashboard.focusAreas.length ? (
+                 dashboard.focusAreas.map((focus) => (
+                   <div
+@@ -153,20 +153,20 @@ export function DashboardSection() {
+                       {getPriorityLabel(focus.priority)}
+                     </span>
+                     <div>
+-                      <p className="text-sm font-bold text-zinc-900">
++                      <p className="brand-section-title text-sm">
+                         {focus.title}
+                       </p>
+-                      <p className="text-xs leading-5 text-zinc-600">
++                      <p className="brand-muted text-xs leading-5">
+                         {focus.description}
+                       </p>
+                     </div>
+-                    <p className="text-sm font-bold text-zinc-800 md:text-right">
++                    <p className="text-sm font-bold text-[var(--brand-brown)] md:text-right">
+                       {focus.metric}
+                     </p>
+                   </div>
+                 ))
+               ) : (
+-                <p className="px-3 py-4 text-sm font-semibold text-zinc-500">
++                <p className="brand-muted px-3 py-4 text-sm font-semibold">
+                   Nenhum foco critico para o periodo
+                 </p>
+               )}
+@@ -204,10 +204,10 @@ function PeriodControls({
+ }) {
+   return (
+     <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Inicio
+         <input
+-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
+           max={periodForm.endDate || undefined}
+           onChange={(event) =>
+             setPeriodForm({
+@@ -219,10 +219,10 @@ function PeriodControls({
+           value={periodForm.startDate}
+         />
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Fim
+         <input
+-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
+           min={periodForm.startDate || undefined}
+           onChange={(event) =>
+             setPeriodForm({
+@@ -235,14 +235,14 @@ function PeriodControls({
+         />
+       </label>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => setPeriodForm(getCurrentMonthPeriod())}
+         type="button"
+       >
+         Mes atual
+       </button>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => setPeriodForm({ endDate: "", startDate: "" })}
+         type="button"
+       >
+@@ -292,10 +292,16 @@ function Metric({
+   value: string;
+ }) {
+   return (
+-    <div className={`rounded-md border p-3 ${getMetricTone(tone)}`}>
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="mt-1 text-2xl font-bold text-zinc-950">{value}</p>
+-      <p className="mt-1 text-xs font-medium text-zinc-500">{hint}</p>
++    <div className={`rounded-md border p-3 shadow-sm ${getMetricTone(tone)}`}>
++      <p className="brand-muted text-xs font-semibold">
++        {label}
++      </p>
++      <p className="brand-section-title mt-1 text-2xl">
++        {value}
++      </p>
++      <p className="brand-muted mt-1 text-xs font-medium">
++        {hint}
++      </p>
+     </div>
+   );
+ }
+@@ -310,9 +316,11 @@ function MiniMetric({
+   value: number;
+ }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 p-3">
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="mt-1 text-xl font-bold text-zinc-950">
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-semibold">
++        {label}
++      </p>
++      <p className="brand-section-title mt-1 text-xl">
+         {suffix === "%" ? value.toFixed(0) : value}
+         {suffix}
+       </p>
+@@ -339,18 +347,24 @@ function ExecutiveSnapshot({
+   ];
+ 
+   return (
+-    <div className="rounded-md border border-zinc-200">
+-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+-        <h3 className="text-sm font-bold text-zinc-800">Resumo de controle</h3>
++    <div className="brand-table">
++      <div className="brand-table-header px-3 py-2">
++        <h3 className="text-sm font-bold">
++          Resumo de controle
++        </h3>
+       </div>
+-      <div className="divide-y divide-zinc-100">
++      <div className="divide-y divide-[#f1dfb5]">
+         {rows.map(([label, value]) => (
+           <div
+             className="flex items-center justify-between gap-3 px-3 py-2"
+             key={label}
+           >
+-            <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-            <p className="text-sm font-bold text-zinc-900">{value}</p>
++            <p className="brand-muted text-xs font-semibold">
++              {label}
++            </p>
++            <p className="brand-section-title text-sm">
++              {value}
++            </p>
+           </div>
+         ))}
+       </div>
+@@ -369,24 +383,24 @@ function AlertsPanel({
+   }[];
+ }) {
+   return (
+-    <div className="rounded-md border border-zinc-200">
+-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+-        <h3 className="text-sm font-bold text-zinc-800">Alertas</h3>
++    <div className="brand-table">
++      <div className="brand-table-header px-3 py-2">
++        <h3 className="text-sm font-bold">Alertas</h3>
+       </div>
+-      <div className="divide-y divide-zinc-100">
++      <div className="divide-y divide-[#f1dfb5]">
+         {alerts.length ? (
+           alerts.map((alert) => (
+             <div className="px-3 py-2" key={alert.id}>
+               <p className={`text-sm font-bold ${getAlertTone(alert.level)}`}>
+                 {alert.title}
+               </p>
+-              <p className="text-xs leading-5 text-zinc-600">
++              <p className="brand-muted text-xs leading-5">
+                 {alert.description}
+               </p>
+             </div>
+           ))
+         ) : (
+-          <p className="px-3 py-4 text-sm font-semibold text-zinc-500">
++          <p className="brand-muted px-3 py-4 text-sm font-semibold">
+             Nenhum alerta executivo
+           </p>
+         )}
+@@ -401,10 +415,10 @@ function getAlertTone(level: DashboardAlertLevel) {
+   }
+ 
+   if (level === "warning") {
+-    return "text-amber-700";
++    return "text-[var(--brand-caramel)]";
+   }
+ 
+-  return "text-blue-700";
++  return "text-[var(--brand-leaf)]";
+ }
+ 
+ function getPriorityLabel(priority: DashboardFocusPriority) {
+@@ -425,10 +439,10 @@ function getPriorityTone(priority: DashboardFocusPriority) {
+   }
+ 
+   if (priority === "medium") {
+-    return "text-amber-700";
++    return "text-[var(--brand-caramel)]";
+   }
+ 
+-  return "text-blue-700";
++  return "text-[var(--brand-leaf)]";
+ }
+ 
+ function getHealthStatusLabel(status: DashboardHealthStatus) {
+@@ -449,10 +463,10 @@ function getHealthPanelTone(status: DashboardHealthStatus) {
+   }
+ 
+   if (status === "attention") {
+-    return "border-amber-200 bg-amber-50 text-amber-800";
++    return "border-[#e7b76a] bg-[#fff4cf] text-[var(--brand-caramel)]";
+   }
+ 
+-  return "border-green-200 bg-green-50 text-green-800";
++  return "border-[#c4d8a8] bg-[#f4f9ec] text-[var(--brand-leaf)]";
+ }
+ 
+ function getMetricTone(tone: MetricTone) {
+@@ -461,14 +475,14 @@ function getMetricTone(tone: MetricTone) {
+   }
+ 
+   if (tone === "success") {
+-    return "border-green-200 bg-green-50";
++    return "border-[#c4d8a8] bg-[#f4f9ec]";
+   }
+ 
+   if (tone === "warning") {
+-    return "border-amber-200 bg-amber-50";
++    return "border-[#e7b76a] bg-[#fff4cf]";
+   }
+ 
+-  return "border-zinc-200 bg-zinc-50";
++  return "border-[var(--brand-line)] bg-[var(--brand-cream)]";
+ }
+ 
+ function getCurrentMonthPeriod(): PeriodForm {
+diff --git a/apps/web/features/finance/presentation/components/FinanceSection.tsx b/apps/web/features/finance/presentation/components/FinanceSection.tsx
+index d870fcc..6505c9d 100644
+--- a/apps/web/features/finance/presentation/components/FinanceSection.tsx
++++ b/apps/web/features/finance/presentation/components/FinanceSection.tsx
+@@ -300,11 +300,11 @@ export function FinanceSection() {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[380px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
+       <div className="space-y-4">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Financeiro</p>
+-          <h2 className="text-xl font-bold text-zinc-950">Fluxo de caixa</h2>
++          <p className="brand-kicker text-sm">Financeiro</p>
++          <h2 className="brand-section-title text-xl">Fluxo de caixa</h2>
+         </div>
+ 
+         <div className="grid grid-cols-2 gap-2">
+@@ -314,8 +314,8 @@ export function FinanceSection() {
+           <Metric label="Saidas pagas" value={summary.expense} />
+         </div>
+ 
+-        <div className="rounded-md border border-zinc-200 p-3">
+-          <h3 className="text-sm font-bold text-zinc-800">
++        <div className="brand-card-warm p-3">
++          <h3 className="brand-section-title text-sm">
+             {currentCashRegister ? "Caixa aberto" : "Abrir caixa"}
+           </h3>
+           {currentCashRegister ? (
+@@ -323,7 +323,7 @@ export function FinanceSection() {
+               {!canCloseRegister ? (
+                 <PermissionNotice description="Voce pode consultar o caixa aberto, mas nao fecha-lo." />
+               ) : null}
+-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-900">
++              <div className="rounded-md border border-[#c4d8a8] bg-[#f4f9ec] p-3 text-sm text-[var(--brand-leaf)]">
+                 <p className="font-bold">
+                   Aberto por {currentCashRegister.openedBy}
+                 </p>
+@@ -357,7 +357,7 @@ export function FinanceSection() {
+                 }
+               />
+               <button
+-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++                className="brand-primary-button px-4 py-2 text-sm"
+                 disabled={!canCloseRegister}
+               >
+                 Fechar caixa
+@@ -383,7 +383,7 @@ export function FinanceSection() {
+                 }
+               />
+               <button
+-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++                className="brand-primary-button px-4 py-2 text-sm"
+                 disabled={!canOpenRegister}
+               >
+                 Abrir caixa
+@@ -393,16 +393,16 @@ export function FinanceSection() {
+         </div>
+ 
+         {currentCashRegister ? (
+-          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
+-            <h3 className="text-sm font-bold text-zinc-800">
++          <div className="brand-card-warm grid gap-3 p-3">
++            <h3 className="brand-section-title text-sm">
+               Movimentacao de gaveta
+             </h3>
+             <form className="space-y-3" onSubmit={handleRegisterMovement}>
+               <div className="grid grid-cols-2 gap-2">
+-                <label className="grid gap-1 text-sm font-medium text-zinc-700">
++                <label className="brand-muted grid gap-1 text-sm font-medium">
+                   Tipo
+                   <select
+-                    className="rounded-md border border-zinc-300 px-3 py-2"
++                    className="brand-input px-3 py-2"
+                     value={movementForm.type}
+                     onChange={(event) =>
+                       setMovementForm((state) => ({
+@@ -441,7 +441,7 @@ export function FinanceSection() {
+                   />
+                 </div>
+                 <button
+-                  className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++                  className="brand-primary-button px-4 py-2 text-sm"
+                   disabled={!canRegisterEntry}
+                 >
+                   Registrar
+@@ -452,13 +452,13 @@ export function FinanceSection() {
+         ) : null}
+ 
+         {currentCashRegister ? (
+-          <div className="grid gap-3 rounded-md border border-zinc-200 p-3">
+-            <h3 className="text-sm font-bold text-zinc-800">Conciliacao</h3>
++          <div className="brand-card-warm grid gap-3 p-3">
++            <h3 className="brand-section-title text-sm">Conciliacao</h3>
+             <form className="space-y-3" onSubmit={handleReconcileRegister}>
+-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
++              <label className="brand-muted grid gap-1 text-sm font-medium">
+                 Forma
+                 <select
+-                  className="rounded-md border border-zinc-300 px-3 py-2"
++                  className="brand-input px-3 py-2"
+                   value={reconciliationForm.method}
+                   onChange={(event) =>
+                     setReconciliationForm((state) => ({
+@@ -510,7 +510,7 @@ export function FinanceSection() {
+                 }
+               />
+               <button
+-                className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++                className="brand-primary-button px-4 py-2 text-sm"
+                 disabled={!canCloseRegister}
+               >
+                 Conciliar
+@@ -525,10 +525,10 @@ export function FinanceSection() {
+         ) : null}
+ 
+         <div className="grid grid-cols-2 gap-2">
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Tipo
+             <select
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={form.type}
+               onChange={(event) =>
+                 setForm((state) => ({
+@@ -549,10 +549,10 @@ export function FinanceSection() {
+           />
+         </div>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Categoria
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.category}
+             onChange={(event) =>
+               setForm((state) => ({ ...state, category: event.target.value }))
+@@ -560,10 +560,10 @@ export function FinanceSection() {
+           />
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Descricao
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.description}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -574,10 +574,10 @@ export function FinanceSection() {
+           />
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Vencimento
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             type="date"
+             value={form.dueDate}
+             onChange={(event) =>
+@@ -587,12 +587,12 @@ export function FinanceSection() {
+         </label>
+ 
+         <div className="flex items-center justify-between gap-3">
+-          <p className="text-sm font-semibold text-zinc-600">
++          <p className="brand-muted text-sm font-semibold">
+             Pendente: R$ {summary.pendingIncome.toFixed(2)} / R${" "}
+             {summary.pendingExpense.toFixed(2)}
+           </p>
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canRegisterEntry}
+           >
+             Lancar
+@@ -609,8 +609,8 @@ export function FinanceSection() {
+             <button
+               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                 selectedStatus === status
+-                  ? "border-green-800 bg-green-50 text-green-900"
+-                  : "border-zinc-200 text-zinc-600"
++                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
++                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
+               }`}
+               key={status}
+               onClick={() => setSelectedStatus(status)}
+@@ -621,9 +621,9 @@ export function FinanceSection() {
+           ))}
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Lancamento</th>
+                 <th className="px-3 py-2">Valor</th>
+@@ -633,16 +633,16 @@ export function FinanceSection() {
+             </thead>
+             <tbody>
+               {filteredEntries.map((entry) => (
+-                <tr className="border-t border-zinc-100" key={entry.id}>
++                <tr className="border-t border-[#f1dfb5]" key={entry.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {entry.description}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {entry.category} · venc. {entry.dueDate.toLocaleDateString()}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     {entry.type === "income" ? "+" : "-"} R${" "}
+                     {entry.amount.toFixed(2)}
+                   </td>
+@@ -654,7 +654,7 @@ export function FinanceSection() {
+                       <div className="flex justify-end gap-2">
+                         {canSettleEntry ? (
+                           <button
+-                            className="text-sm font-semibold text-green-800"
++                            className="text-sm font-semibold text-[var(--brand-leaf)]"
+                             onClick={async () => {
+                               await settleCashEntry.mutateAsync(entry.id);
+                               recordAudit({
+@@ -671,7 +671,7 @@ export function FinanceSection() {
+                         ) : null}
+                         {canCancelEntry ? (
+                           <button
+-                            className="text-sm font-semibold text-zinc-500"
++                            className="brand-muted text-sm font-semibold"
+                             onClick={async () => {
+                               await cancelCashEntry.mutateAsync(entry.id);
+                               recordAudit({
+@@ -696,9 +696,9 @@ export function FinanceSection() {
+         </div>
+ 
+         <div className="grid gap-3 xl:grid-cols-2">
+-          <div className="overflow-hidden rounded-md border border-zinc-200">
++          <div className="brand-table">
+             <table className="w-full text-left text-sm">
+-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++              <thead className="brand-table-header text-xs uppercase">
+                 <tr>
+                   <th className="px-3 py-2">Movimento</th>
+                   <th className="px-3 py-2">Valor</th>
+@@ -706,16 +706,16 @@ export function FinanceSection() {
+               </thead>
+               <tbody>
+                 {cashRegisterMovements.slice(0, 6).map((movement) => (
+-                  <tr className="border-t border-zinc-100" key={movement.id}>
++                  <tr className="border-t border-[#f1dfb5]" key={movement.id}>
+                     <td className="px-3 py-3">
+-                      <p className="font-semibold text-zinc-950">
++                      <p className="brand-section-title font-semibold">
+                         {movement.type === "supply" ? "Suprimento" : "Sangria"}
+                       </p>
+-                      <p className="text-xs text-zinc-500">
++                      <p className="brand-muted text-xs">
+                         {movement.reason} · {movement.actor}
+                       </p>
+                     </td>
+-                    <td className="px-3 py-3 font-semibold text-zinc-800">
++                    <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                       {movement.type === "supply" ? "+" : "-"} R${" "}
+                       {movement.amount.toFixed(2)}
+                     </td>
+@@ -725,9 +725,9 @@ export function FinanceSection() {
+             </table>
+           </div>
+ 
+-          <div className="overflow-hidden rounded-md border border-zinc-200">
++          <div className="brand-table">
+             <table className="w-full text-left text-sm">
+-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++              <thead className="brand-table-header text-xs uppercase">
+                 <tr>
+                   <th className="px-3 py-2">Conciliacao</th>
+                   <th className="px-3 py-2">Diferenca</th>
+@@ -735,20 +735,20 @@ export function FinanceSection() {
+               </thead>
+               <tbody>
+                 {cashReconciliations.slice(0, 6).map((reconciliation) => (
+-                  <tr className="border-t border-zinc-100" key={reconciliation.id}>
++                  <tr className="border-t border-[#f1dfb5]" key={reconciliation.id}>
+                     <td className="px-3 py-3">
+-                      <p className="font-semibold text-zinc-950">
++                      <p className="brand-section-title font-semibold">
+                         {reconciliation.method}
+                       </p>
+-                      <p className="text-xs text-zinc-500">
++                      <p className="brand-muted text-xs">
+                         R$ {reconciliation.expectedAmount.toFixed(2)} esperado ·{" "}
+                         {reconciliation.reconciledBy}
+                       </p>
+                     </td>
+-                    <td className="px-3 py-3 font-semibold text-zinc-800">
++                    <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                       R$ {reconciliation.differenceAmount.toFixed(2)}
+                       {reconciliation.notes ? (
+-                        <p className="text-xs font-medium text-zinc-500">
++                        <p className="brand-muted text-xs font-medium">
+                           {reconciliation.notes}
+                         </p>
+                       ) : null}
+@@ -760,9 +760,9 @@ export function FinanceSection() {
+           </div>
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Caixa</th>
+                 <th className="px-3 py-2">Esperado</th>
+@@ -772,25 +772,25 @@ export function FinanceSection() {
+             </thead>
+             <tbody>
+               {cashRegisters.map((register) => (
+-                <tr className="border-t border-zinc-100" key={register.id}>
++                <tr className="border-t border-[#f1dfb5]" key={register.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {register.status === "open" ? "Aberto" : "Fechado"}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {register.openedBy} · {register.openedAt.toLocaleDateString()}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {formatOptionalCurrency(register.expectedAmount)}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {formatOptionalCurrency(register.countedAmount)}
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     {formatOptionalCurrency(register.differenceAmount)}
+                     {register.closingNote ? (
+-                      <p className="text-xs font-medium text-zinc-500">
++                      <p className="brand-muted text-xs font-medium">
+                         {register.closingNote}
+                       </p>
+                     ) : null}
+@@ -807,9 +807,9 @@ export function FinanceSection() {
+ 
+ function Metric({ label, value }: { label: string; value: number }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="text-lg font-bold text-zinc-950">R$ {value.toFixed(2)}</p>
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-semibold">{label}</p>
++      <p className="brand-section-title text-lg">R$ {value.toFixed(2)}</p>
+     </div>
+   );
+ }
+@@ -824,10 +824,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+@@ -848,10 +848,10 @@ function TextField({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -875,11 +875,11 @@ function Status({
+   const tone =
+     status === "settled"
+       ? type === "income"
+-        ? "bg-green-50 text-green-800"
++        ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+         : "bg-blue-50 text-blue-800"
+       : status === "cancelled"
+-        ? "bg-zinc-100 text-zinc-500"
+-        : "bg-amber-50 text-amber-800";
++        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
++        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
+ 
+   return (
+     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>
+diff --git a/apps/web/features/inventory/presentation/components/InventorySection.tsx b/apps/web/features/inventory/presentation/components/InventorySection.tsx
+index 282682a..22a6ec4 100644
+--- a/apps/web/features/inventory/presentation/components/InventorySection.tsx
++++ b/apps/web/features/inventory/presentation/components/InventorySection.tsx
+@@ -217,11 +217,11 @@ export function InventorySection({ products }: { products: Product[] }) {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
+       <div className="space-y-4">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Estoque</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Estoque</p>
++          <h2 className="brand-section-title text-xl">
+             Saldos, perdas e ajustes
+           </h2>
+         </div>
+@@ -233,7 +233,7 @@ export function InventorySection({ products }: { products: Product[] }) {
+           <Metric label="Divergencias" value={String(divergenceCount)} />
+         </div>
+ 
+-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleSubmit}>
++        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleSubmit}>
+           {!canRegisterMovement ? (
+             <PermissionNotice description="Voce pode consultar estoque e movimentos, mas nao registrar perdas ou ajustes." />
+           ) : null}
+@@ -242,7 +242,7 @@ export function InventorySection({ products }: { products: Product[] }) {
+               className={`rounded-md border px-3 py-2 text-sm font-bold ${
+                 form.mode === "loss"
+                   ? "border-red-200 bg-red-50 text-red-800"
+-                  : "border-zinc-300 text-zinc-700"
++                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
+               }`}
+               disabled={!canRegisterLoss}
+               type="button"
+@@ -253,8 +253,8 @@ export function InventorySection({ products }: { products: Product[] }) {
+             <button
+               className={`rounded-md border px-3 py-2 text-sm font-bold ${
+                 form.mode === "adjustment"
+-                  ? "border-green-200 bg-green-50 text-green-800"
+-                  : "border-zinc-300 text-zinc-700"
++                  ? "border-[#c4d8a8] bg-[#f4f9ec] text-[var(--brand-leaf)]"
++                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
+               }`}
+               disabled={!canAdjustInventory}
+               type="button"
+@@ -266,10 +266,10 @@ export function InventorySection({ products }: { products: Product[] }) {
+             </button>
+           </div>
+ 
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Produto
+             <select
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={form.productId}
+               onChange={(event) =>
+                 setForm((state) => ({
+@@ -295,10 +295,10 @@ export function InventorySection({ products }: { products: Product[] }) {
+             }
+           />
+ 
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Motivo
+             <input
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={form.reason}
+               onChange={(event) =>
+                 setForm((state) => ({
+@@ -310,7 +310,7 @@ export function InventorySection({ products }: { products: Product[] }) {
+           </label>
+ 
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canRegisterMovement}
+           >
+             Registrar
+@@ -319,20 +319,20 @@ export function InventorySection({ products }: { products: Product[] }) {
+           {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+         </form>
+ 
+-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCountSubmit}>
++        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCountSubmit}>
+           {!canAdjustInventory ? (
+             <PermissionNotice description="Voce pode consultar inventario fisico, mas nao registrar contagens." />
+           ) : null}
+           <div>
+-            <p className="text-sm font-bold text-zinc-950">Inventario fisico</p>
+-            <p className="text-xs text-zinc-500">
++            <p className="brand-section-title text-sm">Inventario fisico</p>
++            <p className="brand-muted text-xs">
+               Registre contagens e justifique divergencias.
+             </p>
+           </div>
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Produto
+             <select
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={countForm.productId}
+               onChange={(event) =>
+                 setCountForm((state) => ({
+@@ -356,10 +356,10 @@ export function InventorySection({ products }: { products: Product[] }) {
+               setCountForm((state) => ({ ...state, countedQuantity }))
+             }
+           />
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Responsavel
+             <input
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={countForm.countedBy}
+               onChange={(event) =>
+                 setCountForm((state) => ({
+@@ -369,10 +369,10 @@ export function InventorySection({ products }: { products: Product[] }) {
+               }
+             />
+           </label>
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Justificativa
+             <input
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={countForm.reason}
+               onChange={(event) =>
+                 setCountForm((state) => ({
+@@ -383,7 +383,7 @@ export function InventorySection({ products }: { products: Product[] }) {
+             />
+           </label>
+           <button
+-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canAdjustInventory}
+           >
+             Registrar contagem
+@@ -395,9 +395,9 @@ export function InventorySection({ products }: { products: Product[] }) {
+       </div>
+ 
+       <div className="grid gap-4">
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Lote</th>
+                 <th className="px-3 py-2">Produto</th>
+@@ -408,23 +408,23 @@ export function InventorySection({ products }: { products: Product[] }) {
+             </thead>
+             <tbody>
+               {visibleLots.map((lot) => (
+-                <tr className="border-t border-zinc-100" key={lot.id}>
++                <tr className="border-t border-[#f1dfb5]" key={lot.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">{lot.lotCode}</p>
+-                    <p className="text-xs text-zinc-500">{lot.status}</p>
++                    <p className="brand-section-title font-semibold">{lot.lotCode}</p>
++                    <p className="brand-muted text-xs">{lot.status}</p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {productNames.get(lot.productId) ?? "Produto"}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">{lot.quantity}</td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">{lot.quantity}</td>
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {lot.expirationDate
+                       ? lot.expirationDate.toLocaleDateString()
+                       : "sem validade"}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p>{lot.purchaseId ?? "operacional"}</p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {lot.supplierId ?? "sem fornecedor"}
+                     </p>
+                   </td>
+@@ -434,9 +434,9 @@ export function InventorySection({ products }: { products: Product[] }) {
+           </table>
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Produto</th>
+                 <th className="px-3 py-2">Tipo</th>
+@@ -448,8 +448,8 @@ export function InventorySection({ products }: { products: Product[] }) {
+             <tbody>
+               {balances.map((balance) => (
+                 <tr
+-                  className={`cursor-pointer border-t border-zinc-100 ${
+-                    selectedProductId === balance.productId ? "bg-green-50" : ""
++                  className={`cursor-pointer border-t border-[#f1dfb5] ${
++                    selectedProductId === balance.productId ? "bg-[#f4f9ec]" : ""
+                   }`}
+                   key={balance.productId}
+                   onClick={() =>
+@@ -461,7 +461,7 @@ export function InventorySection({ products }: { products: Product[] }) {
+                   }
+                 >
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {productNames.get(balance.productId) ?? "Produto"}
+                     </p>
+                     {balance.isBelowMinimum ? (
+@@ -470,16 +470,16 @@ export function InventorySection({ products }: { products: Product[] }) {
+                       </p>
+                     ) : null}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {getProductKindLabel(productKinds.get(balance.productId))}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {balance.quantity}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {balance.minimumStock}
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     R$ {balance.estimatedValue.toFixed(2)}
+                   </td>
+                 </tr>
+@@ -488,9 +488,9 @@ export function InventorySection({ products }: { products: Product[] }) {
+           </table>
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Movimento</th>
+                 <th className="px-3 py-2">Produto</th>
+@@ -502,31 +502,31 @@ export function InventorySection({ products }: { products: Product[] }) {
+             </thead>
+             <tbody>
+               {visibleMovements.map((movement) => (
+-                <tr className="border-t border-zinc-100" key={movement.id}>
++                <tr className="border-t border-[#f1dfb5]" key={movement.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {movementLabels[movement.type]}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {movement.reason}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {productNames.get(movement.productId) ?? "Produto"}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {movement.lotId ?? "sem lote"}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {movement.quantity}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p>{originLabels[movement.origin]}</p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {movement.referenceId ?? "sem referencia"}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {movement.occurredAt.toLocaleDateString()}
+                   </td>
+                 </tr>
+@@ -535,9 +535,9 @@ export function InventorySection({ products }: { products: Product[] }) {
+           </table>
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Contagem</th>
+                 <th className="px-3 py-2">Produto</th>
+@@ -548,35 +548,35 @@ export function InventorySection({ products }: { products: Product[] }) {
+             </thead>
+             <tbody>
+               {visibleCounts.map((count) => (
+-                <tr className="border-t border-zinc-100" key={count.id}>
++                <tr className="border-t border-[#f1dfb5]" key={count.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {count.countedBy}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {count.countedAt.toLocaleDateString()}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {productNames.get(count.productId) ?? "Produto"}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {count.expectedQuantity}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {count.countedQuantity}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     <p
+                       className={
+                         count.hasDivergence
+                           ? "font-bold text-red-700"
+-                          : "font-semibold text-green-700"
++                          : "font-semibold text-[var(--brand-leaf)]"
+                       }
+                     >
+                       {count.divergenceQuantity}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {count.reason ?? "sem divergencia"}
+                     </p>
+                   </td>
+@@ -596,9 +596,9 @@ function getProductKindLabel(kind?: ProductKind) {
+ 
+ function Metric({ label, value }: { label: string; value: string }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-      <p className="text-xs font-bold uppercase text-zinc-500">{label}</p>
+-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-bold uppercase">{label}</p>
++      <p className="brand-section-title mt-1 text-xl">{value}</p>
+     </div>
+   );
+ }
+@@ -613,10 +613,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+diff --git a/apps/web/features/product/presentation/components/ProductSection.tsx b/apps/web/features/product/presentation/components/ProductSection.tsx
+index 0f3aa36..afae767 100644
+--- a/apps/web/features/product/presentation/components/ProductSection.tsx
++++ b/apps/web/features/product/presentation/components/ProductSection.tsx
+@@ -81,11 +81,11 @@ export function ProductSection() {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[360px_1fr]">
+-      <form className="space-y-3" onSubmit={handleSubmit}>
++    <section className="brand-card grid min-w-0 gap-4 p-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
++      <form className="min-w-0 space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">Produtos</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Produtos</p>
++          <h2 className="brand-section-title text-xl">
+             Cadastro de produtos
+           </h2>
+         </div>
+@@ -108,10 +108,10 @@ export function ProductSection() {
+           value={form.category}
+           onChange={(category) => setForm((state) => ({ ...state, category }))}
+         />
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
+           Tipo
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.kind}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -126,10 +126,10 @@ export function ProductSection() {
+             <option value="packaging">Embalagem</option>
+           </select>
+         </label>
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
+           Unidade
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.unit}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -146,7 +146,7 @@ export function ProductSection() {
+             <option value="package">Pacote</option>
+           </select>
+         </label>
+-        <div className="grid grid-cols-3 gap-2">
++        <div className="grid min-w-0 gap-2 sm:grid-cols-3">
+           <NumberField
+             label="Compra"
+             value={form.purchasePrice}
+@@ -170,16 +170,16 @@ export function ProductSection() {
+           />
+         </div>
+ 
+-        <div className="flex gap-2">
++        <div className="flex flex-wrap gap-2">
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canManageProducts}
+           >
+             {selectedProductId ? "Salvar" : "Criar"}
+           </button>
+           {selectedProductId ? (
+             <button
+-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++              className="brand-secondary-button px-4 py-2 text-sm"
+               type="button"
+               onClick={() => setSelectedProduct(null)}
+             >
+@@ -187,12 +187,14 @@ export function ProductSection() {
+             </button>
+           ) : null}
+         </div>
+-        {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
++        {error ? (
++          <p className="text-sm font-semibold text-red-700">{error}</p>
++        ) : null}
+       </form>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
++      <div className="brand-table min-w-0 overflow-x-auto">
+         <table className="w-full text-left text-sm">
+-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++          <thead className="brand-table-header text-xs uppercase">
+             <tr>
+               <th className="px-3 py-2">Produto</th>
+               <th className="px-3 py-2">Tipo</th>
+@@ -203,17 +205,20 @@ export function ProductSection() {
+           </thead>
+           <tbody>
+             {products.map((product) => (
+-              <tr className="border-t border-zinc-100" key={product.id}>
++              <tr className="border-t border-[#f1dfb5]" key={product.id}>
+                 <td className="px-3 py-3">
+-                  <p className="font-semibold text-zinc-950">{product.name}</p>
+-                  <p className="text-xs text-zinc-500">
+-                    {product.sku} · {product.category} · {getUnitLabel(product.unit)}
++                  <p className="brand-section-title font-semibold">
++                    {product.name}
++                  </p>
++                  <p className="brand-muted text-xs">
++                    {product.sku} · {product.category} ·{" "}
++                    {getUnitLabel(product.unit)}
+                   </p>
+                 </td>
+-                <td className="px-3 py-3 text-zinc-700">
++                <td className="px-3 py-3 text-[var(--brand-brown)]">
+                   {getKindLabel(product.kind)}
+                 </td>
+-                <td className="px-3 py-3 text-zinc-700">
++                <td className="px-3 py-3 text-[var(--brand-brown)]">
+                   R$ {product.salePrice.toFixed(2)}
+                 </td>
+                 <td className="px-3 py-3">
+@@ -292,10 +297,10 @@ function Field({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -313,10 +318,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid min-w-0 gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+@@ -331,7 +336,9 @@ function Status({ active }: { active: boolean }) {
+   return (
+     <span
+       className={`rounded-full px-2 py-1 text-xs font-bold ${
+-        active ? "bg-green-100 text-green-800" : "bg-zinc-100 text-zinc-500"
++        active
++          ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
++          : "bg-[#f3ead7] text-[var(--brand-caramel)]"
+       }`}
+     >
+       {active ? "Ativo" : "Inativo"}
+@@ -349,13 +356,16 @@ function RowActions({
+   onEdit: () => void;
+ }) {
+   return (
+-    <div className="flex justify-end gap-2">
+-      <button className="text-sm font-semibold text-green-800" onClick={onEdit}>
++    <div className="flex flex-wrap justify-end gap-2">
++      <button
++        className="text-sm font-semibold text-[var(--brand-leaf)]"
++        onClick={onEdit}
++      >
+         Editar
+       </button>
+       {active ? (
+         <button
+-          className="text-sm font-semibold text-zinc-500"
++          className="brand-muted text-sm font-semibold"
+           onClick={onDeactivate}
+         >
+           Inativar
+diff --git a/apps/web/features/production/presentation/components/ProductionSection.tsx b/apps/web/features/production/presentation/components/ProductionSection.tsx
+index df827d3..d9b3834 100644
+--- a/apps/web/features/production/presentation/components/ProductionSection.tsx
++++ b/apps/web/features/production/presentation/components/ProductionSection.tsx
+@@ -143,17 +143,17 @@ export function ProductionSection({ products }: { products: Product[] }) {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
+       <div className="space-y-4">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Producao</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Producao</p>
++          <h2 className="brand-section-title text-xl">
+             Fichas tecnicas e ordens
+           </h2>
+         </div>
+ 
+-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateRecipe}>
+-          <h3 className="text-sm font-bold text-zinc-800">
++        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCreateRecipe}>
++          <h3 className="brand-section-title text-sm">
+             Nova versao de ficha tecnica
+           </h3>
+           {!canManageRecipe ? (
+@@ -184,7 +184,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+ 
+           <div className="space-y-2">
+             {recipeForm.ingredients.map((ingredient, index) => (
+-              <div className="grid gap-2 rounded-md bg-zinc-50 p-2" key={index}>
++              <div className="brand-card-warm grid gap-2 p-2" key={index}>
+                 <ProductSelect
+                   label="Insumo"
+                   products={ingredientProducts}
+@@ -202,7 +202,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+ 
+           <div className="flex flex-wrap gap-2">
+             <button
+-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++              className="brand-secondary-button px-4 py-2 text-sm"
+               type="button"
+               onClick={() =>
+                 setRecipeForm((state) => ({
+@@ -217,7 +217,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+               Adicionar insumo
+             </button>
+             <button
+-              className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++              className="brand-primary-button px-4 py-2 text-sm"
+               disabled={!canManageRecipe}
+             >
+               Criar ficha
+@@ -225,15 +225,15 @@ export function ProductionSection({ products }: { products: Product[] }) {
+           </div>
+         </form>
+ 
+-        <form className="space-y-3 rounded-md border border-zinc-200 p-3" onSubmit={handleCreateOrder}>
+-          <h3 className="text-sm font-bold text-zinc-800">Nova ordem</h3>
++        <form className="brand-card-warm space-y-3 p-3" onSubmit={handleCreateOrder}>
++          <h3 className="brand-section-title text-sm">Nova ordem</h3>
+           {!canManageOrder ? (
+             <PermissionNotice description="Voce pode acompanhar ordens, mas nao planejar ou executar producao." />
+           ) : null}
+-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
++          <label className="brand-muted grid gap-1 text-sm font-medium">
+             Ficha tecnica
+             <select
+-              className="rounded-md border border-zinc-300 px-3 py-2"
++              className="brand-input px-3 py-2"
+               value={orderForm.recipeId}
+               onChange={(event) => {
+                 setOrderForm((state) => ({
+@@ -268,13 +268,13 @@ export function ProductionSection({ products }: { products: Product[] }) {
+             }
+           />
+           {selectedRecipe ? (
+-            <p className="rounded-md bg-zinc-50 p-2 text-xs text-zinc-600">
++            <p className="brand-card-warm brand-muted p-2 text-xs">
+               Produz {productNames.get(selectedRecipe.outputProductId)} com{" "}
+               {selectedRecipe.ingredients.length} insumo(s).
+             </p>
+           ) : null}
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canManageOrder}
+           >
+             Planejar producao
+@@ -285,9 +285,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
+       </div>
+ 
+       <div className="grid gap-4">
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Ficha</th>
+                 <th className="px-3 py-2">Produto</th>
+@@ -296,17 +296,17 @@ export function ProductionSection({ products }: { products: Product[] }) {
+             </thead>
+             <tbody>
+               {recipes.map((recipe) => (
+-                <tr className="border-t border-zinc-100" key={recipe.id}>
+-                  <td className="px-3 py-3 font-semibold text-zinc-950">
++                <tr className="border-t border-[#f1dfb5]" key={recipe.id}>
++                  <td className="brand-section-title px-3 py-3 font-semibold">
+                     <p>{recipe.name}</p>
+-                    <p className="text-xs font-normal text-zinc-500">
++                    <p className="brand-muted text-xs font-normal">
+                       v{recipe.version} · {recipe.active ? "ativa" : "historica"}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {productNames.get(recipe.outputProductId)}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {recipe.ingredients.map((ingredient) => (
+                       <p key={ingredient.productId}>
+                         {productNames.get(ingredient.productId)} ·{" "}
+@@ -320,9 +320,9 @@ export function ProductionSection({ products }: { products: Product[] }) {
+           </table>
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Ordem</th>
+                 <th className="px-3 py-2">Produzido</th>
+@@ -333,24 +333,24 @@ export function ProductionSection({ products }: { products: Product[] }) {
+             </thead>
+             <tbody>
+               {orders.map((order) => (
+-                <tr className="border-t border-zinc-100" key={order.id}>
++                <tr className="border-t border-[#f1dfb5]" key={order.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {recipes.find((recipe) => recipe.id === order.recipeId)
+                         ?.name ?? order.recipeSnapshot.recipeName}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       v{order.recipeSnapshot.recipeVersion} ·{" "}
+                       {order.startedAt?.toLocaleDateString() ?? "nao iniciada"}
+                     </p>
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {order.quantityProduced} ·{" "}
+                     {productNames.get(order.outputProductId)}
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     R$ {order.totalCost.toFixed(2)}
+-                    <p className="text-xs font-medium text-zinc-500">
++                    <p className="brand-muted text-xs font-medium">
+                       Unit. R$ {order.unitCost.toFixed(2)}
+                     </p>
+                   </td>
+@@ -363,7 +363,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+                         <>
+                           {canManageOrder ? (
+                             <button
+-                              className="text-sm font-semibold text-green-800"
++                              className="text-sm font-semibold text-[var(--brand-leaf)]"
+                               onClick={async () => {
+                                 await startProductionOrder.mutateAsync(order.id);
+                                 recordAudit({
+@@ -380,7 +380,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+                           ) : null}
+                           {canCancelProduction ? (
+                             <button
+-                              className="text-sm font-semibold text-zinc-500"
++                              className="brand-muted text-sm font-semibold"
+                               onClick={async () => {
+                                 await cancelProductionOrder.mutateAsync(order.id);
+                                 recordAudit({
+@@ -401,7 +401,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+                         <>
+                           {canManageOrder ? (
+                             <button
+-                              className="text-sm font-semibold text-green-800"
++                              className="text-sm font-semibold text-[var(--brand-leaf)]"
+                               onClick={async () => {
+                                 await finishProductionOrder.mutateAsync(order.id);
+                                 recordAudit({
+@@ -421,7 +421,7 @@ export function ProductionSection({ products }: { products: Product[] }) {
+                           ) : null}
+                           {canCancelProduction ? (
+                             <button
+-                              className="text-sm font-semibold text-zinc-500"
++                              className="brand-muted text-sm font-semibold"
+                               onClick={async () => {
+                                 await cancelProductionOrder.mutateAsync(order.id);
+                                 recordAudit({
+@@ -462,9 +462,9 @@ function Status({
+     started: "Iniciada",
+   };
+   const colors = {
+-    cancelled: "bg-zinc-100 text-zinc-500",
+-    finished: "bg-green-100 text-green-800",
+-    planned: "bg-amber-100 text-amber-800",
++    cancelled: "bg-[#f3ead7] text-[var(--brand-caramel)]",
++    finished: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
++    planned: "bg-[#fff4cf] text-[var(--brand-caramel)]",
+     started: "bg-blue-100 text-blue-800",
+   };
+ 
+@@ -485,10 +485,10 @@ function Field({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -506,10 +506,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+@@ -532,10 +532,10 @@ function ProductSelect({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <select
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       >
+diff --git a/apps/web/features/purchase/presentation/components/PurchaseSection.tsx b/apps/web/features/purchase/presentation/components/PurchaseSection.tsx
+index d7201a9..f553cf8 100644
+--- a/apps/web/features/purchase/presentation/components/PurchaseSection.tsx
++++ b/apps/web/features/purchase/presentation/components/PurchaseSection.tsx
+@@ -159,11 +159,11 @@ export function PurchaseSection({
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
+       <form className="space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">Compras</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Compras</p>
++          <h2 className="brand-section-title text-xl">
+             Pedido e recebimento
+           </h2>
+         </div>
+@@ -171,10 +171,10 @@ export function PurchaseSection({
+           <PermissionNotice description="Voce pode consultar compras, mas nao criar novos pedidos." />
+         ) : null}
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Fornecedor
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.supplierId}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -192,10 +192,10 @@ export function PurchaseSection({
+           </select>
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Previsao
+           <input
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             type="date"
+             value={form.expectedDate}
+             onChange={(event) =>
+@@ -210,13 +210,13 @@ export function PurchaseSection({
+         <div className="space-y-2">
+           {form.items.map((item, index) => (
+             <div
+-              className="grid gap-2 rounded-md border border-zinc-200 p-3"
++              className="brand-card-warm grid gap-2 p-3"
+               key={index}
+             >
+-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
++              <label className="brand-muted grid gap-1 text-sm font-medium">
+                 Produto
+                 <select
+-                  className="rounded-md border border-zinc-300 px-3 py-2"
++                  className="brand-input px-3 py-2"
+                   value={item.productId}
+                   onChange={(event) => selectProduct(index, event.target.value)}
+                 >
+@@ -245,7 +245,7 @@ export function PurchaseSection({
+         </div>
+ 
+         <button
+-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++          className="brand-secondary-button px-4 py-2 text-sm"
+           type="button"
+           onClick={() =>
+             setForm((state) => ({
+@@ -260,10 +260,10 @@ export function PurchaseSection({
+           Adicionar item
+         </button>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Observacoes
+           <textarea
+-            className="min-h-16 rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input min-h-16 px-3 py-2"
+             value={form.notes}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -275,11 +275,11 @@ export function PurchaseSection({
+         </label>
+ 
+         <div className="flex items-center justify-between gap-3">
+-          <p className="text-sm font-bold text-zinc-700">
++          <p className="brand-section-title text-sm">
+             Total: R$ {total.toFixed(2)}
+           </p>
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canCreatePurchase}
+           >
+             Criar compra
+@@ -289,9 +289,9 @@ export function PurchaseSection({
+         {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+       </form>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
++      <div className="brand-table">
+         <table className="w-full text-left text-sm">
+-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++          <thead className="brand-table-header text-xs uppercase">
+             <tr>
+               <th className="px-3 py-2">Compra</th>
+               <th className="px-3 py-2">Itens</th>
+@@ -302,34 +302,34 @@ export function PurchaseSection({
+           </thead>
+           <tbody>
+             {purchases.map((purchase) => (
+-              <tr className="border-t border-zinc-100 align-top" key={purchase.id}>
++              <tr className="border-t border-[#f1dfb5] align-top" key={purchase.id}>
+                 <td className="px-3 py-3">
+-                  <p className="font-semibold text-zinc-950">
++                  <p className="brand-section-title font-semibold">
+                     {supplierNames.get(purchase.supplierId) ?? "Fornecedor"}
+                   </p>
+-                  <p className="text-xs text-zinc-500">
++                  <p className="brand-muted text-xs">
+                     Prev. {purchase.expectedDate.toLocaleDateString()}
+                   </p>
+                   {purchase.approvedBy ? (
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       Aprovada por {purchase.approvedBy}
+                     </p>
+                   ) : null}
+                 </td>
+-                <td className="px-3 py-3 text-zinc-700">
++                <td className="px-3 py-3 text-[var(--brand-brown)]">
+                   {purchase.items.map((item) => (
+                     <div className="mb-2 grid gap-1" key={item.id}>
+                       <p>
+                         {productNames.get(item.productId) ?? "Produto"} ·{" "}
+                         {item.quantity} x R$ {item.unitCost.toFixed(2)}
+                       </p>
+-                      <p className="text-xs text-zinc-500">
++                      <p className="brand-muted text-xs">
+                         Recebido: {item.receivedQuantity ?? 0} / {item.quantity}
+                       </p>
+                       {canReceivePurchase &&
+                       isReceivableStatus(purchase.status) ? (
+                         <input
+-                          className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs"
++                          className="brand-input w-28 px-2 py-1 text-xs"
+                           min="0"
+                           step="0.01"
+                           type="number"
+@@ -351,7 +351,7 @@ export function PurchaseSection({
+                   {canReceivePurchase && isReceivableStatus(purchase.status) ? (
+                     <div className="mt-2 grid max-w-xs gap-2">
+                       <input
+-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
++                        className="brand-input px-2 py-1 text-xs"
+                         placeholder="Responsavel"
+                         value={getReceiptDraft(purchase.id).receivedBy}
+                         onChange={(event) =>
+@@ -361,7 +361,7 @@ export function PurchaseSection({
+                         }
+                       />
+                       <input
+-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
++                        className="brand-input px-2 py-1 text-xs"
+                         placeholder="Justificativa de divergencia"
+                         value={getReceiptDraft(purchase.id).divergenceReason}
+                         onChange={(event) =>
+@@ -373,7 +373,7 @@ export function PurchaseSection({
+                     </div>
+                   ) : null}
+                 </td>
+-                <td className="px-3 py-3 font-semibold text-zinc-800">
++                <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                   R$ {purchase.total.toFixed(2)}
+                 </td>
+                 <td className="px-3 py-3">
+@@ -384,7 +384,7 @@ export function PurchaseSection({
+                     {purchase.status === "pending_approval" &&
+                     canCreatePurchase ? (
+                       <button
+-                        className="text-sm font-semibold text-green-800"
++                        className="text-sm font-semibold text-[var(--brand-leaf)]"
+                         onClick={async () => {
+                           await approvePurchase.mutateAsync({
+                             approvedBy: "Gerencia",
+@@ -406,7 +406,7 @@ export function PurchaseSection({
+                       <>
+                         {canReceivePurchase ? (
+                           <button
+-                            className="text-sm font-semibold text-green-800"
++                            className="text-sm font-semibold text-[var(--brand-leaf)]"
+                             onClick={async () => {
+                               const draft = getReceiptDraft(purchase.id);
+                               await receivePurchase.mutateAsync({
+@@ -434,7 +434,7 @@ export function PurchaseSection({
+                         ) : null}
+                         {canCancelPurchase ? (
+                           <button
+-                            className="text-sm font-semibold text-zinc-500"
++                            className="brand-muted text-sm font-semibold"
+                             onClick={async () => {
+                               await cancelPurchase.mutateAsync(purchase.id);
+                               recordAudit({
+@@ -453,7 +453,7 @@ export function PurchaseSection({
+                     ) : null}
+                     {purchase.status === "received" && canCancelPurchase ? (
+                       <button
+-                        className="text-sm font-semibold text-zinc-500"
++                        className="brand-muted text-sm font-semibold"
+                         onClick={async () => {
+                           await cancelPurchase.mutateAsync(purchase.id);
+                           recordAudit({
+@@ -489,10 +489,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+@@ -505,13 +505,13 @@ function NumberField({
+ 
+ function Status({ status }: { status: PurchaseStatus }) {
+   const styles = {
+-    approved: "bg-emerald-100 text-emerald-800",
+-    cancelled: "bg-zinc-100 text-zinc-500",
++    approved: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
++    cancelled: "bg-[#f3ead7] text-[var(--brand-caramel)]",
+     draft: "bg-sky-100 text-sky-800",
+-    ordered: "bg-amber-100 text-amber-800",
++    ordered: "bg-[#fff4cf] text-[var(--brand-caramel)]",
+     partially_received: "bg-orange-100 text-orange-800",
+     pending_approval: "bg-violet-100 text-violet-800",
+-    received: "bg-green-100 text-green-800",
++    received: "bg-[#f4f9ec] text-[var(--brand-leaf)]",
+   };
+ 
+   const labels = {
+diff --git a/apps/web/features/reports/presentation/components/ReportsSection.tsx b/apps/web/features/reports/presentation/components/ReportsSection.tsx
+index 19c8fbf..3efa21b 100644
+--- a/apps/web/features/reports/presentation/components/ReportsSection.tsx
++++ b/apps/web/features/reports/presentation/components/ReportsSection.tsx
+@@ -18,11 +18,11 @@ export function ReportsSection() {
+ 
+   if (!reports) {
+     return (
+-      <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
++      <section className="brand-card space-y-4 p-4">
+         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+           <div>
+-            <p className="text-sm font-bold text-green-800">Relatorios</p>
+-            <h2 className="text-xl font-bold text-zinc-950">
++            <p className="brand-kicker text-sm">Relatorios</p>
++            <h2 className="brand-section-title text-xl">
+               Carregando dados
+             </h2>
+           </div>
+@@ -36,14 +36,14 @@ export function ReportsSection() {
+   }
+ 
+   return (
+-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
++    <section className="brand-card space-y-4 p-4">
+       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+         <div>
+-          <p className="text-sm font-bold text-green-800">Relatorios</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Relatorios</p>
++          <h2 className="brand-section-title text-xl">
+             Analise consolidada por periodo
+           </h2>
+-          <p className="mt-1 text-xs font-semibold text-zinc-500">
++          <p className="brand-muted mt-1 text-xs font-semibold">
+             {formatPeriodLabel(reports.period)}
+           </p>
+         </div>
+@@ -53,7 +53,7 @@ export function ReportsSection() {
+             setPeriodForm={setPeriodForm}
+           />
+           <ExportControls reports={reports} />
+-          <p className="text-xs font-semibold text-zinc-500">
++          <p className="brand-muted text-xs font-semibold">
+             Gerado {reports.generatedAt.toLocaleString()}
+           </p>
+         </div>
+@@ -101,13 +101,13 @@ export function ReportsSection() {
+         />
+       </div>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
+-        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+-          <h3 className="text-sm font-bold text-zinc-800">
++      <div className="brand-table">
++        <div className="brand-table-header px-3 py-2">
++          <h3 className="brand-section-title text-sm">
+             Validacao contabil basica
+           </h3>
+         </div>
+-        <div className="divide-y divide-zinc-100">
++        <div className="divide-y divide-[#f1dfb5]">
+           {reports.financial.validations.map((validation) => (
+             <div
+               className="grid gap-2 px-3 py-3 md:grid-cols-[120px_180px_1fr]"
+@@ -118,10 +118,10 @@ export function ReportsSection() {
+               >
+                 {getValidationLabel(validation.level)}
+               </span>
+-              <p className="text-sm font-bold text-zinc-900">
++              <p className="brand-section-title text-sm">
+                 {validation.label}
+               </p>
+-              <p className="text-sm text-zinc-600">{validation.message}</p>
++              <p className="brand-muted text-sm">{validation.message}</p>
+             </div>
+           ))}
+         </div>
+@@ -183,10 +183,10 @@ function PeriodControls({
+ }) {
+   return (
+     <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Inicio
+         <input
+-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
+           max={periodForm.endDate || undefined}
+           onChange={(event) =>
+             setPeriodForm({
+@@ -198,10 +198,10 @@ function PeriodControls({
+           value={periodForm.startDate}
+         />
+       </label>
+-      <label className="grid gap-1 text-xs font-semibold text-zinc-600">
++      <label className="brand-muted grid gap-1 text-xs font-semibold">
+         Fim
+         <input
+-          className="h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-semibold text-zinc-800 outline-none focus:border-green-700"
++          className="brand-input h-9 min-w-0 px-2 text-sm font-semibold"
+           min={periodForm.startDate || undefined}
+           onChange={(event) =>
+             setPeriodForm({
+@@ -214,14 +214,14 @@ function PeriodControls({
+         />
+       </label>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => setPeriodForm(getCurrentMonthPeriod())}
+         type="button"
+       >
+         Mes atual
+       </button>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => setPeriodForm({ endDate: "", startDate: "" })}
+         type="button"
+       >
+@@ -233,9 +233,9 @@ function PeriodControls({
+ 
+ function SummaryCard({ label, value }: { label: string; value: string }) {
+   return (
+-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+-      <p className="text-xs font-semibold text-zinc-500">{label}</p>
+-      <p className="mt-1 text-xl font-bold text-zinc-950">{value}</p>
++    <div className="brand-card-warm p-3">
++      <p className="brand-muted text-xs font-semibold">{label}</p>
++      <p className="brand-section-title mt-1 text-xl">{value}</p>
+     </div>
+   );
+ }
+@@ -248,14 +248,14 @@ function ExportControls({
+   return (
+     <div className="flex flex-wrap gap-2">
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => downloadText("paobom-relatorio.json", JSON.stringify(reports, null, 2))}
+         type="button"
+       >
+         JSON
+       </button>
+       <button
+-        className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-bold text-zinc-700 hover:border-green-700 hover:text-green-800"
++        className="brand-secondary-button h-9 px-3 text-xs"
+         onClick={() => downloadText("paobom-relatorio.csv", buildReportsCsv(reports))}
+         type="button"
+       >
+@@ -330,8 +330,8 @@ function getValidationLabel(level: "critical" | "ok" | "warning") {
+ function getValidationTone(level: "critical" | "ok" | "warning") {
+   const tones = {
+     critical: "text-red-700",
+-    ok: "text-green-700",
+-    warning: "text-amber-700",
++    ok: "text-[var(--brand-leaf)]",
++    warning: "text-[var(--brand-caramel)]",
+   };
+ 
+   return tones[level];
+@@ -403,12 +403,12 @@ function ReportTable({
+   title: string;
+ }) {
+   return (
+-    <div className="overflow-hidden rounded-md border border-zinc-200">
+-      <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2">
+-        <h3 className="text-sm font-bold text-zinc-800">{title}</h3>
++    <div className="brand-table">
++      <div className="brand-table-header px-3 py-2">
++        <h3 className="brand-section-title text-sm">{title}</h3>
+       </div>
+       <table className="w-full text-left text-sm">
+-        <thead className="text-xs uppercase text-zinc-500">
++        <thead className="brand-table-header text-xs uppercase">
+           <tr>
+             <th className="px-3 py-2">Item</th>
+             <th className="px-3 py-2">Qtd.</th>
+@@ -418,19 +418,19 @@ function ReportTable({
+         <tbody>
+           {rows.length ? (
+             rows.map((row) => (
+-              <tr className="border-t border-zinc-100" key={row.label}>
+-                <td className="px-3 py-2 font-semibold text-zinc-800">
++              <tr className="border-t border-[#f1dfb5]" key={row.label}>
++                <td className="brand-section-title px-3 py-2 font-semibold">
+                   {row.label}
+                 </td>
+-                <td className="px-3 py-2 text-zinc-700">{row.quantity}</td>
+-                <td className="px-3 py-2 text-zinc-700">
++                <td className="px-3 py-2 text-[var(--brand-brown)]">{row.quantity}</td>
++                <td className="px-3 py-2 text-[var(--brand-brown)]">
+                   R$ {row.amount.toFixed(2)}
+                 </td>
+               </tr>
+             ))
+           ) : (
+-            <tr className="border-t border-zinc-100">
+-              <td className="px-3 py-3 text-zinc-500" colSpan={3}>
++            <tr className="border-t border-[#f1dfb5]">
++              <td className="brand-muted px-3 py-3" colSpan={3}>
+                 Sem dados
+               </td>
+             </tr>
+diff --git a/apps/web/features/sales/presentation/components/SalesSection.tsx b/apps/web/features/sales/presentation/components/SalesSection.tsx
+index acb9aa7..35507cb 100644
+--- a/apps/web/features/sales/presentation/components/SalesSection.tsx
++++ b/apps/web/features/sales/presentation/components/SalesSection.tsx
+@@ -186,11 +186,11 @@ export function SalesSection({
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 xl:grid-cols-[420px_1fr]">
++    <section className="brand-card grid gap-4 p-4 xl:grid-cols-[420px_1fr]">
+       <form className="space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">Vendas</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Vendas</p>
++          <h2 className="brand-section-title text-xl">
+             Balcao e encomendas
+           </h2>
+         </div>
+@@ -198,10 +198,10 @@ export function SalesSection({
+           <PermissionNotice description="Voce pode consultar vendas, mas nao registrar novos atendimentos." />
+         ) : null}
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Cliente
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.customerId}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -219,10 +219,10 @@ export function SalesSection({
+           </select>
+         </label>
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Pagamento
+           <select
+-            className="rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input px-3 py-2"
+             value={form.paymentMethod}
+             onChange={(event) =>
+               setForm((state) => ({
+@@ -274,13 +274,13 @@ export function SalesSection({
+         <div className="space-y-2">
+           {form.items.map((item, index) => (
+             <div
+-              className="grid gap-2 rounded-md border border-zinc-200 p-3"
++              className="brand-card-warm grid gap-2 p-3"
+               key={index}
+             >
+-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
++              <label className="brand-muted grid gap-1 text-sm font-medium">
+                 Produto
+                 <select
+-                  className="rounded-md border border-zinc-300 px-3 py-2"
++                  className="brand-input px-3 py-2"
+                   value={item.productId}
+                   onChange={(event) => selectProduct(index, event.target.value)}
+                 >
+@@ -309,7 +309,7 @@ export function SalesSection({
+         </div>
+ 
+         <button
+-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++          className="brand-secondary-button px-4 py-2 text-sm"
+           type="button"
+           onClick={() =>
+             setForm((state) => ({
+@@ -332,11 +332,11 @@ export function SalesSection({
+               setForm((state) => ({ ...state, discountAmount }))
+             }
+           />
+-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+-            <p className="font-bold text-zinc-700">
++          <div className="brand-card-warm p-3 text-sm">
++            <p className="brand-section-title font-bold">
+               Subtotal: R$ {subtotal.toFixed(2)}
+             </p>
+-            <p className="text-xs text-zinc-500">
++            <p className="brand-muted text-xs">
+               Limite sem autorizacao: R$ {(subtotal * 0.1).toFixed(2)}
+             </p>
+           </div>
+@@ -399,10 +399,10 @@ export function SalesSection({
+           </div>
+         ) : null}
+ 
+-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
++        <label className="brand-muted grid gap-1 text-sm font-medium">
+           Observacoes
+           <textarea
+-            className="min-h-16 rounded-md border border-zinc-300 px-3 py-2"
++            className="brand-input min-h-16 px-3 py-2"
+             value={form.notes}
+             onChange={(event) =>
+               setForm((state) => ({ ...state, notes: event.target.value }))
+@@ -411,11 +411,11 @@ export function SalesSection({
+         </label>
+ 
+         <div className="flex items-center justify-between gap-3">
+-          <p className="text-sm font-bold text-zinc-700">
++          <p className="brand-section-title text-sm">
+             Total: R$ {total.toFixed(2)}
+           </p>
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={
+               !canCreateSale ||
+               (needsDiscountAuthorization && !canAuthorizeDiscount) ||
+@@ -435,8 +435,8 @@ export function SalesSection({
+             <button
+               className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                 selectedStatus === status
+-                  ? "border-green-800 bg-green-50 text-green-900"
+-                  : "border-zinc-200 text-zinc-600"
++                  ? "border-[var(--brand-leaf)] bg-[#f4f9ec] text-[var(--brand-leaf)]"
++                  : "border-[var(--brand-line)] text-[var(--brand-caramel)]"
+               }`}
+               key={status}
+               onClick={() => setSelectedStatus(status)}
+@@ -447,9 +447,9 @@ export function SalesSection({
+           ))}
+         </div>
+ 
+-        <div className="overflow-hidden rounded-md border border-zinc-200">
++        <div className="brand-table">
+           <table className="w-full text-left text-sm">
+-            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++            <thead className="brand-table-header text-xs uppercase">
+               <tr>
+                 <th className="px-3 py-2">Venda</th>
+                 <th className="px-3 py-2">Itens</th>
+@@ -460,19 +460,19 @@ export function SalesSection({
+             </thead>
+             <tbody>
+               {filteredSales.map((sale) => (
+-                <tr className="border-t border-zinc-100" key={sale.id}>
++                <tr className="border-t border-[#f1dfb5]" key={sale.id}>
+                   <td className="px-3 py-3">
+-                    <p className="font-semibold text-zinc-950">
++                    <p className="brand-section-title font-semibold">
+                       {sale.customerId
+                         ? customerNames.get(sale.customerId)
+                         : "Consumidor final"}
+                     </p>
+-                    <p className="text-xs text-zinc-500">
++                    <p className="brand-muted text-xs">
+                       {getPaymentLabel(sale.paymentMethod)} ·{" "}
+                       {sale.createdAt.toLocaleDateString()}
+                     </p>
+                     {sale.payments.length > 0 ? (
+-                      <p className="text-xs text-zinc-500">
++                      <p className="brand-muted text-xs">
+                         {sale.payments
+                           .map((payment) =>
+                             formatPaymentDetail(payment.method, payment.amount),
+@@ -481,7 +481,7 @@ export function SalesSection({
+                       </p>
+                     ) : null}
+                   </td>
+-                  <td className="px-3 py-3 text-zinc-700">
++                  <td className="px-3 py-3 text-[var(--brand-brown)]">
+                     {sale.items.map((item) => (
+                       <p key={item.id}>
+                         {productNames.get(item.productId) ?? "Produto"} ·{" "}
+@@ -489,14 +489,14 @@ export function SalesSection({
+                       </p>
+                     ))}
+                   </td>
+-                  <td className="px-3 py-3 font-semibold text-zinc-800">
++                  <td className="px-3 py-3 font-semibold text-[var(--brand-ink)]">
+                     R$ {sale.total.toFixed(2)}
+                     {sale.discountAmount > 0 ? (
+                       <p className="text-xs font-medium text-amber-700">
+                         Desc. R$ {sale.discountAmount.toFixed(2)}
+                       </p>
+                     ) : null}
+-                    <p className="text-xs font-medium text-zinc-500">
++                    <p className="brand-muted text-xs font-medium">
+                       Margem R$ {sale.grossMargin.toFixed(2)}
+                     </p>
+                   </td>
+@@ -508,7 +508,7 @@ export function SalesSection({
+                       <div className="flex justify-end gap-2">
+                         {sale.status === "open" && canPaySale ? (
+                           <button
+-                            className="text-sm font-semibold text-green-800"
++                            className="text-sm font-semibold text-[var(--brand-leaf)]"
+                             onClick={async () => {
+                               await paySale.mutateAsync(sale.id);
+                               recordAudit({
+@@ -525,7 +525,7 @@ export function SalesSection({
+                         ) : null}
+                         {canCancelSale ? (
+                           <button
+-                            className="text-sm font-semibold text-zinc-500"
++                            className="brand-muted text-sm font-semibold"
+                             onClick={async () => {
+                               await cancelSale.mutateAsync(sale.id);
+                               recordAudit({
+@@ -563,10 +563,10 @@ function Field({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 bg-white px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -584,10 +584,10 @@ function NumberField({
+   value: number;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         min="0"
+         step="0.01"
+         type="number"
+@@ -603,10 +603,10 @@ function Status({ status }: { status: SaleStatus }) {
+     status === "open" ? "Aberta" : status === "paid" ? "Paga" : "Cancelada";
+   const tone =
+     status === "paid"
+-      ? "bg-green-50 text-green-800"
++      ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
+       : status === "cancelled"
+-        ? "bg-zinc-100 text-zinc-500"
+-        : "bg-amber-50 text-amber-800";
++        ? "bg-[#f3ead7] text-[var(--brand-caramel)]"
++        : "bg-[#fff4cf] text-[var(--brand-caramel)]";
+ 
+   return (
+     <span className={`rounded-md px-2 py-1 text-xs font-bold ${tone}`}>
+diff --git a/apps/web/features/supplier/presentation/components/SupplierSection.tsx b/apps/web/features/supplier/presentation/components/SupplierSection.tsx
+index e2f347d..6d6669b 100644
+--- a/apps/web/features/supplier/presentation/components/SupplierSection.tsx
++++ b/apps/web/features/supplier/presentation/components/SupplierSection.tsx
+@@ -77,11 +77,11 @@ export function SupplierSection() {
+   }
+ 
+   return (
+-    <section className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[360px_1fr]">
++    <section className="brand-card grid gap-4 p-4 lg:grid-cols-[360px_1fr]">
+       <form className="space-y-3" onSubmit={handleSubmit}>
+         <div>
+-          <p className="text-sm font-bold text-green-800">Fornecedores</p>
+-          <h2 className="text-xl font-bold text-zinc-950">
++          <p className="brand-kicker text-sm">Fornecedores</p>
++          <h2 className="brand-section-title text-xl">
+             Relacionamento com fornecedores
+           </h2>
+         </div>
+@@ -119,14 +119,14 @@ export function SupplierSection() {
+ 
+         <div className="flex gap-2">
+           <button
+-            className="rounded-md bg-green-800 px-4 py-2 text-sm font-bold text-white disabled:bg-zinc-300"
++            className="brand-primary-button px-4 py-2 text-sm"
+             disabled={!canManageSuppliers}
+           >
+             {selectedSupplierId ? "Salvar" : "Criar"}
+           </button>
+           {selectedSupplierId ? (
+             <button
+-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700"
++              className="brand-secondary-button px-4 py-2 text-sm"
+               type="button"
+               onClick={() => setSelectedSupplier(null)}
+             >
+@@ -137,9 +137,9 @@ export function SupplierSection() {
+         {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+       </form>
+ 
+-      <div className="overflow-hidden rounded-md border border-zinc-200">
++      <div className="brand-table">
+         <table className="w-full text-left text-sm">
+-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
++          <thead className="brand-table-header text-xs uppercase">
+             <tr>
+               <th className="px-3 py-2">Fornecedor</th>
+               <th className="px-3 py-2">Contato</th>
+@@ -149,16 +149,16 @@ export function SupplierSection() {
+           </thead>
+           <tbody>
+             {suppliers.map((supplier) => (
+-              <tr className="border-t border-zinc-100" key={supplier.id}>
++              <tr className="border-t border-[#f1dfb5]" key={supplier.id}>
+                 <td className="px-3 py-3">
+-                  <p className="font-semibold text-zinc-950">
++                  <p className="brand-section-title font-semibold">
+                     {supplier.name}
+                   </p>
+-                  <p className="text-xs text-zinc-500">{supplier.document}</p>
++                  <p className="brand-muted text-xs">{supplier.document}</p>
+                 </td>
+-                <td className="px-3 py-3 text-zinc-700">
++                <td className="px-3 py-3 text-[var(--brand-brown)]">
+                   <p>{supplier.contactName}</p>
+-                  <p className="text-xs text-zinc-500">{supplier.phone}</p>
++                  <p className="brand-muted text-xs">{supplier.phone}</p>
+                 </td>
+                 <td className="px-3 py-3">
+                   <Status active={supplier.active} />
+@@ -209,10 +209,10 @@ function Field({
+   value: string;
+ }) {
+   return (
+-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
++    <label className="brand-muted grid gap-1 text-sm font-medium">
+       {label}
+       <input
+-        className="rounded-md border border-zinc-300 px-3 py-2"
++        className="brand-input px-3 py-2"
+         value={value}
+         onChange={(event) => onChange(event.target.value)}
+       />
+@@ -224,7 +224,9 @@ function Status({ active }: { active: boolean }) {
+   return (
+     <span
+       className={`rounded-full px-2 py-1 text-xs font-bold ${
+-        active ? "bg-green-100 text-green-800" : "bg-zinc-100 text-zinc-500"
++        active
++          ? "bg-[#f4f9ec] text-[var(--brand-leaf)]"
++          : "bg-[#f3ead7] text-[var(--brand-caramel)]"
+       }`}
+     >
+       {active ? "Ativo" : "Inativo"}
+@@ -243,12 +245,12 @@ function RowActions({
+ }) {
+   return (
+     <div className="flex justify-end gap-2">
+-      <button className="text-sm font-semibold text-green-800" onClick={onEdit}>
++      <button className="text-sm font-semibold text-[var(--brand-leaf)]" onClick={onEdit}>
+         Editar
+       </button>
+       {active ? (
+         <button
+-          className="text-sm font-semibold text-zinc-500"
++          className="brand-muted text-sm font-semibold"
+           onClick={onDeactivate}
+         >
+           Inativar
+diff --git a/apps/web/tests/interface/forms-layout.spec.ts b/apps/web/tests/interface/forms-layout.spec.ts
+new file mode 100644
+index 0000000..38b7969
+--- /dev/null
++++ b/apps/web/tests/interface/forms-layout.spec.ts
+@@ -0,0 +1,289 @@
++import { expect, Locator, Page, test } from "@playwright/test";
++
++const allPermissions = [
++  "dashboard:view",
++  "reports:view",
++  "audit:view",
++  "purchase:view",
++  "purchase:manage",
++  "production:view",
++  "production:manage-recipe",
++  "production:manage-order",
++  "production:cancel",
++  "inventory:view",
++  "inventory:manage",
++  "sales:view",
++  "sales:manage",
++  "finance:view",
++  "finance:manage",
++  "crm:view",
++  "crm:manage",
++  "product:view",
++  "product:manage",
++  "supplier:view",
++  "supplier:manage",
++  "customer:view",
++  "customer:manage",
++];
++
++const modulesWithForms = [
++  { id: "compras", label: "Compras" },
++  { id: "producao", label: "Producao" },
++  { id: "estoque", label: "Estoque" },
++  { id: "vendas", label: "Vendas" },
++  { id: "caixa", label: "Caixa" },
++  { id: "crm", label: "CRM" },
++  { id: "produtos", label: "Produtos" },
++  { id: "fornecedores", label: "Fornecedores" },
++  { id: "clientes", label: "Clientes" },
++];
++
++const sampleProducts = [
++  {
++    active: true,
++    category: "Padaria artesanal",
++    createdAt: "2026-01-01T00:00:00.000Z",
++    id: "prod-bread",
++    kind: "finished_product",
++    minimumStock: 12,
++    name: "Pao frances tradicional",
++    purchasePrice: 0.8,
++    salePrice: 1.2,
++    sku: "PAO-FRANCES",
++    unit: "unit",
++    updatedAt: "2026-01-01T00:00:00.000Z",
++  },
++  {
++    active: true,
++    category: "Insumos",
++    createdAt: "2026-01-01T00:00:00.000Z",
++    id: "prod-flour",
++    kind: "raw_material",
++    minimumStock: 20,
++    name: "Farinha de trigo",
++    purchasePrice: 4.5,
++    salePrice: 0,
++    sku: "FARINHA",
++    unit: "kg",
++    updatedAt: "2026-01-01T00:00:00.000Z",
++  },
++];
++
++const sampleSuppliers = [
++  {
++    active: true,
++    contactName: "Ana",
++    createdAt: "2026-01-01T00:00:00.000Z",
++    document: "00.000.000/0001-00",
++    email: "fornecedor@paobom.local",
++    id: "supplier-1",
++    name: "Moinho Bom Trigo",
++    phone: "(81) 3000-0000",
++    updatedAt: "2026-01-01T00:00:00.000Z",
++  },
++];
++
++const sampleCustomers = [
++  {
++    active: true,
++    createdAt: "2026-01-01T00:00:00.000Z",
++    document: "000.000.000-00",
++    email: "cliente@paobom.local",
++    id: "customer-1",
++    interactions: [],
++    name: "Cliente Balcao",
++    notes: "Cliente recorrente",
++    phone: "(81) 90000-0000",
++    updatedAt: "2026-01-01T00:00:00.000Z",
++  },
++];
++
++const emptyListEndpoints = [
++  "/audit-logs",
++  "/cash-entries",
++  "/cash-register-movements",
++  "/cash-registers",
++  "/inventory/balances",
++  "/inventory/counts",
++  "/inventory/lots",
++  "/inventory/movements",
++  "/production/orders",
++  "/production/recipes",
++  "/purchases",
++  "/reports",
++  "/sales",
++];
++
++async function mockApi(page: Page) {
++  await page.route("**/*", (route) => {
++    const request = route.request();
++    const url = new URL(request.url());
++
++    if (request.method() === "OPTIONS") {
++      return route.fulfill({ headers: corsHeaders(), status: 204 });
++    }
++
++    if (!url.origin.includes("localhost:3333")) {
++      return route.fallback();
++    }
++
++    if (url.pathname === "/auth/me") {
++      return route.fulfill({
++        headers: corsHeaders(),
++        json: {
++          data: {
++            email: "dono@paobom.local",
++            id: "user-owner",
++            name: "Dono PaoBom",
++            permissions: allPermissions,
++            role: "owner",
++          },
++        },
++      });
++    }
++
++    if (url.pathname === "/products") {
++      return route.fulfill({ headers: corsHeaders(), json: { data: sampleProducts } });
++    }
++
++    if (url.pathname === "/suppliers") {
++      return route.fulfill({ headers: corsHeaders(), json: { data: sampleSuppliers } });
++    }
++
++    if (url.pathname === "/customers") {
++      return route.fulfill({ headers: corsHeaders(), json: { data: sampleCustomers } });
++    }
++
++    if (emptyListEndpoints.includes(url.pathname)) {
++      return route.fulfill({ headers: corsHeaders(), json: { data: [] } });
++    }
++
++    return route.fulfill({ headers: corsHeaders(), json: { data: [] } });
++  });
++}
++
++function corsHeaders() {
++  return {
++    "access-control-allow-credentials": "true",
++    "access-control-allow-headers": "content-type",
++    "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
++    "access-control-allow-origin": "http://localhost:3000",
++  };
++}
++
++async function openModule(page: Page, item: { id: string; label: string }) {
++  await page.goto(`/#${item.id}`);
++  await expect(page.locator(`#${item.id}`)).toBeVisible();
++}
++
++async function expectNoHorizontalOverflow(page: Page) {
++  const overflow = await page.evaluate(() => ({
++    clientWidth: document.documentElement.clientWidth,
++    scrollWidth: document.documentElement.scrollWidth,
++  }));
++
++  expect(
++    overflow.scrollWidth,
++    `Horizontal overflow: ${JSON.stringify(overflow)}`,
++  ).toBeLessThanOrEqual(overflow.clientWidth + 2);
++}
++
++async function expectFormControlsDoNotOverlap(form: Locator) {
++  const boxes = await form
++    .locator("input:visible, select:visible, textarea:visible, button:visible")
++    .evaluateAll((elements) =>
++      elements.map((element) => {
++        const rect = element.getBoundingClientRect();
++        const label =
++          element.getAttribute("aria-label") ??
++          element.textContent?.trim() ??
++          element.getAttribute("name") ??
++          element.tagName.toLowerCase();
++
++        return {
++          bottom: rect.bottom,
++          height: rect.height,
++          label,
++          left: rect.left,
++          right: rect.right,
++          top: rect.top,
++          width: rect.width,
++        };
++      }),
++    );
++
++  for (let index = 0; index < boxes.length; index += 1) {
++    const current = boxes[index];
++
++    if (current.width === 0 || current.height === 0) {
++      continue;
++    }
++
++    for (const next of boxes.slice(index + 1)) {
++      if (next.width === 0 || next.height === 0) {
++        continue;
++      }
++
++      const overlaps =
++        current.left < next.right - 1 &&
++        current.right > next.left + 1 &&
++        current.top < next.bottom - 1 &&
++        current.bottom > next.top + 1;
++
++      expect(overlaps, JSON.stringify({ current, next })).toBe(false);
++    }
++  }
++}
++
++test("formularios nao criam overflow nem sobreposicao no desktop", async ({
++  page,
++}, testInfo) => {
++  await mockApi(page);
++  await page.goto("/");
++  await expect(page.getByRole("heading", { name: "Operacao da padaria" })).toBeVisible();
++
++  for (const item of modulesWithForms) {
++    await openModule(page, item);
++    await expectNoHorizontalOverflow(page);
++
++    const forms = page.locator(`#${item.id} form`);
++    const count = await forms.count();
++    expect(count, `Modulo ${item.id} deveria ter formulario`).toBeGreaterThan(0);
++
++    for (let index = 0; index < count; index += 1) {
++      await expectFormControlsDoNotOverlap(forms.nth(index));
++    }
++  }
++
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/forms-layout-desktop-${testInfo.project.name}.png`,
++  });
++});
++
++test("formularios nao criam overflow nem sobreposicao no mobile", async ({
++  page,
++}, testInfo) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await mockApi(page);
++  await page.goto("/");
++  await expect(page.getByRole("heading", { name: "Operacao da padaria" })).toBeVisible();
++
++  for (const item of modulesWithForms) {
++    await openModule(page, item);
++    await expectNoHorizontalOverflow(page);
++
++    const forms = page.locator(`#${item.id} form`);
++    const count = await forms.count();
++    expect(count, `Modulo ${item.id} deveria ter formulario`).toBeGreaterThan(0);
++
++    for (let index = 0; index < count; index += 1) {
++      await expectFormControlsDoNotOverlap(forms.nth(index));
++    }
++  }
++
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/forms-layout-mobile-${testInfo.project.name}.png`,
++  });
++});
+diff --git a/apps/web/tests/interface/product-layout.spec.ts b/apps/web/tests/interface/product-layout.spec.ts
+new file mode 100644
+index 0000000..ad1d041
+--- /dev/null
++++ b/apps/web/tests/interface/product-layout.spec.ts
+@@ -0,0 +1,120 @@
++import { expect, Page, test } from "@playwright/test";
++
++const ownerUser = {
++  email: "dono@paobom.local",
++  id: "user-owner",
++  name: "Dono PaoBom",
++  permissions: [
++    "dashboard:view",
++    "product:view",
++    "product:manage",
++    "supplier:view",
++    "customer:view",
++  ],
++  role: "owner",
++};
++
++const products = [
++  {
++    active: true,
++    category: "Padaria artesanal",
++    createdAt: "2026-01-01T00:00:00.000Z",
++    id: "prod-bread",
++    kind: "finished_product",
++    minimumStock: 12,
++    name: "Pao frances tradicional",
++    purchasePrice: 0.8,
++    salePrice: 1.2,
++    sku: "PAO-FRANCES",
++    unit: "unit",
++    updatedAt: "2026-01-01T00:00:00.000Z",
++  },
++];
++
++async function mockProductModuleApi(page: Page) {
++  await page.route("**/*", (route) => {
++    if (route.request().method() === "OPTIONS") {
++      return route.fulfill({
++        headers: corsHeaders(),
++        status: 204,
++      });
++    }
++
++    return route.fallback();
++  });
++  await page.route("**/auth/me**", (route) =>
++    route.fulfill({ headers: corsHeaders(), json: { data: ownerUser } }),
++  );
++  await page.route("**/products**", (route) =>
++    route.fulfill({ headers: corsHeaders(), json: { data: products } }),
++  );
++}
++
++function corsHeaders() {
++  return {
++    "access-control-allow-credentials": "true",
++    "access-control-allow-headers": "content-type",
++    "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
++    "access-control-allow-origin": "http://localhost:3000",
++  };
++}
++
++async function expectNoFieldOverlap(page: Page) {
++  const boxes = await page
++    .locator("#produtos input")
++    .evaluateAll((inputs) =>
++      inputs.map((input) => {
++        const rect = input.getBoundingClientRect();
++
++        return {
++          bottom: rect.bottom,
++          left: rect.left,
++          right: rect.right,
++          top: rect.top,
++        };
++      }),
++    );
++
++  for (let index = 0; index < boxes.length; index += 1) {
++    const current = boxes[index];
++
++    for (const next of boxes.slice(index + 1)) {
++      const overlaps =
++        current.left < next.right &&
++        current.right > next.left &&
++        current.top < next.bottom &&
++        current.bottom > next.top;
++
++      expect(overlaps, JSON.stringify({ current, next })).toBe(false);
++    }
++  }
++}
++
++test("formulario de produtos nao sobrepoe campos no desktop", async ({
++  page,
++}, testInfo) => {
++  await mockProductModuleApi(page);
++  await page.goto("/#produtos");
++
++  await expect(page.locator("#produtos")).toBeVisible();
++  await expectNoFieldOverlap(page);
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/product-layout-desktop-${testInfo.project.name}.png`,
++  });
++});
++
++test("formulario de produtos nao sobrepoe campos no mobile", async ({
++  page,
++}, testInfo) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await mockProductModuleApi(page);
++  await page.goto("/#produtos");
++
++  await expect(page.locator("#produtos")).toBeVisible();
++  await expectNoFieldOverlap(page);
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/product-layout-mobile-${testInfo.project.name}.png`,
++  });
++});
+diff --git a/apps/web/tests/interface/visual-layout.spec.ts b/apps/web/tests/interface/visual-layout.spec.ts
+new file mode 100644
+index 0000000..3457f57
+--- /dev/null
++++ b/apps/web/tests/interface/visual-layout.spec.ts
+@@ -0,0 +1,102 @@
++import { expect, Page, test } from "@playwright/test";
++
++const visualPassword = process.env.PLAYWRIGHT_USER_PASSWORD;
++const desktopModules = [
++  { id: "visao-geral", label: "Dashboard" },
++  { id: "relatorios", label: "Relatorios" },
++  { id: "auditoria", label: "Auditoria" },
++  { id: "compras", label: "Compras" },
++  { id: "producao", label: "Producao" },
++  { id: "estoque", label: "Estoque" },
++  { id: "vendas", label: "Vendas" },
++  { id: "caixa", label: "Caixa" },
++  { id: "crm", label: "CRM" },
++  { id: "produtos", label: "Produtos" },
++];
++const mobileModules = [
++  { id: "visao-geral", label: "Dashboard" },
++  { id: "compras", label: "Compras" },
++  { id: "vendas", label: "Vendas" },
++  { id: "produtos", label: "Produtos" },
++];
++
++test.skip(
++  !visualPassword,
++  "Defina PLAYWRIGHT_USER_PASSWORD para validar layout autenticado.",
++);
++
++async function expectNoHorizontalOverflow(page: Page) {
++  const overflow = await page.evaluate(() => ({
++    bodyScrollWidth: document.body.scrollWidth,
++    clientWidth: document.documentElement.clientWidth,
++    scrollWidth: document.documentElement.scrollWidth,
++  }));
++
++  expect(
++    overflow.scrollWidth,
++    `Horizontal overflow: ${JSON.stringify(overflow)}`,
++  ).toBeLessThanOrEqual(overflow.clientWidth + 2);
++}
++
++async function login(page: Page) {
++  await page.goto("/");
++  await page.getByPlaceholder("usuario@paobom.local").fill("dono@paobom.local");
++  await page.getByPlaceholder("Sua senha").fill(visualPassword ?? "");
++  await page.getByRole("button", { name: "Entrar" }).click();
++  await expect(
++    page.getByRole("heading", { name: "Operacao da padaria" }),
++  ).toBeVisible();
++}
++
++async function openModule(page: Page, item: { id: string; label: string }) {
++  await page.getByRole("link", { name: item.label }).click();
++  await expect(page.locator(`#${item.id}`)).toBeVisible();
++  await expect(page).toHaveURL(new RegExp(`#${item.id}$`));
++}
++
++test("login publico nao cria overflow horizontal", async ({ page }, testInfo) => {
++  await page.goto("/");
++  await expect(
++    page.getByRole("heading", { name: "Acesso operacional" }),
++  ).toBeVisible();
++  await expectNoHorizontalOverflow(page);
++  await page.screenshot({
++    path: `test-results/visual-login-${testInfo.project.name}.png`,
++  });
++});
++
++test("desktop autenticado renderiza secoes principais sem overflow", async ({
++  page,
++}, testInfo) => {
++  await login(page);
++  await expectNoHorizontalOverflow(page);
++
++  for (const item of desktopModules) {
++    await openModule(page, item);
++    await expectNoHorizontalOverflow(page);
++  }
++
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/visual-desktop-full-${testInfo.project.name}.png`,
++  });
++});
++
++test("mobile autenticado mantem layout dentro da viewport", async (
++  { page },
++  testInfo,
++) => {
++  await page.setViewportSize({ width: 390, height: 844 });
++  await login(page);
++  await expectNoHorizontalOverflow(page);
++
++  for (const item of mobileModules) {
++    await openModule(page, item);
++    await expectNoHorizontalOverflow(page);
++  }
++
++  await page.screenshot({
++    fullPage: true,
++    path: `test-results/visual-mobile-full-${testInfo.project.name}.png`,
++  });
++});

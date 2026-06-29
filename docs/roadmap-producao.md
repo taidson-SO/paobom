@@ -9,9 +9,11 @@ O roadmap parte do estado atual:
 
 - Web, Mobile, API e PostgreSQL funcionais;
 - autenticacao e autorizacao no backend;
-- staging local;
-- testes de dominio e E2E do fluxo completo;
-- auditoria persistente.
+- staging local e staging hospedado automatizado;
+- testes de dominio, API, interface e E2E do fluxo completo;
+- auditoria persistente com mascaramento de dados sensiveis;
+- rate limit de login e validacao server-side nos fluxos principais;
+- Caddy na borda HTTPS com HSTS no ambiente hospedado.
 
 ## Principios de execucao
 
@@ -54,6 +56,7 @@ revogavel e segura nos dois clientes.
 - Bloqueio de rotas e acoes conforme permissoes retornadas pela API
 - Limpeza da sessao em respostas `401`
 - Politica de expiracao e limite de sessoes documentada
+- Rate limit no endpoint de login
 - Auditoria de login, logout, expiracao e falhas de autenticacao
 
 ### Criterios de aceite

@@ -1,9 +1,4 @@
-import {
-  createHash,
-  pbkdf2Sync,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -15,12 +10,32 @@ import {
   renderMetrics,
   setDatabaseReady,
 } from "./observability.js";
+import {
+  checkRateLimit,
+  getBearerToken,
+  getClientIp,
+  getRequiredPermissions,
+  getSessionCookie,
+  hashPassword,
+  hashToken,
+  rolePermissions,
+  sanitizeMetadata,
+  type HttpMethod,
+  type Permission,
+  type UserRole,
+  verifyPassword,
+} from "./security.js";
 
 const prisma = new PrismaClient();
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 3333);
 const NO_RESPONSE = Symbol("NO_RESPONSE");
-
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+const loginRateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const loginRateLimitWindowMs = Number(
+  process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000,
+);
+const loginRateLimitMaxAttempts = Number(
+  process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 10,
+);
 
 type Context = {
   body: unknown;
@@ -40,52 +55,6 @@ type Route = {
   pattern: string;
 };
 
-type UserRole =
-  | "owner"
-  | "manager"
-  | "cashier"
-  | "baker"
-  | "stock"
-  | "sales"
-  | "viewer";
-
-type Permission =
-  | "dashboard:view"
-  | "reports:view"
-  | "audit:view"
-  | "product:view"
-  | "product:manage"
-  | "supplier:view"
-  | "supplier:manage"
-  | "customer:view"
-  | "customer:manage"
-  | "crm:view"
-  | "crm:manage"
-  | "purchase:view"
-  | "purchase:create"
-  | "purchase:receive"
-  | "purchase:cancel"
-  | "inventory:view"
-  | "inventory:adjust"
-  | "inventory:register-loss"
-  | "production:view"
-  | "production:manage-recipe"
-  | "production:manage-order"
-  | "production:cancel"
-  | "sales:view"
-  | "sales:create"
-  | "sales:pay"
-  | "sales:cancel"
-  | "sales:authorize-discount"
-  | "sales:authorize-oversell"
-  | "finance:view"
-  | "finance:register-entry"
-  | "finance:settle"
-  | "finance:cancel"
-  | "finance:open-register"
-  | "finance:close-register"
-  | "permissions:manage";
-
 type AuthenticatedUser = {
   id: string;
   email: string;
@@ -95,18 +64,11 @@ type AuthenticatedUser = {
   sessionId: string;
 };
 
-type AuditMetadata =
-  | string
-  | number
-  | boolean
-  | null
-  | AuditMetadata[]
-  | { [key: string]: AuditMetadata };
-
 class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
     message: string,
+    public readonly headers: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -234,6 +196,7 @@ const server = createServer(async (req, res) => {
     }
 
     body = method === "GET" ? undefined : await readJsonBody(req);
+    enforceLoginRateLimit(req, match.route, body);
     currentUser = await authorize(req, match.route);
     const result = await match.route.handler({
       body,
@@ -281,7 +244,12 @@ const server = createServer(async (req, res) => {
       route: match?.route ?? null,
     });
 
-    sendJson(res, statusCode, { error: { message, statusCode } });
+    sendJson(
+      res,
+      statusCode,
+      { error: { message, statusCode } },
+      error instanceof HttpError ? error.headers : undefined,
+    );
   } finally {
     const routeName = match?.route.pattern ?? requestUrl?.pathname ?? req.url ?? "/";
     const durationSeconds = finishRequest(startedAt, {
@@ -375,102 +343,32 @@ function route(method: HttpMethod, pattern: string, handler: Handler): Route {
   return { handler, method, pattern };
 }
 
-const allPermissions = [
-  "dashboard:view",
-  "reports:view",
-  "audit:view",
-  "product:view",
-  "product:manage",
-  "supplier:view",
-  "supplier:manage",
-  "customer:view",
-  "customer:manage",
-  "crm:view",
-  "crm:manage",
-  "purchase:view",
-  "purchase:create",
-  "purchase:receive",
-  "purchase:cancel",
-  "inventory:view",
-  "inventory:adjust",
-  "inventory:register-loss",
-  "production:view",
-  "production:manage-recipe",
-  "production:manage-order",
-  "production:cancel",
-  "sales:view",
-  "sales:create",
-  "sales:pay",
-  "sales:cancel",
-  "sales:authorize-discount",
-  "sales:authorize-oversell",
-  "finance:view",
-  "finance:register-entry",
-  "finance:settle",
-  "finance:cancel",
-  "finance:open-register",
-  "finance:close-register",
-  "permissions:manage",
-] satisfies Permission[];
+function enforceLoginRateLimit(
+  req: IncomingMessage,
+  route: Route,
+  body: unknown,
+) {
+  if (route.pattern !== "/auth/login") {
+    return;
+  }
 
-const rolePermissions: Record<UserRole, Permission[]> = {
-  baker: [
-    "dashboard:view",
-    "product:view",
-    "inventory:view",
-    "inventory:register-loss",
-    "production:view",
-    "production:manage-order",
-    "production:cancel",
-  ],
-  cashier: [
-    "dashboard:view",
-    "reports:view",
-    "audit:view",
-    "product:view",
-    "customer:view",
-    "customer:manage",
-    "sales:view",
-    "sales:create",
-    "sales:pay",
-    "sales:cancel",
-    "finance:view",
-    "finance:register-entry",
-    "finance:settle",
-    "finance:cancel",
-    "finance:open-register",
-    "finance:close-register",
-  ],
-  manager: allPermissions.filter(
-    (permission) => permission !== "permissions:manage",
-  ),
-  owner: allPermissions,
-  sales: [
-    "dashboard:view",
-    "product:view",
-    "customer:view",
-    "customer:manage",
-    "crm:view",
-    "crm:manage",
-    "sales:view",
-    "sales:create",
-    "sales:pay",
-  ],
-  stock: [
-    "dashboard:view",
-    "product:view",
-    "supplier:view",
-    "supplier:manage",
-    "purchase:view",
-    "purchase:create",
-    "purchase:receive",
-    "purchase:cancel",
-    "inventory:view",
-    "inventory:adjust",
-    "inventory:register-loss",
-  ],
-  viewer: ["dashboard:view", "reports:view"],
-};
+  const input = body && typeof body === "object" && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : {};
+  const email =
+    typeof input.email === "string" ? input.email.trim().toLowerCase() : "unknown";
+  const key = `${getClientIp(req)}:${email}`;
+  const result = checkRateLimit(loginRateLimitStore, key, {
+    limit: loginRateLimitMaxAttempts,
+    windowMs: loginRateLimitWindowMs,
+  });
+
+  if (!result.allowed) {
+    throw new HttpError(429, "Muitas tentativas de login. Tente novamente mais tarde.", {
+      "Retry-After": String(result.retryAfterSeconds),
+    });
+  }
+}
 
 async function authorize(req: IncomingMessage, route: Route) {
   const requiredPermissions = getRequiredPermissions(route);
@@ -552,171 +450,6 @@ async function recordAuthorizationFailure(
   }
 }
 
-function getRequiredPermissions(route: Route): Permission[] | null {
-  if (
-    route.pattern === "/health" ||
-    route.pattern === "/health/live" ||
-    route.pattern === "/health/ready" ||
-    route.pattern === "/metrics" ||
-    route.pattern === "/auth/login"
-  ) {
-    return null;
-  }
-
-  if (
-    route.pattern === "/auth/me" ||
-    route.pattern === "/auth/logout" ||
-    route.pattern === "/observability/client-errors"
-  ) {
-    return [];
-  }
-
-  if (route.pattern.startsWith("/products")) {
-    return route.method === "GET" ? ["product:view"] : ["product:manage"];
-  }
-
-  if (route.pattern.startsWith("/suppliers")) {
-    return route.method === "GET" ? ["supplier:view"] : ["supplier:manage"];
-  }
-
-  if (route.pattern.includes("/interactions")) {
-    return ["crm:manage"];
-  }
-
-  if (route.pattern.startsWith("/customers")) {
-    return route.method === "GET" ? ["customer:view"] : ["customer:manage"];
-  }
-
-  if (route.pattern === "/purchases") {
-    return route.method === "GET" ? ["purchase:view"] : ["purchase:create"];
-  }
-
-  if (route.pattern === "/purchases/payables") {
-    return ["purchase:view"];
-  }
-
-  if (route.pattern.includes("/approve")) {
-    return ["purchase:create"];
-  }
-
-  if (route.pattern.includes("/receive")) {
-    return ["purchase:receive"];
-  }
-
-  if (route.pattern.includes("/purchases") && route.pattern.includes("/cancel")) {
-    return ["purchase:cancel"];
-  }
-
-  if (route.pattern.startsWith("/inventory")) {
-    if (route.pattern === "/inventory/losses") {
-      return ["inventory:register-loss"];
-    }
-
-    return route.method === "GET" ? ["inventory:view"] : ["inventory:adjust"];
-  }
-
-  if (route.pattern === "/production/recipes") {
-    return route.method === "GET"
-      ? ["production:view"]
-      : ["production:manage-recipe"];
-  }
-
-  if (route.pattern.includes("/production/orders") && route.pattern.includes("/cancel")) {
-    return ["production:cancel"];
-  }
-
-  if (route.pattern.startsWith("/production/orders")) {
-    return route.method === "GET"
-      ? ["production:view"]
-      : ["production:manage-order"];
-  }
-
-  if (route.pattern === "/sales") {
-    return route.method === "GET" ? ["sales:view"] : ["sales:create"];
-  }
-
-  if (route.pattern.includes("/sales") && route.pattern.includes("/pay")) {
-    return ["sales:pay"];
-  }
-
-  if (route.pattern.includes("/sales") && route.pattern.includes("/cancel")) {
-    return ["sales:cancel"];
-  }
-
-  if (route.pattern === "/cash/entries") {
-    return route.method === "GET" ? ["finance:view"] : ["finance:register-entry"];
-  }
-
-  if (route.pattern.includes("/cash/entries") && route.pattern.includes("/settle")) {
-    return ["finance:settle"];
-  }
-
-  if (route.pattern.includes("/cash/entries") && route.pattern.includes("/cancel")) {
-    return ["finance:cancel"];
-  }
-
-  if (
-    route.pattern === "/cash/registers" ||
-    route.pattern === "/cash/registers/movements" ||
-    route.pattern === "/cash/registers/reconciliations"
-  ) {
-    return ["finance:view"];
-  }
-
-  if (route.pattern.includes("/cash/registers/open")) {
-    return ["finance:open-register"];
-  }
-
-  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/movements")) {
-    return ["finance:register-entry"];
-  }
-
-  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/reconcile")) {
-    return ["finance:close-register"];
-  }
-
-  if (route.pattern.includes("/cash/registers") && route.pattern.includes("/close")) {
-    return ["finance:close-register"];
-  }
-
-  if (route.pattern === "/reports") {
-    return ["reports:view"];
-  }
-
-  if (route.pattern === "/dashboard") {
-    return ["dashboard:view"];
-  }
-
-  if (route.pattern === "/audit-logs") {
-    return route.method === "GET" ? ["audit:view"] : ["audit:view"];
-  }
-
-  if (route.pattern.startsWith("/users")) {
-    return ["permissions:manage"];
-  }
-
-  return [];
-}
-
-function getBearerToken(req: IncomingMessage) {
-  const authorization = req.headers.authorization;
-
-  if (!authorization?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  return authorization.slice("Bearer ".length).trim();
-}
-
-function getSessionCookie(req: IncomingMessage) {
-  const cookies = req.headers.cookie?.split(";") ?? [];
-  const sessionCookie = cookies
-    .map((cookie) => cookie.trim().split("="))
-    .find(([name]) => name === "paobom_session");
-
-  return sessionCookie?.[1] ? decodeURIComponent(sessionCookie[1]) : null;
-}
-
 function setSessionCookie(res: ServerResponse, token: string, expiresAt: Date) {
   const secure =
     process.env.SESSION_COOKIE_SECURE !== undefined
@@ -756,38 +489,6 @@ function clearSessionCookie(res: ServerResponse) {
   }
 
   res.setHeader("Set-Cookie", parts.join("; "));
-}
-
-function hashToken(token: string) {
-  return createHash("sha256")
-    .update(`${process.env.AUTH_TOKEN_SECRET ?? "paobom-dev-secret"}:${token}`)
-    .digest("hex");
-}
-
-function hashPassword(password: string, salt = randomBytes(16).toString("hex")) {
-  const iterations = 120000;
-  const hash = pbkdf2Sync(password, salt, iterations, 32, "sha256").toString("hex");
-
-  return `pbkdf2_sha256$${iterations}$${salt}$${hash}`;
-}
-
-function verifyPassword(password: string, storedHash: string) {
-  const [algorithm, iterationsValue, salt, hash] = storedHash.split("$");
-
-  if (algorithm !== "pbkdf2_sha256" || !iterationsValue || !salt || !hash) {
-    return false;
-  }
-
-  const computed = pbkdf2Sync(
-    password,
-    salt,
-    Number(iterationsValue),
-    32,
-    "sha256",
-  );
-  const expected = Buffer.from(hash, "hex");
-
-  return expected.length === computed.length && timingSafeEqual(expected, computed);
 }
 
 type RouteAuditInput = {
@@ -947,57 +648,6 @@ function getErrorStatus(error: unknown) {
   return error instanceof HttpError ? error.statusCode : 500;
 }
 
-function sanitizeMetadata(value: unknown): AuditMetadata {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (Prisma.Decimal.isDecimal(value)) {
-    return value.toNumber();
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(sanitizeMetadata);
-  }
-
-  if (isRecord(value)) {
-    const sanitized: Record<string, AuditMetadata> = {};
-
-    for (const [key, entry] of Object.entries(value)) {
-      sanitized[key] = isSensitiveMetadataKey(key)
-        ? "[redacted]"
-        : sanitizeMetadata(entry);
-    }
-
-    return sanitized;
-  }
-
-  return String(value);
-}
-
-function isSensitiveMetadataKey(key: string) {
-  const normalized = key.toLowerCase();
-
-  return (
-    normalized.includes("password") ||
-    normalized.includes("token") ||
-    normalized.includes("authorization") ||
-    normalized.includes("secret")
-  );
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -1078,8 +728,16 @@ async function readJsonBody(req: IncomingMessage) {
   }
 }
 
-function sendJson(res: ServerResponse, statusCode: number, payload: unknown) {
-  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+function sendJson(
+  res: ServerResponse,
+  statusCode: number,
+  payload: unknown,
+  headers: Record<string, string> = {},
+) {
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    ...headers,
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -1123,38 +781,152 @@ function bodyAsRecord(body: unknown) {
   return body as Record<string, unknown>;
 }
 
-function stringField(body: Record<string, unknown>, field: string) {
+function assertAllowedFields(
+  body: Record<string, unknown>,
+  allowedFields: string[],
+) {
+  const allowed = new Set(allowedFields);
+  const unknownFields = Object.keys(body).filter((field) => !allowed.has(field));
+
+  if (unknownFields.length > 0) {
+    throw new HttpError(
+      400,
+      `Campos nao permitidos: ${unknownFields.join(", ")}`,
+    );
+  }
+}
+
+function stringField(
+  body: Record<string, unknown>,
+  field: string,
+  options: { maxLength?: number; minLength?: number } = {},
+) {
   const value = body[field];
 
   if (typeof value !== "string" || !value.trim()) {
     throw new HttpError(400, `Campo '${field}' deve ser informado`);
   }
 
-  return value.trim();
+  const trimmed = value.trim();
+
+  if (options.minLength !== undefined && trimmed.length < options.minLength) {
+    throw new HttpError(
+      400,
+      `Campo '${field}' deve ter pelo menos ${options.minLength} caracteres`,
+    );
+  }
+
+  if (options.maxLength !== undefined && trimmed.length > options.maxLength) {
+    throw new HttpError(
+      400,
+      `Campo '${field}' deve ter no maximo ${options.maxLength} caracteres`,
+    );
+  }
+
+  return trimmed;
 }
 
-function optionalStringField(body: Record<string, unknown>, field: string) {
+function optionalStringField(
+  body: Record<string, unknown>,
+  field: string,
+  options: { maxLength?: number } = {},
+) {
   const value = body[field];
 
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new HttpError(400, `Campo '${field}' deve ser texto`);
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (options.maxLength !== undefined && trimmed.length > options.maxLength) {
+    throw new HttpError(
+      400,
+      `Campo '${field}' deve ter no maximo ${options.maxLength} caracteres`,
+    );
+  }
+
+  return trimmed;
 }
 
-function numberField(body: Record<string, unknown>, field: string) {
+function numberField(
+  body: Record<string, unknown>,
+  field: string,
+  options: { integer?: boolean; max?: number; min?: number } = {},
+) {
   const value = Number(body[field]);
 
   if (!Number.isFinite(value)) {
     throw new HttpError(400, `Campo '${field}' deve ser numerico`);
   }
 
+  if (options.integer && !Number.isInteger(value)) {
+    throw new HttpError(400, `Campo '${field}' deve ser inteiro`);
+  }
+
+  if (options.min !== undefined && value < options.min) {
+    throw new HttpError(400, `Campo '${field}' deve ser maior ou igual a ${options.min}`);
+  }
+
+  if (options.max !== undefined && value > options.max) {
+    throw new HttpError(400, `Campo '${field}' deve ser menor ou igual a ${options.max}`);
+  }
+
   return value;
 }
 
-function optionalNumberField(body: Record<string, unknown>, field: string, fallback = 0) {
+function optionalNumberField(
+  body: Record<string, unknown>,
+  field: string,
+  fallback = 0,
+  options: { integer?: boolean; max?: number; min?: number } = {},
+) {
   if (body[field] === undefined || body[field] === null || body[field] === "") {
     return fallback;
   }
 
-  return numberField(body, field);
+  return numberField(body, field, options);
+}
+
+function nonNegativeNumberField(body: Record<string, unknown>, field: string) {
+  return numberField(body, field, { min: 0 });
+}
+
+function positiveNumberField(body: Record<string, unknown>, field: string) {
+  return numberField(body, field, { min: Number.EPSILON });
+}
+
+function optionalNonNegativeNumberField(
+  body: Record<string, unknown>,
+  field: string,
+  fallback = 0,
+) {
+  return optionalNumberField(body, field, fallback, { min: 0 });
+}
+
+function enumField<const T extends readonly string[]>(
+  body: Record<string, unknown>,
+  field: string,
+  allowed: T,
+): T[number] {
+  const value = stringField(body, field);
+
+  if (!allowed.includes(value)) {
+    throw new HttpError(
+      400,
+      `Campo '${field}' deve ser um de: ${allowed.join(", ")}`,
+    );
+  }
+
+  return value;
 }
 
 function dateField(body: Record<string, unknown>, field: string) {
@@ -1350,13 +1122,30 @@ function normalizeSalePayments(
   const rawPayments = optionalArray(input.payments);
   const payments =
     rawPayments.length > 0
-      ? rawPayments.map((payment) => ({
-          amount: numberField(payment, "amount"),
-          cardBrand: optionalStringField(payment, "cardBrand"),
-          installments: Math.trunc(optionalNumberField(payment, "installments", 1)),
-          method: stringField(payment, "method") as Prisma.SaleCreateInput["paymentMethod"],
-          referenceCode: optionalStringField(payment, "referenceCode"),
-        }))
+      ? rawPayments.map((payment) => {
+          assertAllowedFields(payment, [
+            "amount",
+            "cardBrand",
+            "installments",
+            "method",
+            "referenceCode",
+          ]);
+
+          return {
+            amount: positiveNumberField(payment, "amount"),
+            cardBrand: optionalStringField(payment, "cardBrand", { maxLength: 40 }),
+            installments: Math.trunc(
+              optionalNumberField(payment, "installments", 1, { integer: true, min: 1 }),
+            ),
+            method: enumField(payment, "method", [
+              "cash",
+              "card",
+              "pix",
+              "invoice",
+            ]) as Prisma.SaleCreateInput["paymentMethod"],
+            referenceCode: optionalStringField(payment, "referenceCode", { maxLength: 120 }),
+          };
+        })
       : [
           {
             amount: total,
@@ -1698,17 +1487,32 @@ async function listProducts({ query }: Context) {
 
 async function createProduct({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "category",
+    "kind",
+    "minimumStock",
+    "name",
+    "purchasePrice",
+    "salePrice",
+    "sku",
+    "unit",
+  ]);
 
   return prisma.product.create({
     data: {
-      category: stringField(input, "category"),
-      kind: stringField(input, "kind") as Prisma.ProductCreateInput["kind"],
-      minimumStock: numberField(input, "minimumStock"),
-      name: stringField(input, "name"),
-      purchasePrice: numberField(input, "purchasePrice"),
-      salePrice: optionalNumberField(input, "salePrice"),
-      sku: stringField(input, "sku"),
-      unit: stringField(input, "unit") as Prisma.ProductCreateInput["unit"],
+      category: stringField(input, "category", { maxLength: 80 }),
+      kind: enumField(input, "kind", [
+        "raw_material",
+        "finished_product",
+        "resale",
+        "packaging",
+      ]),
+      minimumStock: nonNegativeNumberField(input, "minimumStock"),
+      name: stringField(input, "name", { maxLength: 160 }),
+      purchasePrice: nonNegativeNumberField(input, "purchasePrice"),
+      salePrice: optionalNonNegativeNumberField(input, "salePrice"),
+      sku: stringField(input, "sku", { maxLength: 60 }),
+      unit: enumField(input, "unit", ["kg", "g", "ml", "unit", "liter", "package"]),
     },
   });
 }
@@ -1719,26 +1523,57 @@ async function getProduct({ params }: Context) {
 
 async function updateProduct({ body, params }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "active",
+    "category",
+    "kind",
+    "minimumStock",
+    "name",
+    "purchasePrice",
+    "salePrice",
+    "sku",
+    "unit",
+  ]);
 
   return prisma.product.update({
     data: {
       active: typeof input.active === "boolean" ? input.active : undefined,
-      category: typeof input.category === "string" ? input.category : undefined,
+      category:
+        input.category !== undefined
+          ? stringField(input, "category", { maxLength: 80 })
+          : undefined,
       kind:
-        typeof input.kind === "string"
-          ? (input.kind as Prisma.ProductUpdateInput["kind"])
+        input.kind !== undefined
+          ? enumField(input, "kind", [
+              "raw_material",
+              "finished_product",
+              "resale",
+              "packaging",
+            ])
           : undefined,
       minimumStock:
-        input.minimumStock !== undefined ? numberField(input, "minimumStock") : undefined,
-      name: typeof input.name === "string" ? input.name : undefined,
+        input.minimumStock !== undefined
+          ? nonNegativeNumberField(input, "minimumStock")
+          : undefined,
+      name:
+        input.name !== undefined
+          ? stringField(input, "name", { maxLength: 160 })
+          : undefined,
       purchasePrice:
-        input.purchasePrice !== undefined ? numberField(input, "purchasePrice") : undefined,
+        input.purchasePrice !== undefined
+          ? nonNegativeNumberField(input, "purchasePrice")
+          : undefined,
       salePrice:
-        input.salePrice !== undefined ? numberField(input, "salePrice") : undefined,
-      sku: typeof input.sku === "string" ? input.sku : undefined,
+        input.salePrice !== undefined
+          ? nonNegativeNumberField(input, "salePrice")
+          : undefined,
+      sku:
+        input.sku !== undefined
+          ? stringField(input, "sku", { maxLength: 60 })
+          : undefined,
       unit:
-        typeof input.unit === "string"
-          ? (input.unit as Prisma.ProductUpdateInput["unit"])
+        input.unit !== undefined
+          ? enumField(input, "unit", ["kg", "g", "ml", "unit", "liter", "package"])
           : undefined,
     },
     where: { id: params.id },
@@ -1761,14 +1596,15 @@ async function listSuppliers({ query }: Context) {
 
 async function createSupplier({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["contactName", "document", "email", "name", "phone"]);
 
   return prisma.supplier.create({
     data: {
-      contactName: stringField(input, "contactName"),
-      document: stringField(input, "document"),
-      email: stringField(input, "email"),
-      name: stringField(input, "name"),
-      phone: stringField(input, "phone"),
+      contactName: stringField(input, "contactName", { maxLength: 120 }),
+      document: stringField(input, "document", { maxLength: 32 }),
+      email: stringField(input, "email", { maxLength: 160 }).toLowerCase(),
+      name: stringField(input, "name", { maxLength: 160 }),
+      phone: stringField(input, "phone", { maxLength: 32 }),
     },
   });
 }
@@ -1791,14 +1627,15 @@ async function listCustomers({ query }: Context) {
 
 async function createCustomer({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["document", "email", "name", "notes", "phone"]);
 
   return prisma.customer.create({
     data: {
-      document: stringField(input, "document"),
-      email: stringField(input, "email"),
-      name: stringField(input, "name"),
-      notes: typeof input.notes === "string" ? input.notes : "",
-      phone: stringField(input, "phone"),
+      document: stringField(input, "document", { maxLength: 32 }),
+      email: stringField(input, "email", { maxLength: 160 }).toLowerCase(),
+      name: stringField(input, "name", { maxLength: 160 }),
+      notes: optionalStringField(input, "notes", { maxLength: 1_000 }) ?? "",
+      phone: stringField(input, "phone", { maxLength: 32 }),
     },
   });
 }
@@ -1827,9 +1664,38 @@ async function deactivateCustomer({ params }: Context) {
 
 async function updateSimpleEntity(entity: "customer" | "supplier", id: string, body: unknown) {
   const input = bodyAsRecord(body);
-  const data = Object.fromEntries(
-    Object.entries(input).filter(([, value]) => value !== undefined),
-  );
+  const allowedFields =
+    entity === "customer"
+      ? ["active", "document", "email", "name", "notes", "phone"]
+      : ["active", "contactName", "document", "email", "name", "phone"];
+  assertAllowedFields(input, allowedFields);
+  const data = {
+    active: typeof input.active === "boolean" ? input.active : undefined,
+    contactName:
+      input.contactName !== undefined
+        ? stringField(input, "contactName", { maxLength: 120 })
+        : undefined,
+    document:
+      input.document !== undefined
+        ? stringField(input, "document", { maxLength: 32 })
+        : undefined,
+    email:
+      input.email !== undefined
+        ? stringField(input, "email", { maxLength: 160 }).toLowerCase()
+        : undefined,
+    name:
+      input.name !== undefined
+        ? stringField(input, "name", { maxLength: 160 })
+        : undefined,
+    notes:
+      input.notes !== undefined
+        ? optionalStringField(input, "notes", { maxLength: 1_000 }) ?? ""
+        : undefined,
+    phone:
+      input.phone !== undefined
+        ? stringField(input, "phone", { maxLength: 32 })
+        : undefined,
+  };
 
   if (entity === "customer") {
     return prisma.customer.update({ data, where: { id } });
@@ -1852,6 +1718,7 @@ async function listPurchases() {
 
 async function createPurchase({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["expectedDate", "items", "notes", "supplierId"]);
   const items = requireArray(input.items, "items");
 
   return prisma.purchase.create({
@@ -1865,13 +1732,17 @@ async function createPurchase({ body }: Context) {
         },
       },
       items: {
-        create: items.map((item) => ({
-          product: { connect: { id: stringField(item, "productId") } },
-          quantity: numberField(item, "quantity"),
-          unitCost: numberField(item, "unitCost"),
-        })),
+        create: items.map((item) => {
+          assertAllowedFields(item, ["productId", "quantity", "unitCost"]);
+
+          return {
+            product: { connect: { id: stringField(item, "productId") } },
+            quantity: positiveNumberField(item, "quantity"),
+            unitCost: nonNegativeNumberField(item, "unitCost"),
+          };
+        }),
       },
-      notes: typeof input.notes === "string" ? input.notes : "",
+      notes: optionalStringField(input, "notes", { maxLength: 1_000 }) ?? "",
       status: "pending_approval",
       supplier: { connect: { id: stringField(input, "supplierId") } },
     },
@@ -2111,10 +1982,11 @@ async function listPhysicalInventoryCounts() {
 
 async function registerPhysicalInventoryCount({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["countedBy", "countedQuantity", "productId", "reason"]);
   const productId = stringField(input, "productId");
   const balance = await prisma.inventoryBalance.findUnique({ where: { productId } });
   const expectedQuantity = decimalToNumber(balance?.quantity);
-  const countedQuantity = numberField(input, "countedQuantity");
+  const countedQuantity = nonNegativeNumberField(input, "countedQuantity");
   const divergenceQuantity = countedQuantity - expectedQuantity;
   const reason = optionalStringField(input, "reason");
 
@@ -2136,6 +2008,18 @@ async function registerPhysicalInventoryCount({ body }: Context) {
 
 async function registerStockMovement({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "expirationDate",
+    "lotCode",
+    "lotId",
+    "origin",
+    "productId",
+    "quantity",
+    "reason",
+    "referenceId",
+    "type",
+    "unitCost",
+  ]);
 
   return prisma.$transaction((tx) =>
     applyStockMovement(tx, {
@@ -2145,17 +2029,18 @@ async function registerStockMovement({ body }: Context) {
       lotCode: optionalStringField(input, "lotCode"),
       lotId: optionalStringField(input, "lotId"),
       productId: stringField(input, "productId"),
-      quantity: numberField(input, "quantity"),
+      quantity: positiveNumberField(input, "quantity"),
       reason: stringField(input, "reason"),
       referenceId: optionalStringField(input, "referenceId"),
       type: stringField(input, "type") as Prisma.StockMovementCreateInput["type"],
-      unitCost: numberField(input, "unitCost"),
+      unitCost: nonNegativeNumberField(input, "unitCost"),
     }),
   );
 }
 
 async function registerInventoryLoss({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["lotId", "productId", "quantity", "reason"]);
   const productId = stringField(input, "productId");
   const product = await findOr404(
     prisma.product.findUnique({ where: { id: productId } }),
@@ -2171,7 +2056,7 @@ async function registerInventoryLoss({ body }: Context) {
       origin: "loss",
       lotId: optionalStringField(input, "lotId"),
       productId,
-      quantity: numberField(input, "quantity"),
+      quantity: positiveNumberField(input, "quantity"),
       reason: stringField(input, "reason"),
       referenceId: null,
       type: "loss",
@@ -2370,17 +2255,30 @@ async function listSales() {
 
 async function createSale({ body, currentUser }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "customerId",
+    "discountAmount",
+    "discountAuthorizedBy",
+    "discountReason",
+    "items",
+    "notes",
+    "oversellApprovedBy",
+    "oversellJustification",
+    "paymentMethod",
+    "payments",
+  ]);
   const items = requireArray(input.items, "items");
-  const discountAmount = optionalNumberField(input, "discountAmount");
+  const discountAmount = optionalNonNegativeNumberField(input, "discountAmount");
 
   return prisma.$transaction(async (tx) => {
     const preparedItems = [];
     let subtotal = 0;
 
     for (const item of items) {
+      assertAllowedFields(item, ["productId", "quantity", "unitPrice"]);
       const productId = stringField(item, "productId");
-      const quantity = numberField(item, "quantity");
-      const unitPrice = numberField(item, "unitPrice");
+      const quantity = positiveNumberField(item, "quantity");
+      const unitPrice = nonNegativeNumberField(item, "unitPrice");
       const [product, balance] = await Promise.all([
         tx.product.findUnique({ where: { id: productId } }),
         tx.inventoryBalance.findUnique({ where: { productId } }),
@@ -2420,7 +2318,12 @@ async function createSale({ body, currentUser }: Context) {
       }
     }
 
-    const paymentMethod = stringField(input, "paymentMethod") as Prisma.SaleCreateInput["paymentMethod"];
+    const paymentMethod = enumField(input, "paymentMethod", [
+      "cash",
+      "card",
+      "pix",
+      "invoice",
+    ]) as Prisma.SaleCreateInput["paymentMethod"];
     const isPaidNow = paymentMethod !== "invoice";
     const total = Math.max(0, subtotal - discountAmount);
     const payments = normalizeSalePayments(input, paymentMethod, total);
@@ -2444,9 +2347,14 @@ async function createSale({ body, currentUser }: Context) {
             unitPrice: item.unitPrice,
           })),
         },
-        notes: typeof input.notes === "string" ? input.notes : "",
-        oversellApprovedBy: optionalStringField(input, "oversellApprovedBy") ?? currentUser?.id ?? null,
-        oversellJustification: optionalStringField(input, "oversellJustification"),
+        notes: optionalStringField(input, "notes", { maxLength: 1_000 }) ?? "",
+        oversellApprovedBy:
+          optionalStringField(input, "oversellApprovedBy", { maxLength: 120 }) ??
+          currentUser?.id ??
+          null,
+        oversellJustification: optionalStringField(input, "oversellJustification", {
+          maxLength: 1_000,
+        }),
         paidAt: isPaidNow ? new Date() : null,
         paymentMethod,
         payments: {
@@ -2600,20 +2508,32 @@ async function listCashEntries() {
 
 async function createCashEntry({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "amount",
+    "category",
+    "description",
+    "dueDate",
+    "referenceId",
+    "settledAt",
+    "status",
+    "type",
+  ]);
 
   return prisma.cashEntry.create({
     data: {
-      amount: numberField(input, "amount"),
-      category: stringField(input, "category"),
-      description: stringField(input, "description"),
+      amount: positiveNumberField(input, "amount"),
+      category: stringField(input, "category", { maxLength: 80 }),
+      description: stringField(input, "description", { maxLength: 240 }),
       dueDate: dateField(input, "dueDate"),
       referenceId: optionalStringField(input, "referenceId"),
       settledAt:
         typeof input.settledAt === "string" ? new Date(input.settledAt) : null,
       status:
-        (optionalStringField(input, "status") as Prisma.CashEntryCreateInput["status"]) ??
+        (input.status !== undefined
+          ? enumField(input, "status", ["pending", "settled", "cancelled"])
+          : null) ??
         "pending",
-      type: stringField(input, "type") as Prisma.CashEntryCreateInput["type"],
+      type: enumField(input, "type", ["income", "expense"]),
     },
   });
 }
@@ -2650,6 +2570,7 @@ async function listCashReconciliations() {
 
 async function openCashRegister({ body }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["openedBy", "openingAmount"]);
   const current = await prisma.cashRegister.findFirst({ where: { status: "open" } });
 
   if (current) {
@@ -2659,8 +2580,8 @@ async function openCashRegister({ body }: Context) {
   return prisma.cashRegister.create({
     data: {
       openedAt: new Date(),
-      openedBy: stringField(input, "openedBy"),
-      openingAmount: numberField(input, "openingAmount"),
+      openedBy: stringField(input, "openedBy", { maxLength: 120 }),
+      openingAmount: nonNegativeNumberField(input, "openingAmount"),
       status: "open",
     },
   });
@@ -2668,25 +2589,22 @@ async function openCashRegister({ body }: Context) {
 
 async function registerCashRegisterMovement({ body, params }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["actor", "amount", "reason", "type"]);
   const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
 
   if (!register || register.status !== "open") {
     throw new HttpError(409, "Caixa aberto deve ser informado");
   }
 
-  const type = stringField(input, "type");
-
-  if (type !== "supply" && type !== "withdrawal") {
-    throw new HttpError(400, "Tipo de movimentacao deve ser supply ou withdrawal");
-  }
+  const type = enumField(input, "type", ["supply", "withdrawal"]);
 
   return prisma.cashRegisterMovement.create({
     data: {
-      amount: numberField(input, "amount"),
-      actor: stringField(input, "actor"),
+      amount: positiveNumberField(input, "amount"),
+      actor: stringField(input, "actor", { maxLength: 120 }),
       cashRegisterId: params.id,
       occurredAt: new Date(),
-      reason: stringField(input, "reason"),
+      reason: stringField(input, "reason", { maxLength: 240 }),
       type,
     },
   });
@@ -2694,14 +2612,21 @@ async function registerCashRegisterMovement({ body, params }: Context) {
 
 async function reconcileCashRegister({ body, params }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, [
+    "countedAmount",
+    "expectedAmount",
+    "method",
+    "notes",
+    "reconciledBy",
+  ]);
   const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
 
   if (!register || register.status !== "open") {
     throw new HttpError(409, "Caixa aberto deve ser informado");
   }
 
-  const expectedAmount = numberField(input, "expectedAmount");
-  const countedAmount = numberField(input, "countedAmount");
+  const expectedAmount = nonNegativeNumberField(input, "expectedAmount");
+  const countedAmount = nonNegativeNumberField(input, "countedAmount");
   const differenceAmount = countedAmount - expectedAmount;
   const notes = optionalStringField(input, "notes");
 
@@ -2715,16 +2640,17 @@ async function reconcileCashRegister({ body, params }: Context) {
       countedAmount,
       differenceAmount,
       expectedAmount,
-      method: stringField(input, "method"),
+      method: stringField(input, "method", { maxLength: 80 }),
       notes,
       reconciledAt: new Date(),
-      reconciledBy: stringField(input, "reconciledBy"),
+      reconciledBy: stringField(input, "reconciledBy", { maxLength: 120 }),
     },
   });
 }
 
 async function closeCashRegister({ body, params }: Context) {
   const input = bodyAsRecord(body);
+  assertAllowedFields(input, ["closedBy", "closingNote", "countedAmount"]);
   const register = await prisma.cashRegister.findUnique({ where: { id: params.id } });
 
   if (!register || register.status !== "open") {
@@ -2753,7 +2679,7 @@ async function closeCashRegister({ body, params }: Context) {
 
     return sum + signed * decimalToNumber(movement.amount);
   }, expectedAmount);
-  const countedAmount = numberField(input, "countedAmount");
+  const countedAmount = nonNegativeNumberField(input, "countedAmount");
   const differenceAmount = countedAmount - expectedWithMovements;
 
   if (differenceAmount !== 0 && !optionalStringField(input, "closingNote")) {
@@ -2763,8 +2689,8 @@ async function closeCashRegister({ body, params }: Context) {
   return prisma.cashRegister.update({
     data: {
       closedAt: new Date(),
-      closedBy: stringField(input, "closedBy"),
-      closingNote: optionalStringField(input, "closingNote"),
+      closedBy: stringField(input, "closedBy", { maxLength: 120 }),
+      closingNote: optionalStringField(input, "closingNote", { maxLength: 1_000 }),
       countedAmount,
       differenceAmount,
       expectedAmount: expectedWithMovements,
@@ -3350,17 +3276,24 @@ async function listUsers() {
 
 async function createUser({ body }: Context) {
   const input = bodyAsRecord(body);
-  const role = stringField(input, "role") as UserRole;
-
-  if (!rolePermissions[role]) {
-    throw new HttpError(400, "Papel de usuario invalido");
-  }
+  assertAllowedFields(input, ["email", "name", "password", "role"]);
+  const role = enumField(input, "role", [
+    "owner",
+    "manager",
+    "cashier",
+    "baker",
+    "stock",
+    "sales",
+    "viewer",
+  ]) as UserRole;
 
   return prisma.user.create({
     data: {
-      email: stringField(input, "email").toLowerCase(),
-      name: stringField(input, "name"),
-      passwordHash: hashPassword(stringField(input, "password")),
+      email: stringField(input, "email", { maxLength: 160 }).toLowerCase(),
+      name: stringField(input, "name", { maxLength: 160 }),
+      passwordHash: hashPassword(
+        stringField(input, "password", { maxLength: 200, minLength: 8 }),
+      ),
       role,
     },
     select: {
@@ -3377,20 +3310,36 @@ async function createUser({ body }: Context) {
 
 async function updateUser({ body, params }: Context) {
   const input = bodyAsRecord(body);
-  const role = typeof input.role === "string" ? (input.role as UserRole) : undefined;
-
-  if (role && !rolePermissions[role]) {
-    throw new HttpError(400, "Papel de usuario invalido");
-  }
+  assertAllowedFields(input, ["active", "email", "name", "password", "role"]);
+  const role =
+    input.role !== undefined
+      ? (enumField(input, "role", [
+          "owner",
+          "manager",
+          "cashier",
+          "baker",
+          "stock",
+          "sales",
+          "viewer",
+        ]) as UserRole)
+      : undefined;
 
   return prisma.user.update({
     data: {
       active: typeof input.active === "boolean" ? input.active : undefined,
-      email: typeof input.email === "string" ? input.email.toLowerCase() : undefined,
-      name: typeof input.name === "string" ? input.name : undefined,
+      email:
+        input.email !== undefined
+          ? stringField(input, "email", { maxLength: 160 }).toLowerCase()
+          : undefined,
+      name:
+        input.name !== undefined
+          ? stringField(input, "name", { maxLength: 160 })
+          : undefined,
       passwordHash:
-        typeof input.password === "string" && input.password
-          ? hashPassword(input.password)
+        input.password !== undefined
+          ? hashPassword(
+              stringField(input, "password", { maxLength: 200, minLength: 8 }),
+            )
           : undefined,
       role,
     },

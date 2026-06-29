@@ -2,7 +2,14 @@
 
 import { Permission } from "@paobom/domain";
 import { useQueryClient } from "@tanstack/react-query";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ApiClient } from "@/core/infrastructure/api/api-client";
 import { container } from "@/core/infrastructure/di/container";
@@ -207,6 +214,8 @@ export function ErpHome() {
   const [activeModuleId, setActiveModuleId] = useState<ModuleId>(
     () => readModuleFromLocation() ?? "visao-geral",
   );
+  const [navigationNotice, setNavigationNotice] = useState<string | null>(null);
+  const lastSyncedModuleRef = useRef<ModuleId | null>(null);
   const activeModule =
     visibleModules.find((module) => module.id === activeModuleId) ??
     firstAvailableModule;
@@ -214,6 +223,8 @@ export function ErpHome() {
   const selectModule = useCallback(
     (moduleId: ModuleId, mode: "push" | "replace" = "push") => {
       setActiveModuleId(moduleId);
+      setNavigationNotice(null);
+      lastSyncedModuleRef.current = moduleId;
 
       if (typeof window === "undefined") {
         return;
@@ -230,7 +241,7 @@ export function ErpHome() {
     [],
   );
 
-  useEffect(() => {
+  const syncModuleFromLocation = useCallback(() => {
     const requestedModule = readModuleFromLocation();
     const fallbackModule = firstAvailableModule?.id;
     const requestedIsAllowed = visibleModules.some(
@@ -239,35 +250,51 @@ export function ErpHome() {
     const nextModule =
       requestedModule && requestedIsAllowed ? requestedModule : fallbackModule;
 
-    if (
-      nextModule &&
-      typeof window !== "undefined" &&
-      window.location.hash !== `#${nextModule}`
-    ) {
+    if (!nextModule || typeof window === "undefined") {
+      return;
+    }
+
+    if (lastSyncedModuleRef.current !== nextModule) {
+      setActiveModuleId(nextModule);
+      lastSyncedModuleRef.current = nextModule;
+    }
+
+    if (requestedModule && !requestedIsAllowed) {
+      setNavigationNotice(
+        "Seu usuario nao tem permissao para esse modulo. Abrimos o primeiro modulo disponivel.",
+      );
+    } else {
+      setNavigationNotice(null);
+    }
+
+    if (window.location.hash !== `#${nextModule}`) {
       const nextUrl = `${window.location.pathname}${window.location.search}#${nextModule}`;
       window.history.replaceState(null, "", nextUrl);
     }
   }, [firstAvailableModule?.id, visibleModules]);
 
   useEffect(() => {
-    function syncFromLocation() {
-      const requestedModule = readModuleFromLocation();
-      if (
-        requestedModule &&
-        visibleModules.some((module) => module.id === requestedModule)
-      ) {
-        setActiveModuleId(requestedModule);
-      }
+    function handleLocationChange() {
+      syncModuleFromLocation();
     }
 
-    window.addEventListener("hashchange", syncFromLocation);
-    window.addEventListener("popstate", syncFromLocation);
+    const initialSync = window.setTimeout(handleLocationChange, 0);
+
+    window.addEventListener("hashchange", handleLocationChange);
+    window.addEventListener("popstate", handleLocationChange);
 
     return () => {
-      window.removeEventListener("hashchange", syncFromLocation);
-      window.removeEventListener("popstate", syncFromLocation);
+      window.clearTimeout(initialSync);
+      window.removeEventListener("hashchange", handleLocationChange);
+      window.removeEventListener("popstate", handleLocationChange);
     };
-  }, [visibleModules]);
+  }, [syncModuleFromLocation]);
+
+  useEffect(() => {
+    if (activeModule) {
+      lastSyncedModuleRef.current = activeModule.id;
+    }
+  }, [activeModule]);
 
   async function logout() {
     try {
@@ -370,6 +397,14 @@ export function ErpHome() {
         </aside>
 
         <main className="grid min-w-0 gap-8">
+          {navigationNotice ? (
+            <div
+              className="brand-card border-[var(--brand-gold)] bg-[var(--brand-cream)] p-4 text-sm font-semibold text-[var(--brand-brown)]"
+              role="status"
+            >
+              {navigationNotice}
+            </div>
+          ) : null}
           {activeModule ? (
             <WorkspaceModule module={activeModule} />
           ) : (

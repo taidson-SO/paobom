@@ -1,6 +1,15 @@
 const { PrismaClient } = require("@prisma/client");
 const { pbkdf2Sync, randomBytes } = require("node:crypto");
 
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.ALLOW_PRODUCTION_SEED !== "true"
+) {
+  throw new Error(
+    "Seed nao deve ser executado em producao. Defina ALLOW_PRODUCTION_SEED=true apenas em ambientes controlados.",
+  );
+}
+
 const seedPassword = process.env.SEED_USER_PASSWORD ?? "Paobom@123";
 
 function hashPassword(password) {

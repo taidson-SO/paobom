@@ -3,7 +3,17 @@ const { pbkdf2Sync, randomBytes } = require("node:crypto");
 const { seedBase } = require("./seed.cjs");
 
 const prisma = new PrismaClient();
-const seedPassword = process.env.SEED_USER_PASSWORD ?? "Paobom@123";
+const defaultSeedPassword = "Paobom@123";
+const seedPassword = process.env.SEED_USER_PASSWORD ?? defaultSeedPassword;
+
+if (
+  seedPassword === defaultSeedPassword &&
+  process.env.ALLOW_DEFAULT_SEED_PASSWORD !== "true"
+) {
+  throw new Error(
+    "SEED_USER_PASSWORD deve ser definido para seed de staging. Use ALLOW_DEFAULT_SEED_PASSWORD=true apenas em ambientes descartaveis.",
+  );
+}
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");

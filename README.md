@@ -40,6 +40,9 @@ testes E2E sobre banco isolado.
 O projeto segue a arquitetura descrita em
 [docs/arquitetura.md](docs/arquitetura.md), com separacao por responsabilidade:
 
+Manual operacional para usuarios:
+[docs/manual-usuario.md](docs/manual-usuario.md).
+
 ```text
 apps/
   api/       API HTTP e autorizacao backend
@@ -140,6 +143,8 @@ definida por `SEED_USER_PASSWORD` e vale `Paobom@123` no exemplo local:
 | Caixa | `caixa@paobom.local` |
 
 O seed de staging adiciona os perfis de producao, estoque, vendas e consulta.
+Para staging, `STAGING_SEED_USER_PASSWORD` deve ser preenchida em
+`.env.staging`; a senha local padrao e recusada pelo seed de staging.
 
 ## Mobile
 
@@ -175,6 +180,7 @@ operacao da padaria:
 
 ```bash
 cp .env.staging.example .env.staging
+# edite STAGING_SEED_USER_PASSWORD antes do seed
 pnpm staging:seed
 pnpm staging:up
 ```
@@ -281,6 +287,7 @@ O workflow em `.github/workflows/ci.yml` possui tres jobs:
 | [Arquitetura](docs/arquitetura.md) | Camadas, dependencias e convencoes |
 | [Banco persistente](docs/banco-persistente.md) | Prisma, migrations e modelo |
 | [Backend/API](docs/api-real.md) | Endpoints, autenticacao e auditoria |
+| [Manual do usuario](docs/manual-usuario.md) | Operacao funcional por modulo |
 | [Staging](docs/staging.md) | Ambiente e dados simulados |
 | [Staging hospedado](docs/staging-hosted.md) | HTTPS, deploy e observabilidade |
 | [Ativacao do staging](docs/staging-activation.md) | VPS, DNS e secrets GitHub |

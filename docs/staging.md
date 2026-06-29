@@ -18,6 +18,16 @@ Copiar o arquivo de ambiente:
 cp .env.staging.example .env.staging
 ```
 
+Definir uma senha controlada para os usuarios simulados:
+
+```bash
+$EDITOR .env.staging
+```
+
+Atualize `STAGING_SEED_USER_PASSWORD` antes de executar o seed. O seed de
+staging recusa a senha local padrao `Paobom@123`; use
+`ALLOW_DEFAULT_SEED_PASSWORD=true` apenas em ambientes descartaveis.
+
 Garantir dependencias locais instaladas:
 
 ```bash
@@ -60,7 +70,8 @@ pnpm staging:down
 
 ## Usuarios simulados
 
-Todos usam a senha definida em `STAGING_SEED_USER_PASSWORD`.
+Todos usam a senha definida em `STAGING_SEED_USER_PASSWORD`. Essa variavel e
+obrigatoria para `pnpm staging:seed`.
 
 | Email | Papel |
 | --- | --- |
@@ -96,9 +107,12 @@ curl http://localhost:3335/health
 Login:
 
 ```bash
+set -a
+. ./.env.staging
+set +a
 curl -s -X POST http://localhost:3335/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dono@paobom.local","password":"Paobom@123"}'
+  -d "{\"email\":\"dono@paobom.local\",\"password\":\"${STAGING_SEED_USER_PASSWORD}\"}"
 ```
 
 Fluxos que devem aparecer com dados reais:

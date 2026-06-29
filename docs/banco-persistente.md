@@ -4,7 +4,9 @@ Fase 15 - Banco de dados persistente
 
 ## Objetivo
 
-Preparar a persistencia real do ERP PaoBom com PostgreSQL, Prisma, migration inicial e seed operacional. Esta fase cria a fundacao do banco, mas ainda nao substitui os repositories mock usados pela UI web/mobile.
+Preparar a persistencia real do ERP PaoBom com PostgreSQL, Prisma, migrations
+e seeds operacionais. A web e o mobile ja consomem os fluxos principais por API;
+este documento registra a fundacao do banco e a evolucao do modelo.
 
 ## Pacote
 
@@ -110,7 +112,8 @@ O banco ja possui persistencia para estoque real avancado:
 - `stock_movements.lotId`: conecta movimentos ao lote afetado quando aplicavel.
 - `physical_inventory_counts`: registra contagem fisica, saldo esperado, saldo contado, divergencia, responsavel e justificativa.
 
-A UI web consome esses dados via API. O mobile permanece em modo operacional/mock ate a fase mobile transacional.
+A UI web consome esses dados via API. O mobile consome os fluxos operacionais
+de estoque, producao e venda simples via API transacional.
 
 ## Evolucao apos Fase 21
 

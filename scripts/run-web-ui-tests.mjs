@@ -6,6 +6,7 @@ const apiPort = process.env.UI_TEST_API_PORT ?? "3338";
 const webPort = process.env.UI_TEST_WEB_PORT ?? "3002";
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
+const seedUserPassword = process.env.SEED_USER_PASSWORD ?? "Paobom@123";
 
 if (!databaseUrl) {
   console.error(
@@ -24,7 +25,9 @@ const environment = {
   DATABASE_URL: databaseUrl,
   NEXT_PUBLIC_API_BASE_URL: apiBaseUrl,
   PLAYWRIGHT_BASE_URL: webBaseUrl,
-  SEED_USER_PASSWORD: "Paobom@123",
+  PLAYWRIGHT_USER_PASSWORD:
+    process.env.PLAYWRIGHT_USER_PASSWORD ?? seedUserPassword,
+  SEED_USER_PASSWORD: seedUserPassword,
   SESSION_COOKIE_SECURE: "false",
   SESSION_MAX_ACTIVE: "5",
   SESSION_TTL_HOURS: "1",
