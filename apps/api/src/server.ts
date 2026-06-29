@@ -15,11 +15,13 @@ import {
   getBearerToken,
   getClientIp,
   getRequiredPermissions,
+  getRolesWithPermission,
   getSessionCookie,
   hashPassword,
   hashToken,
   rolePermissions,
   sanitizeMetadata,
+  shouldBlockLastAdministratorChange,
   type HttpMethod,
   type Permission,
   type UserRole,
@@ -3323,57 +3325,126 @@ async function updateUser({ body, params }: Context) {
           "viewer",
         ]) as UserRole)
       : undefined;
+  return prisma.$transaction(async (tx) => {
+    const existing = await findOr404(
+      tx.user.findUnique({ where: { id: params.id } }),
+      "Usuario",
+    );
+    const activeAdministratorCount = await tx.user.count({
+      where: {
+        active: true,
+        role: { in: getRolesWithPermission("permissions:manage") },
+      },
+    });
+    const nextActive =
+      typeof input.active === "boolean" ? input.active : existing.active;
+    const shouldRevokeSessions =
+      input.password !== undefined ||
+      (role !== undefined && role !== existing.role) ||
+      nextActive !== existing.active;
 
-  return prisma.user.update({
-    data: {
-      active: typeof input.active === "boolean" ? input.active : undefined,
-      email:
-        input.email !== undefined
-          ? stringField(input, "email", { maxLength: 160 }).toLowerCase()
-          : undefined,
-      name:
-        input.name !== undefined
-          ? stringField(input, "name", { maxLength: 160 })
-          : undefined,
-      passwordHash:
-        input.password !== undefined
-          ? hashPassword(
-              stringField(input, "password", { maxLength: 200, minLength: 8 }),
-            )
-          : undefined,
-      role,
-    },
-    select: {
-      active: true,
-      createdAt: true,
-      email: true,
-      id: true,
-      name: true,
-      role: true,
-      updatedAt: true,
-    },
-    where: { id: params.id },
+    if (
+      shouldBlockLastAdministratorChange({
+        activeAdministratorCount,
+        currentActive: existing.active,
+        currentRole: existing.role as UserRole,
+        nextActive,
+        nextRole: role,
+      })
+    ) {
+      throw new HttpError(
+        409,
+        "Nao e permitido remover o acesso do ultimo administrador ativo",
+      );
+    }
+
+    const updated = await tx.user.update({
+      data: {
+        active: typeof input.active === "boolean" ? input.active : undefined,
+        email:
+          input.email !== undefined
+            ? stringField(input, "email", { maxLength: 160 }).toLowerCase()
+            : undefined,
+        name:
+          input.name !== undefined
+            ? stringField(input, "name", { maxLength: 160 })
+            : undefined,
+        passwordHash:
+          input.password !== undefined
+            ? hashPassword(
+                stringField(input, "password", { maxLength: 200, minLength: 8 }),
+              )
+            : undefined,
+        role,
+      },
+      select: {
+        active: true,
+        createdAt: true,
+        email: true,
+        id: true,
+        name: true,
+        role: true,
+        updatedAt: true,
+      },
+      where: { id: params.id },
+    });
+
+    if (shouldRevokeSessions) {
+      await tx.authSession.updateMany({
+        data: { revokedAt: new Date() },
+        where: { userId: params.id, revokedAt: null },
+      });
+    }
+
+    return updated;
   });
 }
 
 async function deactivateUser({ params }: Context) {
-  await prisma.authSession.updateMany({
-    data: { revokedAt: new Date() },
-    where: { userId: params.id, revokedAt: null },
-  });
+  return prisma.$transaction(async (tx) => {
+    const existing = await findOr404(
+      tx.user.findUnique({ where: { id: params.id } }),
+      "Usuario",
+    );
+    const activeAdministratorCount = await tx.user.count({
+      where: {
+        active: true,
+        role: { in: getRolesWithPermission("permissions:manage") },
+      },
+    });
 
-  return prisma.user.update({
-    data: { active: false },
-    select: {
-      active: true,
-      createdAt: true,
-      email: true,
-      id: true,
-      name: true,
-      role: true,
-      updatedAt: true,
-    },
-    where: { id: params.id },
+    if (
+      shouldBlockLastAdministratorChange({
+        activeAdministratorCount,
+        currentActive: existing.active,
+        currentRole: existing.role as UserRole,
+        nextActive: false,
+      })
+    ) {
+      throw new HttpError(
+        409,
+        "Nao e permitido desativar o ultimo administrador ativo",
+      );
+    }
+
+    await tx.authSession.updateMany({
+      data: { revokedAt: new Date() },
+      where: { userId: params.id, revokedAt: null },
+    });
+
+    return tx.user.update({
+      data: { active: false },
+      select: {
+        active: true,
+        createdAt: true,
+        email: true,
+        id: true,
+        name: true,
+        role: true,
+        updatedAt: true,
+      },
+      where: { id: params.id },
+    });
   });
 }
 

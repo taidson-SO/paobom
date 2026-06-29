@@ -318,6 +318,45 @@ export function getRequiredPermissions(route: {
   return [];
 }
 
+export function roleHasPermission(role: UserRole, permission: Permission) {
+  return rolePermissions[role].includes(permission);
+}
+
+export function getRolesWithPermission(permission: Permission) {
+  return (Object.keys(rolePermissions) as UserRole[]).filter((role) =>
+    roleHasPermission(role, permission),
+  );
+}
+
+export function removesAdministrativeAccess(input: {
+  currentActive: boolean;
+  currentRole: UserRole;
+  nextActive?: boolean;
+  nextRole?: UserRole;
+}) {
+  const currentIsAdmin =
+    input.currentActive &&
+    roleHasPermission(input.currentRole, "permissions:manage");
+  const nextIsAdmin =
+    (input.nextActive ?? input.currentActive) &&
+    roleHasPermission(input.nextRole ?? input.currentRole, "permissions:manage");
+
+  return currentIsAdmin && !nextIsAdmin;
+}
+
+export function shouldBlockLastAdministratorChange(input: {
+  activeAdministratorCount: number;
+  currentActive: boolean;
+  currentRole: UserRole;
+  nextActive?: boolean;
+  nextRole?: UserRole;
+}) {
+  return (
+    input.activeAdministratorCount <= 1 &&
+    removesAdministrativeAccess(input)
+  );
+}
+
 export function getBearerToken(req: Pick<IncomingMessage, "headers">) {
   const authorization = req.headers.authorization;
 

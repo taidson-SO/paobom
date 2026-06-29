@@ -7,12 +7,15 @@ import {
   getBearerToken,
   getClientIp,
   getRequiredPermissions,
+  getRolesWithPermission,
   getSessionCookie,
   hashPassword,
   hashToken,
   isSensitiveMetadataKey,
+  removesAdministrativeAccess,
   rolePermissions,
   sanitizeMetadata,
+  shouldBlockLastAdministratorChange,
   verifyPassword,
 } from "../dist/security.js";
 
@@ -67,6 +70,67 @@ describe("permissoes da API", () => {
   test("papel manager nao recebe permissions:manage", () => {
     assert.equal(rolePermissions.owner.includes("permissions:manage"), true);
     assert.equal(rolePermissions.manager.includes("permissions:manage"), false);
+  });
+
+  test("identifica papeis administrativos", () => {
+    assert.deepEqual(getRolesWithPermission("permissions:manage"), ["owner"]);
+  });
+
+  test("detecta remocao de acesso administrativo", () => {
+    assert.equal(
+      removesAdministrativeAccess({
+        currentActive: true,
+        currentRole: "owner",
+        nextRole: "manager",
+      }),
+      true,
+    );
+    assert.equal(
+      removesAdministrativeAccess({
+        currentActive: true,
+        currentRole: "owner",
+        nextActive: false,
+      }),
+      true,
+    );
+    assert.equal(
+      removesAdministrativeAccess({
+        currentActive: true,
+        currentRole: "owner",
+        nextRole: "owner",
+      }),
+      false,
+    );
+  });
+
+  test("bloqueia remocao do ultimo administrador ativo", () => {
+    assert.equal(
+      shouldBlockLastAdministratorChange({
+        activeAdministratorCount: 1,
+        currentActive: true,
+        currentRole: "owner",
+        nextRole: "viewer",
+      }),
+      true,
+    );
+    assert.equal(
+      shouldBlockLastAdministratorChange({
+        activeAdministratorCount: 2,
+        currentActive: true,
+        currentRole: "owner",
+        nextRole: "viewer",
+      }),
+      false,
+    );
+    assert.equal(
+      shouldBlockLastAdministratorChange({
+        activeAdministratorCount: 1,
+        currentActive: true,
+        currentRole: "manager",
+        nextRole: "viewer",
+      }),
+      false,
+    );
   });
 });
 

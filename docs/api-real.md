@@ -197,6 +197,10 @@ Gestao:
 - `PATCH /users/:id`
 - `DELETE /users/:id`
 
+Ao editar colaboradores, a API impede remover o acesso do ultimo administrador
+ativo, revoga sessoes abertas quando o papel, status ou senha mudam e tambem
+revoga sessoes ao desativar um usuario.
+
 ## Efeitos transacionais iniciais
 
 - Receber compra gera movimentacoes `purchase_in` e atualiza saldos.
