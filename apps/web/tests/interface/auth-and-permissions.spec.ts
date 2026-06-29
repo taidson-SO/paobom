@@ -28,6 +28,12 @@ test("restaura sessao Web e revoga acesso no logout", async ({ page }) => {
     page.locator("header").getByText("Dono PaoBom", { exact: true }),
   ).toBeVisible();
   await expect(page.locator("nav").getByRole("link", { name: "Compras" })).toBeVisible();
+  await expect(page.locator("nav").getByRole("link", { name: "Equipe" })).toBeVisible();
+
+  await page.locator("nav").getByRole("link", { name: "Equipe" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Equipe e acessos" }),
+  ).toBeVisible();
 
   await page.reload();
 
@@ -49,6 +55,7 @@ test("filtra navegacao conforme permissoes do caixa", async ({ page }) => {
   ).toBeVisible();
   await expect(page.locator("nav").getByRole("link", { name: "Vendas" })).toBeVisible();
   await expect(page.locator("nav").getByRole("link", { name: "Caixa" })).toBeVisible();
+  await expect(page.locator("nav").getByRole("link", { name: "Equipe" })).toHaveCount(0);
   await expect(page.locator("nav").getByRole("link", { name: "Compras" })).toHaveCount(0);
   await expect(page.locator("nav").getByRole("link", { name: "Estoque" })).toHaveCount(0);
 });
@@ -63,10 +70,10 @@ test("executa jornadas operacionais e consulta seus resultados", async ({
 
   await login(page, "dono@paobom.local");
 
+  await openModule(page, "Compras", "compras");
   const purchaseSection = page.locator("#compras");
   const purchaseForm = purchaseSection.locator("form").first();
 
-  await purchaseSection.scrollIntoViewIfNeeded();
   await purchaseForm.getByLabel("Fornecedor").selectOption("supplier-moinho");
   await purchaseForm.getByLabel("Previsao").fill("2026-06-30");
   await purchaseForm.getByLabel("Produto").selectOption("prod-flour");
@@ -88,10 +95,10 @@ test("executa jornadas operacionais e consulta seus resultados", async ({
   await purchaseRow.getByRole("button", { name: "Receber" }).click();
   await expect(purchaseRow.getByText("Recebida", { exact: true })).toBeVisible();
 
+  await openModule(page, "Estoque", "estoque");
   const inventorySection = page.locator("#estoque");
   const lossForm = inventorySection.locator("form").first();
 
-  await inventorySection.scrollIntoViewIfNeeded();
   await lossForm.getByLabel("Produto").selectOption("prod-flour");
   await lossForm.getByLabel("Quantidade").fill("0.1");
   await lossForm.getByLabel("Motivo").fill("Perda via Playwright");
@@ -100,12 +107,12 @@ test("executa jornadas operacionais e consulta seus resultados", async ({
     inventorySection.getByText("Perda via Playwright"),
   ).toBeVisible();
 
+  await openModule(page, "Producao", "producao");
   const productionSection = page.locator("#producao");
   const orderForm = productionSection
     .locator("form")
     .filter({ hasText: "Nova ordem" });
 
-  await productionSection.scrollIntoViewIfNeeded();
   await orderForm.getByLabel("Ficha tecnica").selectOption("recipe-bread-v1");
   await orderForm.getByLabel("Quantidade produzida").fill("18");
   await orderForm.getByLabel("Observacoes").fill("Producao via Playwright");
@@ -123,11 +130,11 @@ test("executa jornadas operacionais e consulta seus resultados", async ({
   await productionRow.getByRole("button", { name: "Finalizar" }).click();
   await expect(productionRow.getByText("Finalizada", { exact: true })).toBeVisible();
 
+  await openModule(page, "Vendas", "vendas");
   const salesSection = page.locator("#vendas");
   const salesForm = salesSection.locator("form").first();
   const productSelect = salesForm.getByLabel("Produto");
 
-  await salesSection.scrollIntoViewIfNeeded();
   await productSelect.selectOption("prod-bread");
   await salesForm.getByLabel("Quantidade").fill("2");
   await salesForm.getByLabel("Referencia do pagamento").fill("PW-PIX-001");
@@ -135,23 +142,28 @@ test("executa jornadas operacionais e consulta seus resultados", async ({
   await salesForm.getByRole("button", { name: "Registrar venda" }).click();
   await expect(productSelect).toHaveValue("");
 
+  await openModule(page, "Caixa", "caixa");
   const financeSection = page.locator("#caixa");
 
-  await financeSection.scrollIntoViewIfNeeded();
   await expect(financeSection.getByText(/Venda .* - pix/).first()).toBeVisible();
 
+  await openModule(page, "Relatorios", "relatorios");
   const reportsSection = page.locator("#relatorios");
 
-  await reportsSection.scrollIntoViewIfNeeded();
   await reportsSection.getByRole("button", { name: "Tudo" }).click();
   await expect(reportsSection.getByRole("button", { name: "CSV" })).toBeVisible();
   await expect(reportsSection.getByRole("button", { name: "JSON" })).toBeVisible();
 
+  await openModule(page, "Auditoria", "auditoria");
   const auditSection = page.locator("#auditoria");
 
-  await auditSection.scrollIntoViewIfNeeded();
   await auditSection.getByPlaceholder("sale.create").fill("sale.create");
   await expect(
     auditSection.locator("tbody").getByText("sale.create").first(),
   ).toBeVisible();
 });
+
+async function openModule(page: Page, label: string, id: string) {
+  await page.locator("nav").getByRole("link", { name: label }).click();
+  await expect(page.locator(`#${id}`)).toBeVisible();
+}

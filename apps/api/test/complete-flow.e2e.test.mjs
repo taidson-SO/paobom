@@ -77,6 +77,59 @@ test("sessao Web usa cookie HttpOnly e logout revoga acesso", async () => {
   assert.equal(revokedResponse.status, 401);
 });
 
+test("gestao de usuarios cria, edita papel, protege ultimo admin e desativa", async () => {
+  const session = await request("/auth/login", {
+    body: {
+      email: "dono@paobom.local",
+      password,
+    },
+    method: "POST",
+    withAuth: false,
+  });
+  const token = session.token;
+  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const created = await request("/users", {
+    body: {
+      email: `colaborador-${suffix}@paobom.local`,
+      name: `Colaborador E2E ${suffix}`,
+      password: "Viewer@123",
+      role: "viewer",
+    },
+    method: "POST",
+    token,
+  });
+
+  assert.equal(created.active, true);
+  assert.equal(created.role, "viewer");
+
+  const updated = await request(`/users/${created.id}`, {
+    body: { role: "sales" },
+    method: "PATCH",
+    token,
+  });
+
+  assert.equal(updated.role, "sales");
+
+  const blockedAdminChange = await requestRaw("/users/user-owner", {
+    body: { role: "manager" },
+    method: "PATCH",
+    token,
+  });
+
+  assert.equal(blockedAdminChange.status, 409);
+  assert.match(
+    blockedAdminChange.payload.error?.message ?? "",
+    /ultimo administrador ativo/,
+  );
+
+  const deactivated = await request(`/users/${created.id}`, {
+    method: "DELETE",
+    token,
+  });
+
+  assert.equal(deactivated.active, false);
+});
+
 test("compra -> estoque -> producao -> venda -> caixa -> relatorio -> auditoria", async () => {
   const session = await request("/auth/login", {
     body: {
@@ -331,6 +384,26 @@ async function request(
   path,
   { body, method = "GET", token, withAuth = true } = {},
 ) {
+  const { payload, response } = await requestRaw(path, {
+    body,
+    method,
+    token,
+    withAuth,
+  });
+
+  assert.equal(
+    response.ok,
+    true,
+    `${method} ${path}: ${payload.error?.message ?? response.status}`,
+  );
+
+  return payload.data;
+}
+
+async function requestRaw(
+  path,
+  { body, method = "GET", token, withAuth = true } = {},
+) {
   const headers = new Headers();
 
   if (body !== undefined) {
@@ -348,13 +421,7 @@ async function request(
   });
   const payload = await response.json();
 
-  assert.equal(
-    response.ok,
-    true,
-    `${method} ${path}: ${payload.error?.message ?? response.status}`,
-  );
-
-  return payload.data;
+  return { payload, response, status: response.status };
 }
 
 function findBalance(balances, productId) {

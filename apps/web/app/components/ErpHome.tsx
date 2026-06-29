@@ -36,11 +36,13 @@ import { ReportsSection } from "@/features/reports/presentation/components/Repor
 import { SalesSection } from "@/features/sales/presentation/components/SalesSection";
 import { SupplierSection } from "@/features/supplier/presentation/components/SupplierSection";
 import { useSuppliers } from "@/features/supplier/presentation/hooks/useSuppliers";
+import { UserSection } from "@/features/user/presentation/components/UserSection";
 
 type ModuleId =
   | "visao-geral"
   | "relatorios"
   | "auditoria"
+  | "equipe"
   | "compras"
   | "producao"
   | "estoque"
@@ -92,6 +94,15 @@ const erpModules = [
     permission: "audit:view",
     render: () => <AuditSection />,
     title: "Auditoria",
+  },
+  {
+    description: "Colaboradores, perfis operacionais e permissoes efetivas.",
+    group: "Gestao",
+    id: "equipe",
+    label: "Equipe",
+    permission: "permissions:manage",
+    render: () => <UserSection />,
+    title: "Equipe e acessos",
   },
   {
     description:

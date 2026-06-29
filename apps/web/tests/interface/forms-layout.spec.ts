@@ -5,17 +5,28 @@ const allPermissions = [
   "reports:view",
   "audit:view",
   "purchase:view",
-  "purchase:manage",
+  "purchase:create",
+  "purchase:receive",
+  "purchase:cancel",
   "production:view",
   "production:manage-recipe",
   "production:manage-order",
   "production:cancel",
   "inventory:view",
-  "inventory:manage",
+  "inventory:adjust",
+  "inventory:register-loss",
   "sales:view",
-  "sales:manage",
+  "sales:create",
+  "sales:pay",
+  "sales:cancel",
+  "sales:authorize-discount",
+  "sales:authorize-oversell",
   "finance:view",
-  "finance:manage",
+  "finance:register-entry",
+  "finance:settle",
+  "finance:cancel",
+  "finance:open-register",
+  "finance:close-register",
   "crm:view",
   "crm:manage",
   "product:view",
@@ -115,21 +126,32 @@ const emptyListEndpoints = [
 ];
 
 async function mockApi(page: Page) {
+  let authenticated = false;
+
   await page.route("**/*", (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    const headers = corsHeaders(request.headers().origin);
 
     if (request.method() === "OPTIONS") {
-      return route.fulfill({ headers: corsHeaders(), status: 204 });
+      return route.fulfill({ headers, status: 204 });
     }
 
-    if (!url.origin.includes("localhost:3333")) {
+    if (!isApiUrl(url)) {
       return route.fallback();
     }
 
     if (url.pathname === "/auth/me") {
+      if (!authenticated) {
+        return route.fulfill({
+          headers,
+          json: { error: { message: "Nao autenticado", statusCode: 401 } },
+          status: 401,
+        });
+      }
+
       return route.fulfill({
-        headers: corsHeaders(),
+        headers,
         json: {
           data: {
             email: "dono@paobom.local",
@@ -142,38 +164,72 @@ async function mockApi(page: Page) {
       });
     }
 
+    if (url.pathname === "/auth/login") {
+      authenticated = true;
+
+      return route.fulfill({
+        headers,
+        json: {
+          data: {
+            expiresAt: "2026-06-29T18:00:00.000Z",
+            token: "mock-token",
+            user: {
+              email: "dono@paobom.local",
+              id: "user-owner",
+              name: "Dono PaoBom",
+              permissions: allPermissions,
+              role: "owner",
+            },
+          },
+        },
+      });
+    }
+
     if (url.pathname === "/products") {
-      return route.fulfill({ headers: corsHeaders(), json: { data: sampleProducts } });
+      return route.fulfill({ headers, json: { data: sampleProducts } });
     }
 
     if (url.pathname === "/suppliers") {
-      return route.fulfill({ headers: corsHeaders(), json: { data: sampleSuppliers } });
+      return route.fulfill({ headers, json: { data: sampleSuppliers } });
     }
 
     if (url.pathname === "/customers") {
-      return route.fulfill({ headers: corsHeaders(), json: { data: sampleCustomers } });
+      return route.fulfill({ headers, json: { data: sampleCustomers } });
     }
 
     if (emptyListEndpoints.includes(url.pathname)) {
-      return route.fulfill({ headers: corsHeaders(), json: { data: [] } });
+      return route.fulfill({ headers, json: { data: [] } });
     }
 
-    return route.fulfill({ headers: corsHeaders(), json: { data: [] } });
+    return route.fulfill({ headers, json: { data: [] } });
   });
 }
 
-function corsHeaders() {
+function isApiUrl(url: URL) {
+  return ["localhost", "127.0.0.1"].includes(url.hostname) &&
+    url.port.startsWith("33");
+}
+
+function corsHeaders(origin = "http://localhost:3000") {
   return {
     "access-control-allow-credentials": "true",
     "access-control-allow-headers": "content-type",
     "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-    "access-control-allow-origin": "http://localhost:3000",
+    "access-control-allow-origin": origin,
   };
 }
 
 async function openModule(page: Page, item: { id: string; label: string }) {
-  await page.goto(`/#${item.id}`);
+  await page.locator("nav").getByRole("link", { name: item.label }).click();
   await expect(page.locator(`#${item.id}`)).toBeVisible();
+}
+
+async function loginWithMockedUser(page: Page) {
+  await page.goto("/");
+  await page.getByPlaceholder("usuario@paobom.local").fill("dono@paobom.local");
+  await page.getByPlaceholder("Sua senha").fill("Paobom@123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page.getByRole("heading", { name: "Operacao da padaria" })).toBeVisible();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -239,8 +295,7 @@ test("formularios nao criam overflow nem sobreposicao no desktop", async ({
   page,
 }, testInfo) => {
   await mockApi(page);
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Operacao da padaria" })).toBeVisible();
+  await loginWithMockedUser(page);
 
   for (const item of modulesWithForms) {
     await openModule(page, item);
@@ -266,8 +321,7 @@ test("formularios nao criam overflow nem sobreposicao no mobile", async ({
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Operacao da padaria" })).toBeVisible();
+  await loginWithMockedUser(page);
 
   for (const item of modulesWithForms) {
     await openModule(page, item);
